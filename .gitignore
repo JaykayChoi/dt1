@@ -1,0 +1,2 @@
+# OMC session/runtime state (machine-local, not for VCS)
+.omc/state/
