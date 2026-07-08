@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 SEMI 표준 훑어보기 — E84 · E88 · E82 — DT1 Phase 1</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 1 도메인<span class="sep">/</span>05 SEMI 표준
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 1 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-vehicles.html" title="반송 장비">01</a></li>
+      <li><a href="02-amhs.html" title="반도체 팹 AMHS">02</a></li>
+      <li><a href="03-control-hierarchy.html" title="제어 계층">03</a></li>
+      <li><a href="04-fleet-management.html" title="Fleet Management">04</a></li>
+      <li class="current"><span class="st">05</span></li>
+      <li><a href="06-glossary.html" title="용어집">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 1 — 도메인: 공장 자동화·물류</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 1 · Station 05</p>
+    <h1>SEMI 표준 훑어보기 — E84 · E88 · E82</h1>
+    <p class="lede">
+      팹에는 수십 개 벤더의 장비와 반송 시스템이 섞여 있지만, 전체가 한 몸처럼
+      움직인다. 그 비결이 SEMI 표준이다. 이 스테이션의 목표는 소박하다 —
+      반송과 관련된 표준 세 개의 <strong>이름과 역할만</strong> 익히는 것.
+      신호 순서나 파라미터 같은 상세는 입사 후 실물과 함께 배우면 된다.
+    </p>
+  </div>
+
+  <h2>표준이 없으면 팹이 멈춘다</h2>
+  <p>
+    <strong>SEMI</strong><i class="en">(Semiconductor Equipment and Materials International,
+    국제 반도체 장비·재료 협회)</i>는 반도체 장비·재료 업계의 국제 협회로,
+    장비들이 서로 맞물려 돌아가게 하는 <strong>상호운용 표준</strong>을 만든다.
+    이 페이지에 나오는 표준들은 모두 "E + 번호" 형식의 이름을 갖는다.
+  </p>
+  <p>
+    왜 필요한지는 팹의 현실을 떠올리면 바로 보인다. 노광 장비는 A사, 식각 장비는 B사,
+    OHT는 C사, 스토커는 D사 제품이다. 표준이 없다면:
+  </p>
+  <ul>
+    <li>C사 OHT는 A사 장비의 로드포트에 <strong>FOUP을 내려놓을 방법이 없다</strong> —
+      "지금 내려놓아도 되는가"를 물을 공통 신호가 없기 때문이다.</li>
+    <li>호스트(MCS)는 장비마다 <strong>다른 언어로 개발된 전용 인터페이스</strong>를
+      일일이 구현해야 한다. 장비가 수백 대인 팹에서는 재앙이다.</li>
+  </ul>
+  <p>
+    그래서 표준은 크게 두 층에서 작동한다. 장비와 장비가 현장에서 직접 주고받는
+    <strong>물리 신호 계층</strong>(E84가 여기), 그리고 호스트가 장비를 지휘·감시하는
+    <strong>통신 모델 계층</strong>(E88·E82가 여기)이다.
+  </p>
+
+  <h2>통신의 공통 기반 — SECS/GEM 계열</h2>
+  <p>
+    호스트와 장비 사이 통신의 바탕에는 <strong>SECS/GEM</strong>이라 불리는
+    표준 묶음이 깔려 있다. 어떤 메시지를(내용), 어떻게 실어 나르고(전송),
+    장비가 그 메시지에 어떻게 반응해야 하는지(동작 모델)를 각각 다른 표준이 맡는다.
+    지금은 이름만 알아두면 충분하다.
+  </p>
+  <ul>
+    <li><strong>E5</strong><i class="en">(SECS-II)</i> — 호스트와 장비가 주고받는
+      <strong>메시지의 내용과 형식</strong>을 정의한 "메시지 사전".</li>
+    <li><strong>E30</strong><i class="en">(GEM, Generic Model)</i> — 장비라면 공통으로
+      갖춰야 할 <strong>동작·통신 모델</strong>. 어떤 상황에 어떤 메시지를 쓰는지 정한다.</li>
+    <li><strong>E37</strong><i class="en">(HSMS)</i> — SECS 메시지를
+      <strong>TCP/IP 네트워크로 전송</strong>하는 규약.</li>
+  </ul>
+
+  <h2>반송 관련 핵심 3종</h2>
+  <p>
+    세 표준을 구분하는 열쇠는 단 하나 — <strong>"누구와 누구 사이의 약속인가"</strong>다.
+    E84는 장비끼리 현장에서 주고받는 신호이고, E88과 E82는 호스트가 장비 시스템과
+    나누는 대화의 모델이다.
+  </p>
+
+  <h3>E84 — 캐리어 핸드오프의 손맞춤</h3>
+  <p>
+    <strong>E84</strong><i class="en">(Enhanced Carrier Handoff Parallel I/O Interface,
+    캐리어 핸드오프 병렬 I/O 인터페이스)</i>는 <strong>반송 장비와 로드포트 사이</strong>의
+    약속이다. OHT 비히클이나 AGV가 장비의 로드포트에 FOUP을 내려놓거나 집어 올릴 때,
+    양쪽이 <strong>광통신 병렬 I/O 신호</strong>를 정해진 순서로 주고받으며
+    "보낼 준비 됐다 — 받을 준비 됐다 — 옮기는 중 — 완료"를 확인하는
+    <strong>핸드셰이크</strong> 절차다.
+  </p>
+  <ul>
+    <li>만재 FOUP은 8~9kg다. 로드포트가 준비되지 않았는데 내려놓으면 사고다 —
+      E84는 이를 막는 <strong>안전 인터록</strong> 역할을 한다.</li>
+    <li>호스트를 거치지 않는 <strong>현장 로컬 신호</strong>다. 비히클과 로드포트가
+      직접 광신호로 교신한다.</li>
+    <li>기존의 병렬 I/O 표준 <strong>E23</strong><i class="en">(Cassette Transfer
+      Parallel I/O Interface)</i>을 강화한 것이라 이름에 "Enhanced"가 붙는다.</li>
+  </ul>
+
+  <h3>E88 — 스토커를 다루는 표준 모델</h3>
+  <p>
+    <strong>E88</strong><i class="en">(AMHS Storage SEM — Stocker SEM)</i>은
+    <strong>호스트와 스토커 사이</strong>의 약속이다. 호스트가 스토커(Station 02에서 본
+    캐리어 보관 장비)를 제어·감시하기 위한 표준 모델로, 캐리어를 넣고·꺼내고·옮기는
+    명령과 스토커가 보고해야 할 상태·이벤트·알람을 정의한다.
+  </p>
+  <p>
+    이름의 <strong>SEM</strong><i class="en">(Specific Equipment Model)</i>이 중요하다.
+    E30(GEM)이 "장비라면 누구나" 지켜야 할 공통 모델이라면, SEM은 그 위에
+    <strong>특정 장비 유형에 맞는 상태 모델과 명령을 추가</strong>한 것이다.
+    E88은 스토커용 SEM, 다음의 E82는 반송 차량 시스템용 SEM이다.
+  </p>
+
+  <h3>E82 — 반송 차량 시스템의 표준 모델</h3>
+  <p>
+    <strong>E82</strong><i class="en">(Interbay/Intrabay AMHS SEM — IBSEM)</i>는
+    <strong>호스트와 반송 차량 시스템 사이</strong>의 약속이다. OHT 같은
+    인터베이/인트라베이 반송 시스템을 호스트가 제어·감시하기 위한 표준 모델로,
+    "이 캐리어를 이 포트에서 저 포트로 옮겨라"라는 반송 명령과, 차량·캐리어의
+    상태 모델, 이벤트·알람 보고를 정의한다.
+  </p>
+  <ul>
+    <li>호스트가 대화하는 상대는 개별 비히클이 아니라 <strong>차량 시스템 전체를
+      대표하는 컨트롤러</strong>다. 개별 차량 배차는 그 아래에서 알아서 한다
+      (Station 03·04에서 본 구조 그대로).</li>
+    <li>Station 03의 MCS가 반송 시스템에 명령을 내릴 때 쓰는 언어가 바로 이것이다.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="label">혼동 주의</span>
+    <p>
+      셋은 같은 "표준"이지만 <strong>사는 층이 다르다</strong>. E84는 전기·광
+      <strong>신호</strong>(케이블·광송수신기 수준)이고, E88·E82는 SECS/GEM 위의
+      <strong>메시지 모델</strong>(소프트웨어 수준)이다. "E84 메시지를 보낸다"는
+      말은 성립하지 않는다 — E84는 신호선을 올리고 내리는 핸드셰이크다.
+    </p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="세 표준의 위치: 호스트와 스토커 사이 E88, 호스트와 OHT 반송 시스템 사이 E82, OHT 비히클과 장비 로드포트 사이 핸드오프 지점에 E84">
+      <!-- 호스트 -->
+      <rect class="d-node" x="310" y="18" width="180" height="46" rx="4" stroke-width="2"/>
+      <text class="d-title" x="400" y="40" text-anchor="middle">HOST</text>
+      <text class="d-label" x="400" y="56" text-anchor="middle">MCS — 반송 제어</text>
+      <text class="d-label" x="400" y="86" text-anchor="middle">SECS/GEM 메시지 (E5 · E30 · E37)</text>
+
+      <!-- E88: 호스트 ↔ 스토커 -->
+      <line class="d-soft" x1="330" y1="64" x2="165" y2="206" stroke-width="2" stroke-dasharray="6 4"/>
+      <g>
+        <rect class="d-node" x="218" y="122" width="58" height="26" rx="13" stroke-width="2"/>
+        <rect class="d-accent" x="218" y="122" width="58" height="26" rx="13" stroke-width="2"/>
+        <text class="d-label-strong" x="247" y="139" text-anchor="middle">E88</text>
+        <text class="d-label" x="286" y="139">호스트 ↔ 스토커</text>
+      </g>
+
+      <!-- E82: 호스트 ↔ 반송 차량 시스템 -->
+      <line class="d-soft" x1="460" y1="64" x2="590" y2="116" stroke-width="2" stroke-dasharray="6 4"/>
+      <g>
+        <rect class="d-node" x="490" y="77" width="72" height="26" rx="13" stroke-width="2"/>
+        <rect class="d-accent" x="490" y="77" width="72" height="26" rx="13" stroke-width="2"/>
+        <text class="d-label-strong" x="526" y="94" text-anchor="middle">E82</text>
+        <text class="d-label" x="572" y="94">호스트 ↔ OHT 반송 시스템</text>
+      </g>
+
+      <!-- 스토커 -->
+      <rect class="d-node" x="60" y="206" width="175" height="76" rx="4" stroke-width="2"/>
+      <text class="d-title" x="147" y="240" text-anchor="middle">스토커</text>
+      <text class="d-label" x="147" y="262" text-anchor="middle">STOCKER — 캐리어 보관</text>
+
+      <!-- OHT 레일 + 비히클 -->
+      <line class="d-rail" x1="430" y1="120" x2="780" y2="120" stroke-width="4"/>
+      <text class="d-label-strong" x="776" y="112" text-anchor="end">OHT RAIL</text>
+      <rect class="d-fill-rail" x="606" y="124" width="56" height="20" rx="3"/>
+      <text class="d-label" x="672" y="140">OHT VEHICLE</text>
+
+      <!-- 호이스트 + FOUP -->
+      <line class="d-accent" x1="618" y1="144" x2="618" y2="196" stroke-width="2" stroke-dasharray="4 3"/>
+      <line class="d-accent" x1="650" y1="144" x2="650" y2="196" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label" x="660" y="172">HOIST ↓</text>
+      <rect class="d-fill-accent" x="616" y="196" width="36" height="26" rx="3"/>
+      <text class="d-label-strong" x="606" y="213" text-anchor="end">FOUP</text>
+
+      <!-- E84: 비히클 ↔ 로드포트 핸드오프 지점 -->
+      <g>
+        <rect class="d-node" x="478" y="196" width="58" height="26" rx="13" stroke-width="2"/>
+        <rect class="d-accent" x="478" y="196" width="58" height="26" rx="13" stroke-width="2"/>
+        <text class="d-label-strong" x="507" y="213" text-anchor="middle">E84</text>
+        <line class="d-accent" x1="536" y1="212" x2="606" y2="226" stroke-width="2"/>
+        <text class="d-label" x="507" y="240" text-anchor="middle">비히클 ↔ 로드포트 (광 PIO)</text>
+      </g>
+
+      <!-- 로드포트 + 공정 장비 -->
+      <rect class="d-node-2" x="610" y="230" width="48" height="24" rx="2" stroke-width="2"/>
+      <text class="d-label" x="668" y="247">LOAD PORT</text>
+      <rect class="d-node" x="540" y="254" width="200" height="62" rx="4" stroke-width="2"/>
+      <text class="d-title" x="640" y="292" text-anchor="middle">공정 장비</text>
+    </svg>
+    <figcaption>
+      세 표준의 자리. E88·E82는 호스트(MCS)가 스토커·반송 차량 시스템과 SECS/GEM
+      메시지로 대화하는 규약이고, E84는 비히클이 로드포트에 FOUP을 내려놓는 현장에서
+      직접 오가는 광통신 신호 규약이다.
+    </figcaption>
+  </figure>
+
+  <h2>주변 표준 한눈에</h2>
+  <p>
+    핵심 3종의 주변에는 팹 자동화를 함께 떠받치는 표준들이 있다. E87·E90·E40은
+    300mm 팹 자동화 표준 묶음, 이른바 <strong>GEM300</strong>에 속한다.
+    지금 단계에서는 표에서 눈에 익히는 정도면 충분하다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>번호</th>
+          <th>이름</th>
+          <th>한 줄 역할</th>
+          <th>이 로드맵에서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">E5</td>
+          <td>SECS-II <i class="en">Message Content</i></td>
+          <td>호스트-장비 메시지의 내용·형식 정의</td>
+          <td>이름만 — "메시지 사전"</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E30</td>
+          <td>GEM <i class="en">Generic Model</i></td>
+          <td>장비 공통의 동작·통신 모델</td>
+          <td>이름만 — SEM들의 토대</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E37</td>
+          <td>HSMS <i class="en">High-Speed SECS Message Services</i></td>
+          <td>SECS 메시지의 TCP/IP 전송 규약</td>
+          <td>이름만</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E84</td>
+          <td>Enhanced Carrier Handoff <i class="en">Parallel I/O Interface</i></td>
+          <td>반송 장비 ↔ 로드포트 핸드오프 신호 핸드셰이크</td>
+          <td><strong>핵심</strong> — 역할까지 기억</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E88</td>
+          <td>Stocker SEM <i class="en">AMHS Storage SEM</i></td>
+          <td>호스트가 스토커를 제어·감시하는 표준 모델</td>
+          <td><strong>핵심</strong> — 역할까지 기억</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E82</td>
+          <td>IBSEM <i class="en">Interbay/Intrabay AMHS SEM</i></td>
+          <td>호스트가 반송 차량 시스템을 제어·감시하는 표준 모델</td>
+          <td><strong>핵심</strong> — 역할까지 기억</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E87</td>
+          <td>Carrier Management <i class="en">CMS</i></td>
+          <td>장비에 도착한 캐리어의 확인·로드포트 상태 관리</td>
+          <td>참고 — 이름만</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E90</td>
+          <td>Substrate Tracking</td>
+          <td>장비 내부에서 웨이퍼(기판) 위치 추적</td>
+          <td>참고 — 이름만</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E40</td>
+          <td>Processing Management</td>
+          <td>프로세스 잡 — 어떤 재료를 어떤 레시피로 처리할지 정의</td>
+          <td>참고 — 이름만</td>
+        </tr>
+        <tr>
+          <td class="rowhead">E23</td>
+          <td>Cassette Transfer <i class="en">Parallel I/O Interface</i></td>
+          <td>장비 간 캐리어 이송용 병렬 I/O — E84의 바탕</td>
+          <td>참고 — E84의 전신</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>어디까지 알면 되는가</h2>
+  <p>
+    표준 문서는 각각 수십 페이지짜리 규격서다. 전부 읽는 것은 입사 전 학습의
+    목표가 아니고, 그럴 필요도 없다.
+  </p>
+  <div class="callout field">
+    <span class="label">현장 감각</span>
+    <p>
+      입사 전에는 <strong>"E84 = 핸드오프, E88 = 스토커, E82 = 반송 차량 시스템"</strong>
+      매칭이 머리에 박혀 있으면 충분하다. 현장 대화에서 "E84 타임아웃 났다",
+      "E82 이벤트가 안 올라온다" 같은 말이 나올 때 <strong>어느 지점의 문제인지
+      즉시 가늠</strong>할 수 있는 것 — 그게 이 페이지의 목표다. 신호 타이밍 차트는
+      입사 후 실물 장비와 함께 볼 때 비로소 의미가 생긴다.
+    </p>
+  </div>
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      디지털 트윈 개발자에게 표준은 반가운 존재다. 장비가 <strong>표준이 정한
+      형태의 이벤트</strong>(반송 시작·완료, 캐리어 입출고, 차량 상태 변화)를 뱉어주기
+      때문에, 트윈이 구독할 데이터의 <strong>형태를 벤더와 무관하게 예측</strong>할 수
+      있다. E82·E88의 상태 모델은 그대로 트윈 속 OHT·스토커 객체의 상태 머신
+      설계도가 되고, Phase 5 시뮬레이터의 이벤트 설계에도 같은 어휘를 쓰게 된다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>OHT가 로드포트에 FOUP을 내려놓을 때 따르는 핸드셰이크 표준은?</summary>
+      <div class="answer">
+        <p>
+          <strong>E84</strong><i class="en">(Enhanced Carrier Handoff Parallel I/O
+          Interface)</i>. 비히클과 로드포트가 광통신 병렬 I/O 신호를 정해진 순서로
+          주고받으며 핸드오프를 진행한다. 호스트를 거치지 않는 현장 로컬 신호이며,
+          준비 안 된 곳에 FOUP을 내려놓는 사고를 막는 인터록 역할을 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>E88과 E82는 각각 누구와 누구 사이의 약속인가?</summary>
+      <div class="answer">
+        <p>
+          둘 다 <strong>호스트와 장비 시스템 사이</strong>다. E88<i class="en">(Stocker
+          SEM)</i>은 호스트 ↔ 스토커, E82<i class="en">(IBSEM)</i>는 호스트 ↔
+          인터베이/인트라베이 반송 차량 시스템(OHT 등). 호스트가 명령을 내리고
+          장비가 상태·이벤트·알람을 보고하는 모델을 정의한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>SECS/GEM 계열 세 표준(E5·E30·E37)의 역할 분담은?</summary>
+      <div class="answer">
+        <p>
+          <strong>E5</strong>(SECS-II)는 메시지의 <strong>내용·형식</strong>,
+          <strong>E37</strong>(HSMS)은 그 메시지의 <strong>TCP/IP 전송</strong>,
+          <strong>E30</strong>(GEM)은 장비가 메시지에 어떻게 반응해야 하는지의
+          <strong>동작 모델</strong>을 맡는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>SEM(Specific Equipment Model)이란 무엇이고, E88·E82와 어떤 관계인가?</summary>
+      <div class="answer">
+        <p>
+          GEM(E30)이 모든 장비 공통의 모델이라면, <strong>SEM은 특정 장비 유형에
+          맞는 상태 모델·명령·이벤트를 GEM 위에 추가한 것</strong>이다. E88은
+          스토커용 SEM, E82는 반송 차량 시스템용 SEM이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="04-fleet-management.html">
+      <span class="dir">← STATION 04</span>
+      <span class="title">Fleet Management 핵심 문제</span>
+    </a>
+    <a class="next" href="06-glossary.html">
+      <span class="dir">NEXT — STATION 06 →</span>
+      <span class="title">용어집</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 1 — DOMAIN: FAB LOGISTICS</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 용어집 — DT1 Phase 1</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 1 도메인<span class="sep">/</span>06 용어집
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 1 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-vehicles.html" title="반송 장비">01</a></li>
+      <li><a href="02-amhs.html" title="반도체 팹 AMHS">02</a></li>
+      <li><a href="03-control-hierarchy.html" title="제어 계층">03</a></li>
+      <li><a href="04-fleet-management.html" title="Fleet Management">04</a></li>
+      <li><a href="05-semi-standards.html" title="SEMI 표준">05</a></li>
+      <li class="current"><span class="st">06</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 1 — 도메인: 공장 자동화·물류</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 1 · Station 06</p>
+    <h1>용어집</h1>
+    <p class="lede">
+      면접에서도, 입사 첫 주에도 꺼내 쓸 수 있는 압축 사전.
+      각 용어는 관련 스테이션과 연결된다.
+    </p>
+  </div>
+
+  <p>
+    Phase 1의 다섯 스테이션에서 등장한 개념을 한자리에 모았다. 카테고리별로 묶었으니
+    처음에는 위에서 아래로 훑고, 나중에는 필요한 항목만 <strong>Ctrl+F</strong>로 찾아 쓰면 된다.
+    맨 오른쪽 <strong>관련 문서</strong> 열은 그 용어가 <strong>어디서 자세히 다뤄지는지</strong>를 가리킨다 —
+    <code>ST.01</code>~<code>ST.05</code>는 이 Phase의 스테이션 문서로 바로 이동하는 링크이고,
+    <code>P2</code>·<code>P3</code>·<code>P4</code>는 아직 도착하지 않은 Phase 2·3·4에서 본격적으로 배울 예정이라는 예고 표시다.
+  </p>
+
+  <h2>반송 장비</h2>
+  <p>바닥과 천장을 오가며 캐리어를 나르는 탈것들. 이 도메인의 주인공이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">비히클</td>
+          <td><i class="en">vehicle</i></td>
+          <td>OHT 레일 위를 달리며 FOUP을 싣고 이동하는 무인 대차. 현장에서 "OHT 한 대"를 가리킬 때 비히클이라 부른다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">AGV</td>
+          <td><i class="en">Automated Guided Vehicle</i></td>
+          <td>바닥에 깔린 가이드 인프라를 따라 정해진 경로만 주행하는 무인 운반차. 장애물을 만나면 회피하지 못하고 멈춘다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">AMR</td>
+          <td><i class="en">Autonomous Mobile Robot</i></td>
+          <td>SLAM으로 스스로 지도를 만들고 위치를 추정해 경로를 동적으로 계산·주행하는 로봇. 장애물을 우회할 수 있다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">OHT</td>
+          <td><i class="en">Overhead Hoist Transport</i></td>
+          <td>천장 레일을 따라 비히클이 FOUP을 옮기고, 목적지 장비 위에서 호이스트로 내려놓는 반도체 팹의 주력 반송 방식.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">LGV</td>
+          <td><i class="en">Laser Guided Vehicle</i></td>
+          <td>벽·기둥의 반사판을 레이저로 삼각측량해 위치를 잡는 AGV의 한 방식. 바닥 공사가 필요 없다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">호이스트</td>
+          <td><i class="en">hoist</i></td>
+          <td>비히클이 장비 위에 정지한 뒤 FOUP을 수직으로 내리거나 올려 로드포트에 옮기는 승하강 동작·장치.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">SLAM</td>
+          <td><i class="en">Simultaneous Localization and Mapping</i></td>
+          <td>라이다·카메라로 주변을 스캔해 지도를 만들면서 동시에 그 지도 안에서 자기 위치를 추정하는 AMR의 핵심 기술.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">유도 방식</td>
+          <td><i class="en">guidance method</i></td>
+          <td>AGV가 경로를 따라가는 방법. 자기 테이프, QR 코드 그리드, 레이저 반사판(LGV) 등이 있다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>팹 구조와 용기</h2>
+  <p>반송이 벌어지는 무대(공간)와, 그 위에서 실제로 옮겨지는 물건(용기)들.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">클린룸</td>
+          <td><i class="en">cleanroom</i></td>
+          <td>공기 중 미세 입자를 극도로 통제한 반도체 생산 공간. 사람이 최대 오염원이라 반송을 자동화한다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">베이</td>
+          <td><i class="en">bay</i></td>
+          <td>유사 공정 장비를 모아 놓은 팹 내부의 구획 단위. 반송 경로 설계의 기본 블록이다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">인터베이</td>
+          <td><i class="en">interbay</i></td>
+          <td>베이와 베이 사이를 잇는 반송. 팹 전체를 관통하는 간선(幹線) 물류에 해당한다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">인트라베이</td>
+          <td><i class="en">intrabay</i></td>
+          <td>하나의 베이 내부, 장비와 장비 사이의 반송. 지선(支線) 물류에 해당한다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">AMHS</td>
+          <td><i class="en">Automated Material Handling System</i></td>
+          <td>OHT·스토커·AGV 등 팹의 모든 자동 반송 설비를 아우르는 시스템 총칭.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">FOUP</td>
+          <td><i class="en">Front-Opening Unified Pod</i></td>
+          <td>300mm 웨이퍼를 최대 25장 담는 표준 밀폐 용기. 만재 시 8~9kg이며 앞면이 열려 로드포트에 도킹한다.</td>
+          <td><a href="01-vehicles.html">ST.01</a> · <a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">레티클 포드</td>
+          <td><i class="en">reticle pod</i></td>
+          <td>노광용 마스크(레티클)를 오염·손상으로부터 보호해 반송하는 전용 용기.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">캐리어</td>
+          <td><i class="en">carrier</i></td>
+          <td>웨이퍼·레티클을 담아 나르는 반송 용기의 총칭. FOUP과 레티클 포드가 대표적인 캐리어다.</td>
+          <td><a href="01-vehicles.html">ST.01</a> · <a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">로트</td>
+          <td><i class="en">lot</i></td>
+          <td>같은 공정을 함께 거치는 웨이퍼 묶음. 보통 한 FOUP 단위로 관리되며 반송·추적의 기본 단위다.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">로드포트</td>
+          <td><i class="en">load port</i></td>
+          <td>장비 전면에서 FOUP을 올려놓고 도킹·개폐하는 인터페이스 지점. OHT가 FOUP을 내려놓는 목적지.</td>
+          <td><a href="01-vehicles.html">ST.01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">스토커</td>
+          <td><i class="en">stocker</i></td>
+          <td>반송 대기 중인 FOUP을 대량 보관하는 자동 창고. 인터베이 반송의 허브 역할을 한다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">사이드 트랙 버퍼</td>
+          <td><i class="en">side track buffer · STB</i></td>
+          <td>OHT 본선 레일 옆에 붙은 임시 거치대. 목적지 장비가 바쁠 때 FOUP을 잠시 내려놓아 본선 정체를 줄인다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">서브팹</td>
+          <td><i class="en">subfab</i></td>
+          <td>클린룸 아래층. 펌프·가스·전원 등 유틸리티 설비가 있고, 레일이 닿지 않는 구역은 AGV/AMR가 반송을 맡는다.</td>
+          <td><a href="02-amhs.html">ST.02</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>제어 시스템</h2>
+  <p>"무엇을, 어디로, 어느 장비로 옮길지"를 결정하고 지휘하는 소프트웨어 계층과 표준.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">MES</td>
+          <td><i class="en">Manufacturing Execution System</i></td>
+          <td>어떤 로트를 어느 장비에서 언제 처리할지 지시하는 최상위 생산 관리 시스템. MCS에 반송이 필요한 근거를 준다.</td>
+          <td><a href="03-control-hierarchy.html">ST.03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">MCS</td>
+          <td><i class="en">Material Control System</i></td>
+          <td>MES의 지시를 받아 OHT·스토커·AGV 등 모든 반송 설비를 통합 관제하는 시스템. AMHS 제어의 중심.</td>
+          <td><a href="03-control-hierarchy.html">ST.03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">OCS</td>
+          <td><i class="en">OHT Control System</i></td>
+          <td>MCS 아래에서 OHT 비히클의 배차와 레일 교통을 직접 담당하는 하위 컨트롤러. 문헌에서는 OHTC(OHT Controller)로도 부른다.</td>
+          <td><a href="03-control-hierarchy.html">ST.03</a> · <a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">Fleet Management System</td>
+          <td><i class="en">Fleet Management System</i></td>
+          <td>다수의 AGV/AMR를 한 무리(fleet)로 지휘하는 소프트웨어. 배차·경로 계획·교통 제어·충전 스케줄링을 담당한다.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">WMS / WCS</td>
+          <td><i class="en">Warehouse Management / Control System</i></td>
+          <td>창고의 재고·입출고를 관리하는 WMS와, 그 지시를 설비 동작으로 옮기는 WCS. 일반 물류에서 MES/MCS에 대응하는 계층.</td>
+          <td><a href="03-control-hierarchy.html">ST.03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">반송 명령</td>
+          <td><i class="en">transport job</i></td>
+          <td>"어느 캐리어를 출발지 A에서 목적지 B로 옮겨라"라는 작업 단위. MCS가 생성해 반송 설비에 배정한다.</td>
+          <td><a href="03-control-hierarchy.html">ST.03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">배차</td>
+          <td><i class="en">dispatching</i></td>
+          <td>발생한 반송 명령을 어느 장비에 맡길지 정하는 결정. 최근접 유휴 장비 선택 같은 규칙이 처리량과 공차 주행을 좌우한다.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">라우팅</td>
+          <td><i class="en">routing</i></td>
+          <td>배정된 장비가 출발지에서 목적지까지 어떤 경로로 갈지 정하는 경로 계획.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">교통 제어</td>
+          <td><i class="en">traffic control</i></td>
+          <td>다수 차량이 경로망을 공유할 때 충돌·정체·교착을 막도록 합류·속도·순서를 조정하는 관제 기능.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">데드락</td>
+          <td><i class="en">deadlock · 교착</i></td>
+          <td>차량들이 서로의 진행을 막아 아무도 움직이지 못하는 상태. 교통 제어가 반드시 피해야 할 최악의 상황.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">스테이징</td>
+          <td><i class="en">staging</i></td>
+          <td>목적지가 아직 준비되지 않았을 때 캐리어를 버퍼·스토커에 잠시 대기시켰다가 적시에 투입하는 것.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">SECS / GEM</td>
+          <td><i class="en">SEMI Equipment Comms Standard / Generic Equipment Model</i></td>
+          <td>팹 장비와 호스트가 상태·명령을 주고받는 표준 통신 프로토콜(SECS)과 장비 모델(GEM). 자동화 연동의 공통 언어.</td>
+          <td><a href="05-semi-standards.html">ST.05</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">SEMI E84</td>
+          <td><i class="en">Enhanced Carrier Handoff Parallel I/O</i></td>
+          <td>반송 설비와 장비가 캐리어를 주고받을 때 쓰는 병렬 I/O 핸드오프 신호 표준. 인계 중 오류 검출을 포함한다.</td>
+          <td><a href="05-semi-standards.html">ST.05</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">SEMI E88</td>
+          <td><i class="en">AMHS Storage SEM · Stocker SEM</i></td>
+          <td>스토커(자동 보관 설비)를 호스트가 제어하기 위한 표준 장비 모델(SEM).</td>
+          <td><a href="05-semi-standards.html">ST.05</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">SEMI E82</td>
+          <td><i class="en">Interbay/Intrabay AMHS SEM · IBSEM</i></td>
+          <td>인터베이·인트라베이 반송 설비를 호스트가 제어하기 위한 표준 장비 모델(SEM).</td>
+          <td><a href="05-semi-standards.html">ST.05</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>물류 지표</h2>
+  <p>시스템이 잘 굴러가는지 판단하는 숫자들. 최적화의 목표이자 채점 기준이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">처리량</td>
+          <td><i class="en">throughput</i></td>
+          <td>단위 시간당 완료한 반송(또는 생산) 건수. 시스템 성능을 대표하는 최상위 지표.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">평균 반송 시간</td>
+          <td><i class="en">average delivery time</i></td>
+          <td>반송 명령 발생부터 목적지 도착까지 걸린 평균 시간. 이동 시간뿐 아니라 대기 시간을 포함한다.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">가동률</td>
+          <td><i class="en">utilization</i></td>
+          <td>장비가 실제로 일한 시간의 비율. 너무 낮으면 낭비, 너무 높으면 대기·정체가 급격히 늘어난다.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">공차 주행 비율</td>
+          <td><i class="en">empty travel ratio · deadheading</i></td>
+          <td>짐 없이 빈 채로 이동한 거리의 비율. 배차 품질이 나쁠수록 커지는 대표적 낭비 지표.</td>
+          <td><a href="04-fleet-management.html">ST.04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">병목</td>
+          <td><i class="en">bottleneck</i></td>
+          <td>전체 처리량을 제한하는 가장 느린 구간·자원. 최적화의 1순위 대상이며, 성능 분석의 목표는 이걸 찾는 것이다.</td>
+          <td>P2 · P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">리드타임</td>
+          <td><i class="en">lead time</i></td>
+          <td>하나의 로트가 공정 전체를 통과하는 데 걸리는 총 시간. 반송 지연이 길어지면 함께 늘어난다.</td>
+          <td>P2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>시뮬레이션</h2>
+  <p>Phase 2에서 직접 코드로 만들 개념들. 지금은 눈에 익혀 두는 정도면 충분하다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">이산사건시뮬레이션</td>
+          <td><i class="en">Discrete Event Simulation · DES</i></td>
+          <td>상태가 바뀌는 '사건' 시점에만 시간을 건너뛰며 계산하는 시뮬레이션 기법. 물류 모델링의 핵심 방법.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">시뮬레이션 클록</td>
+          <td><i class="en">simulation clock</i></td>
+          <td>모델 내부의 가상 시간. 실제 시간과 무관하게 다음 사건이 일어나는 시각으로 건너뛴다.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">이벤트 큐</td>
+          <td><i class="en">Future Event List · FEL</i></td>
+          <td>앞으로 일어날 사건들을 발생 시각 순으로 정렬해 둔 우선순위 큐. DES 엔진의 심장부.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">리소스</td>
+          <td><i class="en">resource</i></td>
+          <td>장비·레일 구간처럼 동시에 쓸 수 있는 수가 제한된 자원. 점유·해제 과정에서 대기가 발생한다.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">대기열</td>
+          <td><i class="en">queue</i></td>
+          <td>리소스가 비기를 기다리는 요청들의 줄. 줄의 길이가 곧 그 지점의 혼잡도를 나타낸다.</td>
+          <td>P2</td>
+        </tr>
+        <tr>
+          <td class="rowhead">도착률 / 서비스율</td>
+          <td><i class="en">arrival rate / service rate · λ, μ</i></td>
+          <td>요청이 들어오는 속도(λ)와 처리하는 속도(μ). 둘의 관계가 대기 시간과 가동률을 결정한다.</td>
+          <td>P2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Unity 렌더링 · 성능</h2>
+  <p>Phase 3~4에서 화면을 만들고 최적화할 때 쓸 도구들. 역시 지금은 이름과 역할만.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">PBR</td>
+          <td><i class="en">Physically Based Rendering</i></td>
+          <td>빛과 표면의 상호작용을 물리 법칙에 근사해 계산하는 렌더링 방식. 사실적인 재질 표현의 기본.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">머티리얼</td>
+          <td><i class="en">material</i></td>
+          <td>표면의 색·금속성·거칠기·법선 같은 속성을 정의해 셰이더에 넘기는 렌더링 재질 설정.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">라이트맵 베이킹</td>
+          <td><i class="en">lightmap baking</i></td>
+          <td>정적 물체의 빛·그림자를 미리 계산해 텍스처로 구워 두는 것. 실시간 조명 계산 비용을 크게 줄인다.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Light Probe</td>
+          <td><i class="en">light probe</i></td>
+          <td>공간 여러 지점의 간접광 정보를 미리 담아, 움직이는 물체가 구운 조명과 자연스럽게 어울리게 하는 장치.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Reflection Probe</td>
+          <td><i class="en">reflection probe</i></td>
+          <td>특정 위치에서 주변을 큐브맵으로 캡처해 금속·유리 같은 표면의 반사 표현에 쓰는 장치.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">포스트 프로세싱</td>
+          <td><i class="en">post-processing</i></td>
+          <td>렌더링된 화면 전체에 블룸·톤매핑·색보정 등 효과를 덧입히는 마감 단계. URP에서는 Volume으로 다룬다.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">URP</td>
+          <td><i class="en">Universal Render Pipeline</i></td>
+          <td>성능과 확장성의 균형을 맞춘 Unity의 범용 렌더 파이프라인. 이 프로젝트의 렌더링 기반.</td>
+          <td>P3</td>
+        </tr>
+        <tr>
+          <td class="rowhead">드로우콜</td>
+          <td><i class="en">draw call</i></td>
+          <td>CPU가 GPU에 "이걸 그려라"라고 보내는 한 번의 명령. 수가 많을수록 CPU 부담이 커진다.</td>
+          <td>P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">배칭</td>
+          <td><i class="en">batching</i></td>
+          <td>여러 오브젝트를 한 번의 드로우콜로 묶어 그리는 최적화. SRP Batcher, GPU Instancing, Static Batching 등이 있다.</td>
+          <td>P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">LOD</td>
+          <td><i class="en">Level of Detail</i></td>
+          <td>카메라와의 거리에 따라 메시의 정밀도를 낮춰 멀리 있는 물체의 렌더링 비용을 줄이는 기법.</td>
+          <td>P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">오클루전 컬링</td>
+          <td><i class="en">occlusion culling</i></td>
+          <td>다른 물체에 완전히 가려 보이지 않는 오브젝트를 아예 그리지 않고 건너뛰는 기법.</td>
+          <td>P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">오브젝트 풀링</td>
+          <td><i class="en">object pooling</i></td>
+          <td>자주 생성·파괴하는 객체를 미리 만들어 두고 재사용해 GC 부담과 끊김을 줄이는 패턴. 장비 수백 대를 다룰 때 필수.</td>
+          <td>P4</td>
+        </tr>
+        <tr>
+          <td class="rowhead">GC Alloc</td>
+          <td><i class="en">garbage collection allocation</i></td>
+          <td>런타임 중 힙에 새로 할당되는 메모리. 쌓이면 가비지 컬렉션이 돌면서 프레임이 순간적으로 튄다.</td>
+          <td>P4</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout field">
+    <span class="label">사용법</span>
+    <p>
+      이 표의 정의를 통째로 외울 필요는 없다. 대신 <strong>각 용어가 어느 스테이션 문서에 사는지</strong>를
+      기억하라. "FOUP은 ST.01·ST.02, 데드락은 ST.04, GC Alloc은 Phase 4" 하는 식으로 <strong>주소</strong>만
+      잡아 두면, 필요한 순간 그 문서를 펼쳐 맥락째로 다시 이해할 수 있다. 용어집은 암기장이 아니라 색인이다.
+    </p>
+  </div>
+
+  <nav class="pager">
+    <a href="05-semi-standards.html">
+      <span class="dir">← STATION 05</span>
+      <span class="title">SEMI 표준 훑어보기 — E84 · E88 · E82</span>
+    </a>
+    <a class="next" href="../index.html">
+      <span class="dir">NEXT — 노선도 →</span>
+      <span class="title">전체 로드맵 (Phase 2로 계속)</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 1 — DOMAIN: FAB LOGISTICS</div>
+</footer>
+
+</body>
+</html>

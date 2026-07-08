@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 제어 계층 — MES → MCS → Fleet — DT1 Phase 1</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 1 도메인<span class="sep">/</span>03 제어 계층
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 1 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-vehicles.html" title="반송 장비: AGV · AMR · OHT">01</a></li>
+      <li><a href="02-amhs.html" title="반도체 팹 AMHS">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-fleet-management.html" title="Fleet Management">04</a></li>
+      <li><a href="05-semi-standards.html" title="SEMI 표준">05</a></li>
+      <li><a href="06-glossary.html" title="용어집">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 1 — 도메인: 공장 자동화·물류</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 1 · Station 03</p>
+    <h1>제어 계층 — MES → MCS → Fleet</h1>
+    <p class="lede">
+      OHT 한 대가 레일 위에서 방향을 트는 순간, 그 뒤에는 명령의 사슬이 있다.
+      "이 로트는 다음에 노광 공정을 받아야 한다"는 생산의 언어가
+      "비히클 27번, 이 경로로 주행하라"는 기계의 언어로 번역되기까지 —
+      그 번역기를 층층이 쌓은 것이 팹의 제어 계층이다.
+    </p>
+  </div>
+
+  <h2>왜 계층인가 — 관심사의 분리</h2>
+  <p>
+    Station 01~02에서 장비와 설비를 봤다면, 이번 스테이션의 질문은
+    <strong>"누가 그 장비에게 어디로 가라고 말하는가"</strong>다.
+    답은 하나의 시스템이 아니라 <strong>여러 층의 시스템</strong>이다.
+    공장 물류에는 성격이 전혀 다른 두 종류의 문제가 섞여 있기 때문이다.
+  </p>
+  <ul>
+    <li><strong>생산 논리</strong> — "이 로트는 다음에 어떤 공정을, 어느 장비에서 받아야 하는가?"
+      수율, 납기, 장비 가동률을 따지는 <strong>제조의 문제</strong>다.</li>
+    <li><strong>반송 실행</strong> — "그 결정을 어떤 차량이, 어떤 경로로, 언제 수행하는가?"
+      교통, 정체, 충돌을 따지는 <strong>물류의 문제</strong>다.</li>
+  </ul>
+  <p>
+    만약 한 시스템이 생산 스케줄링과 수천 대 차량의 교통 제어를 동시에 떠안는다면 —
+  </p>
+  <ul>
+    <li><strong>복잡도 폭발</strong> — 공정 디스패칭 규칙과 레일 합류 제어가 한 코드베이스에 뒤엉킨다. 어느 한쪽만 바꿔도 전체를 다시 검증해야 한다.</li>
+    <li><strong>벤더 경계와 충돌</strong> — 현실의 팹에서 생산 시스템, 반송 시스템, 공정 장비는 공급사가 제각각이다. 계층의 경계가 곧 <strong>계약(인터페이스)의 경계</strong>가 되어야 서로 다른 회사의 제품이 맞물릴 수 있다.</li>
+    <li><strong>장애 전파</strong> — 레일 한 구간의 교통 문제가 생산 계획 두뇌까지 멈추게 해서는 안 된다. 계층은 장애를 그 층 안에 가두는 방화벽이기도 하다.</li>
+    <li><strong>교체 불가능</strong> — 반송 장비 벤더를 바꾸는 일이 MES 재작성을 의미하게 된다.</li>
+  </ul>
+  <p>
+    그래서 팹의 제어는 <strong>사다리 구조</strong>를 취한다. 명령은 위에서 아래로 내려가며
+    점점 <strong>구체화</strong>되고("로트를 다음 공정으로" → "이 FOUP을 저 장비로" →
+    "비히클 27번, 이 경로로"), 보고는 아래에서 위로 올라가며 점점 <strong>요약</strong>된다
+    ("모터 회전" → "픽업 완료" → "반송 완료"). 각 계층은 <strong>바로 아래 계층의
+    언어만 알면 된다</strong> — 이것이 이 구조 전체를 관통하는 원칙이다.
+  </p>
+
+  <h2>MES — 생산 실행의 두뇌</h2>
+  <p>
+    <strong>MES</strong><i class="en">(Manufacturing Execution System, 생산 실행 시스템)</i>는
+    계층의 꼭대기에서 <strong>"무엇을, 어디서, 어떤 순서로 만들 것인가"</strong>를 결정한다.
+    전사 시스템(ERP)이 "이번 달에 어떤 제품을 얼마나"를 다룬다면, MES는
+    "지금 이 로트를 어느 장비에서"를 다루는 현장 실행의 두뇌다.
+  </p>
+  <h3>MES가 하는 일</h3>
+  <ul>
+    <li><strong>로트 추적</strong> — 팹 안 모든 로트(lot)가 지금 어떤 공정 단계에 있고, 어떤 상태(대기·진행·보류)인지의 단일 장부.</li>
+    <li><strong>공정 플로우 관리</strong> — 제품마다 수백 스텝짜리 공정 순서(라우트)가 정의되어 있고, 로트가 스텝을 마칠 때마다 다음 스텝을 판정한다.</li>
+    <li><strong>디스패칭</strong><i class="en">(dispatching)</i> — 다음 스텝을 수행할 수 있는 장비가 여럿일 때, 납기·우선순위·장비 상태를 따져 <strong>어느 장비로 보낼지</strong> 결정한다.</li>
+    <li><strong>작업 지시와 데이터 수집</strong> — 장비에 레시피 실행을 지시하고, 공정 결과 데이터를 회수한다.</li>
+  </ul>
+  <p>
+    <strong>반송의 관점에서 보면 MES의 출력은 단 한 문장이다:
+    "로트 L을 장비 B로 보내라."</strong> 그 로트를 실은 FOUP이 어느 레일을 타고,
+    어느 비히클에 실려, 몇 분 만에 도착할지 — MES는 모르고, 알 필요도 없다.
+    그 문장을 받아서 실행 가능한 물류로 바꾸는 것이 다음 층의 일이다.
+  </p>
+
+  <h2>MCS — AMHS의 관제탑</h2>
+  <p>
+    <strong>MCS</strong><i class="en">(Material Control System, 반송 제어 시스템)</i>는
+    MES와 반송 설비 사이에 서서 <strong>AMHS 전체를 지휘하는 관제탑</strong>이다.
+    MES가 보낸 "로트 L을 장비 B로"라는 요구를 받아,
+    실행 가능한 <strong>반송 명령</strong><i class="en">(transport job)</i>으로 바꾼다 —
+    어느 캐리어를, 어디서(장비 로드포트 또는 스토커 선반), 어디로, 어떤 우선순위로.
+  </p>
+  <h3>MCS가 하는 일</h3>
+  <ul>
+    <li><strong>반송 명령 생성·관리</strong> — 요구를 job으로 변환하고, 대기 중인 job들의 큐와 우선순위를 관리한다. 급한 로트(핫 로트)는 앞으로 당긴다.</li>
+    <li><strong>경유 결정</strong> — 목적지 장비가 바로 받을 수 있으면 직송, 받을 수 없으면 스토커에 임시 보관 후 재반송. Station 02에서 본 스토커가 여기서 버퍼로 쓰인다.</li>
+    <li><strong>하위 컨트롤러 지휘</strong> — 스토커 컨트롤러, OHT 컨트롤러 같은 설비별 제어 시스템에 job을 내려보내고 진행을 감독한다.</li>
+    <li><strong>캐리어 위치 추적</strong> — "FOUP F는 지금 어디에 있는가"에 대한 팹 전체의 단일 진실<i class="en">(carrier tracking)</i>. 모든 픽업·드롭·입출고 이벤트가 여기로 모인다.</li>
+  </ul>
+  <p>
+    역할의 경계를 이렇게 기억하면 정확하다:
+    <strong>MES는 물류를 모르고, MCS는 생산을 모른다.</strong>
+    MCS에게 FOUP 안의 웨이퍼가 몇 나노 공정의 어떤 제품인지는 관심 밖이다 —
+    MCS의 세계에는 캐리어 ID, 현재 위치, 목적지, 우선순위만 존재한다.
+    이 무관심이 버그가 아니라 설계다. 서로의 세계를 몰라야 각자 교체·확장이 가능하다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">오해 주의</span>
+    <p>
+      "MCS가 반송을 제어한다"는 말을 <strong>MCS가 차량을 직접 조종한다</strong>는 뜻으로
+      읽으면 안 된다. MCS가 내리는 명령은 "캐리어 F를 장비 B로"까지다. 어느 비히클이
+      맡을지는 차량 관제 계층이, 모터를 어떻게 돌릴지는 비히클 온보드 제어가 정한다.
+      <strong>같은 '명령'이라도 계층마다 추상화 수준이 다르다</strong> — 이것을 놓치면
+      계층 구조 전체가 무의미해 보이게 된다.
+    </p>
+  </div>
+
+  <h2>차량 관제 — OCS와 Fleet Management</h2>
+  <p>
+    MCS의 job이 도착하는 곳이 <strong>차량 관제 계층</strong>이다. OHT 시스템에서는
+    보통 <strong>OCS</strong><i class="en">(OHT Control System)</i> 등으로 불리며,
+    제조사마다 명칭이 다르다. 이름이 무엇이든 역할은 같다 —
+    <strong>수백~수천 대 비히클 함대를 한 몸처럼 움직이게 만드는 것.</strong>
+  </p>
+  <h3>차량 관제가 하는 일</h3>
+  <ul>
+    <li><strong>배차</strong><i class="en">(dispatching)</i> — job이 오면 "어느 비히클이 맡을 것인가"를 결정한다. 가장 가까운 유휴 차량? 곧 짐을 내리는 차량? 규칙 선택이 팹 전체 처리량을 좌우한다.</li>
+    <li><strong>경로 계획</strong><i class="en">(routing)</i> — 레일 네트워크(그래프) 위에서 출발지→목적지 경로를 고른다. 최단 거리만 따지면 혼잡 구간으로 몰리므로 정체를 반영해야 한다.</li>
+    <li><strong>교통 제어</strong><i class="en">(traffic control)</i> — 합류·분기·교차 구간에서 차량 간 순서를 정하고 간격을 유지시킨다. 정체와 데드락을 막는 일이 여기 속한다.</li>
+    <li><strong>개별 차량 명령</strong> — 결정이 끝나면 각 비히클에 주행 구간, 정지 위치, 이적재 지시를 내려보낸다.</li>
+  </ul>
+  <p>
+    천장 레일이 없는 일반 공장·물류센터라면 이 자리에
+    <strong>AGV/AMR Fleet Management System</strong>이 앉는다. 다루는 차량과 경로의
+    형태가 다를 뿐, "요구를 받아 함대에 배분하고 교통을 정리한다"는 본질은 같다.
+    이 계층이 풀어야 하는 문제들 — 배차 규칙, 경로 계획, 데드락 방지, 충전 스케줄링 —
+    은 그 자체로 하나의 학문이라, <strong>Station 04 전체를 이 문제에 쓴다.</strong>
+    여기서는 "이 층이 그 문제를 담당한다"는 위치만 기억하면 된다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/z9e7PtYlcrQ" title="MCS와 OHT 컨트롤러 소개 영상 — Daifuku" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Daifuku의 AMHS 컨트롤러 소개 영상 — 이 문서의 주인공인
+      <strong>MCS와 OHT 컨트롤러(차량 관제)</strong>가 실제 제품에서 어떻게 나뉘어
+      있고, 교통 정체를 어떻게 회피하는지 보여준다. 계층 구조가 "교과서 그림"이
+      아니라 실제 팔리는 소프트웨어의 구조라는 것을 확인할 수 있다.
+      <a href="https://www.youtube.com/watch?v=z9e7PtYlcrQ">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>현장 레벨 — 비히클, 로드포트, 공정 장비</h2>
+  <p>
+    사다리의 맨 아래는 물리 세계와 맞닿은 <strong>현장 레벨</strong>이다.
+    관제가 "장비 B로 가서 FOUP을 내려놓아라"까지 말했다면,
+    바퀴를 어떻게 굴리고 호이스트를 언제 내릴지는 이 층의 몫이다.
+  </p>
+  <ul>
+    <li><strong>비히클 온보드 제어</strong> — 가감속 프로파일에 따른 주행, 선행 차량과의 간격 유지, 목적지 로드포트 위 정위치 정지, 호이스트 승강과 그리퍼 개폐. 밀리초 단위의 실시간 제어는 전부 차량 안에서 일어난다.</li>
+    <li><strong>로드포트와의 핸드오프</strong> — 비히클이 장비에 FOUP을 건네는 순간은 두 장비가 신호를 주고받으며 "실어도 되는가 / 실었는가"를 확인하는 절차로 보호된다. 이 병렬 I/O 핸드셰이크를 표준화한 것이 <strong>SEMI E84</strong>다 (Station 05에서 상세히).</li>
+    <li><strong>공정 장비 통신</strong> — 공정 장비는 <strong>SECS/GEM</strong><i class="en">(SEMI Equipment Communications Standard / Generic Equipment Model)</i>이라는 표준 프로토콜로 호스트와 상태·공정 데이터를 주고받으며, "공정 완료" 보고가 이 채널을 타고 올라가 다음 반송 사이클의 방아쇠가 된다.</li>
+  </ul>
+
+  <h2>반송 명령의 생애주기</h2>
+  <p>
+    계층을 하나씩 알았으니, 이제 <strong>한 건의 반송이 태어나서 죽기까지</strong>를
+    통째로 따라가 보자. 장비의 공정 완료 보고에서 시작해, 명령이 층층이 내려갔다가,
+    완료 보고가 역방향으로 올라와 닫히는 왕복 여행이다.
+  </p>
+  <ol>
+    <li>공정 장비가 로트 L의 공정 완료를 보고한다 (SECS/GEM).</li>
+    <li>MES가 로트 L의 라우트를 보고 다음 공정과 장비를 결정한다 — 그리고 MCS에 반송을 요구한다: "로트 L(캐리어 F)을 장비 B로."</li>
+    <li>MCS가 반송 명령(transport job)을 생성한다 — 출발지, 목적지, 우선순위를 정하고 직송/스토커 경유를 판단한다.</li>
+    <li>차량 관제(OCS/Fleet)가 job을 받아 비히클을 배차하고 경로를 부여한다.</li>
+    <li>비히클이 출발지에 도착해 FOUP을 픽업한다 — E84 핸드셰이크로 안전하게.</li>
+    <li>레일을 따라 이동한다. 교통 제어가 합류·교차를 정리하고, 비히클은 위치·상태를 계속 보고한다.</li>
+    <li>목적지 장비 위에서 호이스트로 FOUP을 로드포트에 드롭한다 — 다시 E84.</li>
+    <li>완료 보고가 역방향으로 올라간다: 비히클 → 차량 관제 → MCS(job 완료, 캐리어 위치 갱신) → MES(로트 도착). MES의 장부가 갱신되고, 다음 공정이 시작되면 이 사이클이 다시 돈다.</li>
+  </ol>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="제어 계층 도식: MES, MCS, OCS·Fleet, 현장 레벨의 4층 구조. 왼쪽으로 명령이 내려가고 오른쪽으로 보고가 올라가며, 장비의 공정 완료 보고가 MES로 올라가 사이클이 시작된다">
+      <!-- 계층 박스 4단 -->
+      <g stroke-width="2">
+        <rect class="d-node" x="210" y="14" width="360" height="60" rx="4"/>
+        <text class="d-title" x="390" y="39" text-anchor="middle">MES — 생산 실행</text>
+        <text class="d-label" x="390" y="60" text-anchor="middle">로트·공정 추적 / 다음 공정·장비 결정</text>
+
+        <rect class="d-node" x="210" y="118" width="360" height="60" rx="4"/>
+        <text class="d-title" x="390" y="143" text-anchor="middle">MCS — 반송 관제</text>
+        <text class="d-label" x="390" y="164" text-anchor="middle">반송 명령(job) 생성·관리 / 캐리어 위치 추적</text>
+
+        <rect class="d-node" x="210" y="222" width="360" height="60" rx="4"/>
+        <text class="d-title" x="390" y="247" text-anchor="middle">OCS · Fleet — 차량 관제</text>
+        <text class="d-label" x="390" y="268" text-anchor="middle">배차 / 경로 계획 / 교통 제어</text>
+
+        <rect class="d-node-2" x="210" y="326" width="360" height="60" rx="4"/>
+        <text class="d-title" x="390" y="351" text-anchor="middle">현장 레벨 — 비히클 · 로드포트 · 장비</text>
+        <text class="d-label" x="390" y="372" text-anchor="middle">⑤ 픽업(E84) → ⑥ 이동 → ⑦ 드롭(E84)</text>
+      </g>
+
+      <!-- 명령: 하향 화살표 (왼쪽) -->
+      <g stroke-width="2">
+        <line class="d-rail" x1="330" y1="78" x2="330" y2="110"/>
+        <path class="d-fill-rail" d="M324,110 L336,110 L330,118 Z"/>
+        <line class="d-rail" x1="330" y1="182" x2="330" y2="214"/>
+        <path class="d-fill-rail" d="M324,214 L336,214 L330,222 Z"/>
+        <line class="d-rail" x1="330" y1="286" x2="330" y2="318"/>
+        <path class="d-fill-rail" d="M324,318 L336,318 L330,326 Z"/>
+      </g>
+      <text class="d-label" x="316" y="100" text-anchor="end">② 반송 요구 — 로트를 장비 B로</text>
+      <text class="d-label" x="316" y="204" text-anchor="end">③ 반송 명령(transport job)</text>
+      <text class="d-label" x="316" y="308" text-anchor="end">④ 배차·주행 명령</text>
+
+      <!-- 보고: 상향 화살표 (오른쪽) -->
+      <g stroke-width="2">
+        <line class="d-accent" x1="460" y1="114" x2="460" y2="82"/>
+        <path class="d-fill-accent" d="M454,82 L466,82 L460,74 Z"/>
+        <line class="d-accent" x1="460" y1="218" x2="460" y2="186"/>
+        <path class="d-fill-accent" d="M454,186 L466,186 L460,178 Z"/>
+        <line class="d-accent" x1="460" y1="322" x2="460" y2="290"/>
+        <path class="d-fill-accent" d="M454,290 L466,290 L460,282 Z"/>
+      </g>
+      <text class="d-label" x="474" y="100">⑧ 반송 완료 보고</text>
+      <text class="d-label" x="474" y="204">job 진행·완료 보고</text>
+      <text class="d-label" x="474" y="308">위치·상태 보고</text>
+
+      <!-- ① 공정 완료 보고: 장비 → MES (사이클의 시작) -->
+      <g stroke-width="2">
+        <line class="d-soft" x1="210" y1="356" x2="70" y2="356" stroke-dasharray="4 3"/>
+        <line class="d-soft" x1="70" y1="356" x2="70" y2="44" stroke-dasharray="4 3"/>
+        <line class="d-soft" x1="70" y1="44" x2="202" y2="44" stroke-dasharray="4 3"/>
+        <path class="d-fill-soft" d="M202,38 L202,50 L210,44 Z"/>
+      </g>
+      <text class="d-label" x="78" y="236">① 공정 완료 보고</text>
+      <text class="d-label" x="78" y="252">(장비 → MES, SECS/GEM)</text>
+
+      <!-- 범례 -->
+      <text class="d-label" x="330" y="410" text-anchor="end">명령 ↓ — 내려갈수록 구체화</text>
+      <text class="d-label" x="474" y="410">보고 ↑ — 올라갈수록 요약</text>
+    </svg>
+    <figcaption>
+      반송 명령의 생애주기. 장비의 공정 완료 보고(①)가 MES에 닿으면 반송 요구가
+      계층을 타고 내려가며 구체화되고(②~④), 현장에서 픽업·이동·드롭(⑤~⑦)이 끝나면
+      완료 보고가 역방향으로 올라가(⑧) 사이클이 닫힌다.
+    </figcaption>
+  </figure>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      디지털 트윈은 이 계층 구조의 어디에 꽂히는가? 보통 <strong>MCS와 차량 관제가
+      쏟아내는 이벤트 스트림</strong> — 명령 생성, 배차, 픽업, 드롭, 위치 갱신 —
+      을 구독해서 화면을 갱신한다. 즉 <strong>이벤트가 곧 트윈의 데이터 소스</strong>다.
+      그리고 눈여겨볼 것: "시각 t에 비히클 v가 위치 p에서 픽업"이라는 이벤트의 모양은,
+      Phase 2에서 배울 이산사건시뮬레이션(DES)의 이벤트와 정확히 같은 모양이다.
+      실물의 이벤트를 구독하면 관제 화면이 되고, 모델이 이벤트를 생성하면 시뮬레이터가
+      된다 — 같은 뼈대의 양면이다.
+    </p>
+  </div>
+
+  <h2>일반 공장에는 무엇이 대응되는가</h2>
+  <p>
+    지금까지는 반도체 팹의 용어로 설명했지만, <strong>역할 4층 구조 자체는 업종을
+    가리지 않는다.</strong> 천장 레일이 없는 일반 제조·물류 현장에는 같은 자리에
+    다른 이름의 시스템이 앉는다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>계층 (역할)</th>
+          <th>반도체 팹</th>
+          <th>일반 제조 · 물류</th>
+          <th>역할 한 줄</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">생산·주문 논리</td>
+          <td>MES</td>
+          <td>MES · WMS <i class="en">Warehouse Management System</i></td>
+          <td>무엇을 만들지/보낼지 결정 — 이동 요구의 발생원</td>
+        </tr>
+        <tr>
+          <td class="rowhead">반송 관제</td>
+          <td>MCS</td>
+          <td>WCS <i class="en">Warehouse Control System</i></td>
+          <td>이동 요구를 반송 명령으로 변환, 설비 지휘, 화물 추적</td>
+        </tr>
+        <tr>
+          <td class="rowhead">차량 관제</td>
+          <td>OCS (OHT 컨트롤러)</td>
+          <td>FMS <i class="en">Fleet Management System</i></td>
+          <td>배차 · 경로 계획 · 교통 제어</td>
+        </tr>
+        <tr>
+          <td class="rowhead">반송 장비</td>
+          <td>OHT 비히클</td>
+          <td>AGV · AMR</td>
+          <td>실제 주행과 이적재 수행</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    실무에서는 제품과 업체마다 경계가 조금씩 다르고, WMS/WCS/FMS의 기능이 서로
+    겹치기도 한다. 이름 암기보다 중요한 것은
+    <strong>"생산 논리 / 반송 관제 / 차량 관제 / 현장 실행"이라는 역할의 4층</strong>을
+    구분하는 눈이다. 어떤 시스템을 만나든 "이건 몇 층짜리 일을 하는 물건인가"를
+    물으면 지도 위의 위치가 잡힌다.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>MES와 MCS의 역할 경계를 한 문장으로 말하면?</summary>
+      <div class="answer">
+        <p>
+          <strong>MES는 물류를 모르고, MCS는 생산을 모른다.</strong>
+          MES는 "로트 L을 장비 B로"라는 요구까지만 내고 차량·경로를 모르며,
+          MCS는 캐리어 ID·위치·목적지·우선순위만 다룰 뿐 FOUP 안의 웨이퍼가
+          어떤 제품인지 관심이 없다. 이 상호 무관심이 교체 가능성과 확장성을 만든다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>반송 한 건이 태어나서 닫히기까지의 흐름을 계층 순서로 말해 보면?</summary>
+      <div class="answer">
+        <p>
+          장비의 공정 완료 보고 → MES가 다음 공정·장비 결정 후 MCS에 반송 요구 →
+          MCS가 반송 명령(job) 생성 → 차량 관제가 배차·경로 부여 →
+          비히클이 픽업(E84) → 이동 → 드롭(E84) →
+          완료 보고가 비히클 → 차량 관제 → MCS → MES로 역방향 상향.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>왜 MCS가 개별 비히클을 직접 조종하지 않는가?</summary>
+      <div class="answer">
+        <p>
+          계층마다 명령의 <strong>추상화 수준</strong>이 다르기 때문이다. MCS의 명령은
+          "캐리어 F를 장비 B로"까지이고, 어느 비히클이 맡을지는 차량 관제가,
+          모터·호이스트의 실시간 제어는 온보드 제어가 담당한다. MCS가 차량까지
+          조종하면 관심사 분리가 무너져 복잡도·장애 전파·벤더 종속 문제가 되살아난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>일반 물류센터에서 팹의 MCS와 OCS에 해당하는 시스템은?</summary>
+      <div class="answer">
+        <p>
+          MCS 자리에는 <strong>WCS</strong><i class="en">(Warehouse Control System)</i>,
+          OCS 자리에는 <strong>AGV/AMR Fleet Management System</strong>이 앉는다.
+          이름은 달라도 "요구를 반송 명령으로 바꾸는 층 / 함대에 배분하고 교통을
+          정리하는 층"이라는 역할은 같다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>디지털 트윈은 이 계층 구조의 어디에서 데이터를 얻는가?</summary>
+      <div class="answer">
+        <p>
+          주로 <strong>MCS와 차량 관제 계층의 이벤트 스트림</strong>(명령 생성, 배차,
+          픽업, 드롭, 위치 갱신)을 구독한다. 이벤트가 곧 트윈의 데이터 소스이며,
+          이 이벤트의 모양은 Phase 2에서 만들 DES의 이벤트와 같다 —
+          실물이 만들면 관제 화면, 모델이 만들면 시뮬레이터가 된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-amhs.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">반도체 팹 AMHS — FOUP · 스토커 · 베이</span>
+    </a>
+    <a class="next" href="04-fleet-management.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">Fleet Management 핵심 문제</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 1 — DOMAIN: FAB LOGISTICS</div>
+</footer>
+
+</body>
+</html>

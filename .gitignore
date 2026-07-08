@@ -1,2 +1,25 @@
 # OMC session/runtime state (machine-local, not for VCS)
-.omc/state/
+.omc/
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# .NET
+bin/
+obj/
+
+# Unity (FabSim project — generated/cache dirs only)
+FabSim/[Ll]ibrary/
+FabSim/[Tt]emp/
+FabSim/[Oo]bj/
+FabSim/[Bb]uild/
+FabSim/[Bb]uilds/
+FabSim/[Ll]ogs/
+FabSim/[Uu]serSettings/
+*.csproj.user
+*.sln.DotSettings.user

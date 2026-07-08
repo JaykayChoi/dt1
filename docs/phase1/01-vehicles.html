@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 반송 장비: AGV · AMR · OHT — DT1 Phase 1</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 1 도메인<span class="sep">/</span>01 반송 장비
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 1 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-amhs.html" title="반도체 팹 AMHS">02</a></li>
+      <li><a href="03-control-hierarchy.html" title="제어 계층">03</a></li>
+      <li><a href="04-fleet-management.html" title="Fleet Management">04</a></li>
+      <li><a href="05-semi-standards.html" title="SEMI 표준">05</a></li>
+      <li><a href="06-glossary.html" title="용어집">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 1 — 도메인: 공장 자동화·물류</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 1 · Station 01</p>
+    <h1>반송 장비: AGV · AMR · OHT</h1>
+    <p class="lede">
+      공장 물류의 주인공은 세 종류의 탈것이다. 바닥을 달리는 AGV와 AMR,
+      그리고 천장을 달리는 OHT. 셋의 차이를 이해하면 "왜 반도체 팹은
+      천장에 길을 깔았는가"라는 이 도메인의 핵심 질문에 답할 수 있다.
+    </p>
+  </div>
+
+  <h2>왜 '반송'이 문제인가</h2>
+  <p>
+    공장에서 물건을 만드는 것 못지않게 어려운 일이 <strong>물건을 옮기는 일</strong>이다.
+    반도체 팹을 예로 들면, 웨이퍼 한 장이 완성되기까지 수백 개의 공정 스텝을 거치는데,
+    각 스텝은 서로 다른 장비에서 수행된다. 즉 웨이퍼를 담은 용기가 팹 안을
+    <strong>수백 번 이동</strong>해야 한다. 이 이동을 통틀어
+    <strong>반송</strong><i class="en">(material handling / transport)</i>이라 부른다.
+  </p>
+  <p>반도체 팹에서 반송을 사람이 아닌 기계에 맡기는 이유는 명확하다.</p>
+  <ul>
+    <li><strong>청정도</strong> — 사람은 클린룸 최대의 오염원이다. 사람의 이동을 줄일수록 수율에 유리하다.</li>
+    <li><strong>무게와 안전</strong> — 300mm 웨이퍼 25장을 담은 운반 용기(FOUP)는 만재 시 8~9kg에 달한다. 사람이 하루 종일 들고 다닐 수 있는 무게가 아니다.</li>
+    <li><strong>24시간 연속 운전</strong> — 팹은 멈추지 않는다. 반송도 멈추면 안 된다.</li>
+    <li><strong>추적성</strong> — 어떤 로트(lot)가 지금 어디 있는지 시스템이 항상 알아야 생산 계획이 성립한다.</li>
+  </ul>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      디지털 트윈이 재현하려는 대상이 바로 이 반송의 세계다. "장비가 어디에 있고,
+      무엇을 싣고, 어디로 가는 중인가"를 가상 공간에 실시간으로 그려내는 것이
+      팀 업무의 뼈대이고, 이 문서에서 배우는 장비들이 그 화면 위의 주인공들이다.
+    </p>
+  </div>
+
+  <h2>AGV — 정해진 길을 따라가는 운반차</h2>
+  <p>
+    <strong>AGV</strong><i class="en">(Automated Guided Vehicle, 무인 운반차)</i>는
+    이름 그대로 <strong>유도(guided)</strong>되는 차량이다. 바닥이나 환경에 미리 설치된
+    <strong>가이드 인프라</strong>를 따라 정해진 경로만 주행한다.
+  </p>
+  <h3>유도 방식</h3>
+  <ul>
+    <li><strong>자기 테이프 / 자기 스팟</strong> — 바닥에 붙인 자기 띠를 센서로 추종. 고전적이고 저렴하지만 경로 변경 시 테이프를 다시 깔아야 한다.</li>
+    <li><strong>QR 코드 그리드</strong> — 바닥에 일정 간격으로 QR 코드를 깔고, 차량이 코드를 읽어 자기 위치를 파악한다. 물류센터 로봇(초기 Kiva 스타일)이 대표적.</li>
+    <li><strong>레이저 반사판</strong><i class="en">(LGV)</i> — 벽·기둥에 반사판을 붙이고 레이저로 삼각측량. 바닥 공사가 필요 없다.</li>
+  </ul>
+  <h3>특징</h3>
+  <ul>
+    <li>경로가 고정되어 있으므로 <strong>움직임이 예측 가능</strong>하다. 관제 입장에서 다루기 쉽다.</li>
+    <li>장애물을 만나면 <strong>피하지 않고 멈춘다</strong>. 경로를 벗어날 능력이 없기 때문이다.</li>
+    <li>경로를 바꾸려면 인프라 공사 또는 맵 재설정이 필요해 <strong>레이아웃 변경에 약하다</strong>.</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/l0hIXA7_ldM" title="자기 테이프 유도 AGV 주행 영상" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      자기 테이프를 따라 주행하는 산업용 AGV. 바닥에 붙은 검은 띠가 바로
+      <strong>자기 테이프</strong>이고, 차량 하부의 센서가 이 띠를 추종한다.
+      경로가 테이프의 모양 그대로 고정된다는 것이 눈으로 보인다.
+      <a href="https://www.youtube.com/watch?v=l0hIXA7_ldM">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>AMR — 스스로 길을 찾는 로봇</h2>
+  <p>
+    <strong>AMR</strong><i class="en">(Autonomous Mobile Robot, 자율 이동 로봇)</i>은
+    가이드 인프라 없이 <strong>스스로 지도를 만들고 자기 위치를 추정</strong>하며 주행한다.
+    핵심 기술은 <strong>SLAM</strong><i class="en">(Simultaneous Localization and Mapping)</i> —
+    라이다·카메라로 주변을 스캔해 지도를 만들면서 동시에 그 지도 안에서 자기 위치를 찾는 기법이다.
+  </p>
+  <h3>특징</h3>
+  <ul>
+    <li>사람이나 장애물을 만나면 <strong>멈추지 않고 우회 경로를 재계산</strong>할 수 있다.</li>
+    <li>바닥 공사가 필요 없어 <strong>도입과 레이아웃 변경이 빠르다</strong>.</li>
+    <li>대신 움직임의 자유도가 높은 만큼 <strong>예측과 통제가 어렵다</strong> — 관제(fleet) 관점에서는 더 어려운 상대다.</li>
+    <li>사람과 공간을 공유하는 경우가 많아 <strong>안전 인증과 감속 규칙</strong>이 중요하다.</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/R8x2bp55Tm4" title="AMR 자율주행 영상 — MiR250" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      AMR(MiR250)이 창고에서 <strong>가이드 인프라 없이 스스로 경로를 찾아</strong>
+      주행하는 모습. 사람이 앞을 막으면 멈췄다가 비켜나면 재개한다 —
+      AGV라면 이 상황에서 그냥 정지해 있었을 것이다.
+      <a href="https://www.youtube.com/watch?v=R8x2bp55Tm4">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <div class="callout warn">
+    <span class="label">오해 주의</span>
+    <p>
+      "AGV는 구식, AMR은 신식"으로 단순화하면 곤란하다. 실제 산업 현장에서는
+      <strong>예측 가능성이 곧 처리량</strong>인 경우가 많아, 고정 경로 기반 시스템이
+      여전히 대량 반송의 주력이다. 또 최근 장비들은 QR 그리드 위에서 경로를 동적으로
+      재계산하는 등 <strong>AGV와 AMR의 경계가 흐려지는 중</strong>이다. 관제 시스템
+      입장에서는 둘 다 "바닥을 달리는 반송 로봇"이며, 차이는 경로 자유도의 정도 문제다.
+    </p>
+  </div>
+
+  <h2>OHT — 천장을 달리는 팹의 주력</h2>
+  <p>
+    <strong>OHT</strong><i class="en">(Overhead Hoist Transport, 천장 반송 시스템)</i>는
+    반도체 팹의 상징이다. 천장에 설치된 <strong>레일</strong>을 따라 달리는 무인
+    <strong>비히클</strong><i class="en">(vehicle)</i>이 웨이퍼 용기(FOUP)를 싣고 이동하며,
+    목적지 장비 위에 도착하면 <strong>호이스트</strong><i class="en">(hoist)</i>로 용기를
+    수직으로 내려 장비의 <strong>로드포트</strong><i class="en">(load port)</i>에 올려놓는다.
+  </p>
+  <h3>왜 천장인가</h3>
+  <ul>
+    <li><strong>바닥은 이미 만원이다</strong> — 팹 바닥은 수백억 원짜리 공정 장비가 빽빽하게 차지한다. 남는 공간은 천장뿐이다.</li>
+    <li><strong>간섭 제로</strong> — 천장 레일 위에는 사람도, 다른 장비도 없다. 고속 주행이 가능한 이유다.</li>
+    <li><strong>청정도</strong> — 웨이퍼 위쪽이 아닌 전용 트랙에서 움직이고, FOUP 자체가 밀폐 용기라 오염 노출을 최소화한다.</li>
+  </ul>
+  <h3>특징</h3>
+  <ul>
+    <li>레일이라는 <strong>완전히 고정된 경로망</strong> 위를 달린다 — 경로 자유도는 셋 중 가장 낮지만 속도와 밀도는 가장 높다.</li>
+    <li>직선 구간에서 <strong>초속 수 미터</strong>로 주행하며, 대형 팹에서는 <strong>수천 대</strong>가 동시에 운행된다.</li>
+    <li>수천 대가 한 레일망을 공유하므로 <strong>교통 정체·경로 선택·합류 제어</strong>가 관제의 핵심 난제가 된다 (Station 04에서 다룬다).</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/2dP1CD7qZTo" title="OHT 천장 반송 시스템 영상 — Muratec SKYRAV" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Muratec의 OHT 시스템(SKYRAV). 천장 레일 위 <strong>비히클의 고속 주행</strong>,
+      분기·합류, 그리고 장비 위에 정지해 <strong>호이스트로 FOUP을 내리는 동작</strong>까지
+      이 문서에서 글로 설명한 전부를 볼 수 있다.
+      <a href="https://www.youtube.com/watch?v=2dP1CD7qZTo">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="팹 베이 단면도: 천장 레일 위 OHT가 호이스트로 FOUP을 내리고, 바닥에는 공정 장비와 AGV/AMR가 있다">
+      <!-- 천장 -->
+      <line class="d-soft" x1="20" y1="30" x2="780" y2="30" stroke-width="2"/>
+      <text class="d-label" x="24" y="22">CEILING</text>
+
+      <!-- 레일 (행거 + 레일) -->
+      <line class="d-soft" x1="120" y1="30" x2="120" y2="58" stroke-width="2"/>
+      <line class="d-soft" x1="400" y1="30" x2="400" y2="58" stroke-width="2"/>
+      <line class="d-soft" x1="680" y1="30" x2="680" y2="58" stroke-width="2"/>
+      <line class="d-rail" x1="40" y1="60" x2="760" y2="60" stroke-width="4"/>
+      <text class="d-label-strong" x="44" y="52">OHT RAIL</text>
+
+      <!-- 주행 중인 OHT -->
+      <g>
+        <rect class="d-fill-rail" x="560" y="64" width="56" height="20" rx="3"/>
+        <rect class="d-fill-accent" x="570" y="88" width="36" height="26" rx="3"/>
+        <text class="d-label" x="588" y="132" text-anchor="middle">이동 중</text>
+      </g>
+
+      <!-- 호이스트 동작 중인 OHT -->
+      <g>
+        <rect class="d-fill-rail" x="222" y="64" width="56" height="20" rx="3"/>
+        <text class="d-label-strong" x="250" y="102" text-anchor="middle">OHT VEHICLE</text>
+        <line class="d-accent" x1="238" y1="84" x2="238" y2="176" stroke-width="2" stroke-dasharray="4 3"/>
+        <line class="d-accent" x1="262" y1="84" x2="262" y2="176" stroke-width="2" stroke-dasharray="4 3"/>
+        <text class="d-label" x="272" y="150">HOIST ↓</text>
+        <rect class="d-fill-accent" x="232" y="176" width="36" height="26" rx="3"/>
+        <text class="d-label-strong" x="250" y="222" text-anchor="middle">FOUP</text>
+      </g>
+
+      <!-- 공정 장비 2대 -->
+      <g stroke-width="2">
+        <rect class="d-node" x="180" y="230" width="140" height="60" rx="4"/>
+        <rect class="d-node-2" x="228" y="206" width="44" height="24" rx="2"/>
+        <text class="d-label" x="250" y="200" text-anchor="middle">LOAD PORT</text>
+        <text class="d-title" x="250" y="265" text-anchor="middle">공정 장비 A</text>
+
+        <rect class="d-node" x="360" y="230" width="140" height="60" rx="4"/>
+        <rect class="d-node-2" x="408" y="206" width="44" height="24" rx="2"/>
+        <text class="d-title" x="430" y="265" text-anchor="middle">공정 장비 B</text>
+      </g>
+
+      <!-- AGV/AMR -->
+      <g>
+        <rect class="d-fill-soft" x="600" y="268" width="70" height="22" rx="4"/>
+        <circle class="d-fill-rail" cx="614" cy="294" r="6"/>
+        <circle class="d-fill-rail" cx="656" cy="294" r="6"/>
+        <rect class="d-fill-accent" x="616" y="246" width="36" height="22" rx="3"/>
+        <text class="d-label-strong" x="635" y="315" text-anchor="middle">AGV / AMR</text>
+      </g>
+
+      <!-- 바닥 -->
+      <line class="d-rail" x1="20" y1="300" x2="780" y2="300" stroke-width="2"/>
+      <text class="d-label" x="24" y="316">FLOOR (BAY 통로)</text>
+    </svg>
+    <figcaption>
+      팹 베이 단면. OHT는 천장 레일을 달리다 목적지 장비 위에서 호이스트로 FOUP을
+      로드포트에 내려놓는다. 바닥의 AGV/AMR는 통로를 공유하며 보조 반송을 맡는다.
+    </figcaption>
+  </figure>
+
+  <h2>한눈에 비교</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>AGV <i class="en">Automated Guided Vehicle</i></th>
+          <th>AMR <i class="en">Autonomous Mobile Robot</i></th>
+          <th>OHT <i class="en">Overhead Hoist Transport</i></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">주행 공간</td>
+          <td>바닥</td>
+          <td>바닥</td>
+          <td>천장 레일</td>
+        </tr>
+        <tr>
+          <td class="rowhead">경로 인프라</td>
+          <td>자기 테이프, QR 그리드, 반사판</td>
+          <td>불필요 (지도 기반)</td>
+          <td>전용 레일 (물리 궤도)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">경로 자유도</td>
+          <td>낮음 — 정의된 경로만</td>
+          <td>높음 — 동적 재경로</td>
+          <td>최저 — 레일 위만, 대신 최고 밀도</td>
+        </tr>
+        <tr>
+          <td class="rowhead">장애물 대응</td>
+          <td>정지 후 대기</td>
+          <td>회피·우회</td>
+          <td>레일 위 간섭 없음 (선행 차량 추종 제어)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">주 운반물</td>
+          <td>팔레트, 랙, 부품</td>
+          <td>토트, 부품, 선반</td>
+          <td>FOUP (웨이퍼 용기), 레티클 포드</td>
+        </tr>
+        <tr>
+          <td class="rowhead">대표 환경</td>
+          <td>공장, 창고, 팹 하부층</td>
+          <td>물류센터, 사람 공존 구역</td>
+          <td>반도체 팹 클린룸</td>
+        </tr>
+        <tr>
+          <td class="rowhead">관제 난점</td>
+          <td>교차로 충돌 방지, 배차</td>
+          <td>움직임 예측, 안전, 배차</td>
+          <td>대규모 교통 제어, 정체·데드락</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>현장에서의 역할 분담</h2>
+  <p>
+    세 장비는 경쟁 관계가 아니라 <strong>공간과 역할을 나눠 갖는 관계</strong>다.
+  </p>
+  <ul>
+    <li><strong>반도체 팹 클린룸</strong> — 로트 반송의 주력은 압도적으로 <strong>OHT</strong>.
+      베이와 베이 사이(인터베이), 베이 내부(인트라베이)를 모두 천장 레일로 연결한다 (Station 02에서 상세히).</li>
+    <li><strong>팹의 나머지 공간</strong> — 서브팹(하부층), 자재 창고, 모듈 간 이동 등
+      레일이 닿지 않는 곳은 <strong>AGV/AMR</strong>가 맡는다.</li>
+    <li><strong>일반 제조·물류센터</strong> — 천장 레일 없이 <strong>AGV/AMR 함대</strong>가
+      반송의 주력이 된다. 이때 이들을 지휘하는 소프트웨어가 Fleet Management System이다 (Station 04).</li>
+  </ul>
+
+  <div class="callout field">
+    <span class="label">현장 감각</span>
+    <p>
+      팹 견학 영상을 보면 천장에서 쉴 새 없이 지나다니는 상자들이 보인다 — 그게 전부
+      FOUP을 실은 OHT다. Daifuku, Murata Machinery 같은 반송 장비 제조사의 제품 영상을
+      한 번 찾아보면 이 문서의 내용이 즉시 입체가 된다. "OHT가 교차로에서 머뭇거리면
+      뒤로 정체가 밀린다"는 감각은 영상으로 봐야 생긴다.
+    </p>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      시뮬레이션 모델 입장에서 셋의 공통점이 중요하다: 모두
+      <strong>"경로 그래프 위를 이동하며, 구간을 점유하고, 싣고 내리는 데 시간이 드는
+      리소스"</strong>로 추상화된다. AGV·OHT는 노드·엣지가 고정된 그래프를 쓰고,
+      AMR만 자유 경로(연속 공간) 모델이 필요하다. Phase 2에서 만들 DES 엔진과
+      Phase 5의 미니 팹 시뮬레이터는 이 추상화 위에 세워진다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>AGV와 AMR의 본질적 차이는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          <strong>경로 자유도</strong>다. AGV는 설치된 가이드 인프라(테이프·QR·반사판)가
+          정의한 경로만 따라가고 장애물 앞에서 멈춘다. AMR은 SLAM으로 스스로 위치를
+          추정하며 지도 위에서 경로를 동적으로 계산·재계산한다. 단, 최근에는 경계가
+          흐려져 "정도의 차이"로 보는 것이 실무 감각에 가깝다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>반도체 팹은 왜 반송의 주력을 천장(OHT)에 두는가?</summary>
+      <div class="answer">
+        <p>
+          바닥은 고가의 공정 장비가 이미 차지하고 있고, 천장 레일은 사람·장비와의
+          간섭이 없어 고속·고밀도 운행이 가능하며, 밀폐 용기(FOUP) + 전용 궤도 조합이
+          청정도 관리에 유리하기 때문이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>OHT가 목적지 장비에 FOUP을 내려놓는 동작을 무엇이라 부르는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>호이스트</strong><i class="en">(hoist)</i> 동작. 비히클이 장비 위
+          레일에 정지한 뒤 FOUP을 수직으로 내려 장비의 <strong>로드포트</strong>에
+          올려놓는다. 이 핸드오프 절차를 표준화한 것이 SEMI E84다 (Station 05).
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>관제(Fleet) 관점에서 AMR이 AGV보다 어려운 이유는?</summary>
+      <div class="answer">
+        <p>
+          AGV는 경로가 고정되어 움직임이 예측 가능하지만, AMR은 스스로 경로를
+          재계산하므로 미래 위치 예측이 어렵고, 사람과 공간을 공유해 안전 제약까지
+          관제에 반영해야 하기 때문이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>시뮬레이션 모델링에서 세 장비의 공통 추상화는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          "경로(그래프) 위를 정해진 속도 프로파일로 이동하고, 구간·지점을 점유하며,
+          픽업/드롭에 시간이 소요되는 <strong>이동 리소스</strong>"라는 추상화.
+          이 추상화가 Phase 2의 DES 엔진과 Phase 5의 시뮬레이터의 기본 단위가 된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../index.html">
+      <span class="dir">← 노선도</span>
+      <span class="title">전체 로드맵</span>
+    </a>
+    <a class="next" href="02-amhs.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">반도체 팹 AMHS — FOUP · 스토커 · 베이</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 1 — DOMAIN: FAB LOGISTICS</div>
+</footer>
+
+</body>
+</html>
