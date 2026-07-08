@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 Frame Debugger와 배칭 — DT1 Phase 4</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 4 최적화<span class="sep">/</span>02 Frame Debugger
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 4 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-profiler.html" title="Profiler 읽는 법">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-optimization.html" title="최적화 기법 + 실험장">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 4 — 성능 분석·최적화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 4 · Station 02</p>
+    <h1>Frame Debugger와 배칭</h1>
+    <p class="lede">
+      Profiler가 "시간이 어디에 쓰이는가"에 답한다면, Frame Debugger는
+      "이 화면 한 장이 어떤 순서로, 몇 번의 명령으로 그려지는가"에 답한다.
+      그리고 그 명령 횟수를 줄이는 기술이 배칭이다 — 장비 수백 대를
+      그리면서도 CPU가 태연할 수 있는 이유가 여기에 있다.
+    </p>
+  </div>
+
+  <h2>화면 한 장이 그려지는 과정을 한 장씩</h2>
+  <p>
+    <strong>Frame Debugger</strong>(Window &gt; Analysis &gt; Frame Debugger)는
+    한 프레임의 렌더링을 <strong>드로우콜 단위로 순서대로 재생</strong>하는 도구다.
+    창을 열고 <strong>Enable</strong>을 누르면 게임이 그 자리에 멈추고,
+    왼쪽에 그 프레임을 구성한 렌더링 이벤트의 목록이 나타난다.
+    목록의 항목을 위에서부터 하나씩 클릭하면 Game 뷰가
+    <strong>"여기까지 그린 화면"</strong>으로 바뀐다 — 빈 화면에서 시작해
+    바닥이 깔리고, 장비가 하나씩 올라오고, 마지막에 포스트 프로세싱이 입혀지는
+    과정을 슬라이드쇼처럼 넘겨볼 수 있다.
+  </p>
+  <p>
+    지금까지 렌더링은 "카메라가 있으면 알아서 그려지는" 블랙박스였다.
+    Frame Debugger는 그 블랙박스를 한 장씩 넘겨볼 수 있는 책으로 바꾼다.
+    각 항목을 선택하면 오른쪽 패널에 그 드로우에 쓰인 셰이더, 머티리얼 속성,
+    텍스처, 그리고 <strong>"왜 이 드로우가 앞의 드로우와 묶이지 못했는가"</strong>라는
+    배칭 실패 사유까지 표시된다. 이 마지막 정보가 최적화 작업의 나침반이 된다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/4N8GxCeolzM" title="Unity Frame Debugger 튜토리얼 — Unity 공식" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity 공식 Frame Debugger 소개 영상. <strong>Enable → 목록 클릭 →
+      화면이 단계별로 쌓이는 과정</strong>이 그대로 시연된다. 에디터 UI는
+      구버전이지만 도구의 사용법 자체는 지금과 동일하다.
+      <a href="https://www.youtube.com/watch?v=4N8GxCeolzM">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>드로우콜이 왜 비싼가</h2>
+  <p>
+    <strong>드로우콜</strong><i class="en">(draw call)</i>은 CPU가 GPU에게
+    "이 메시를 이 상태로 그려라"라고 내리는 명령 하나다. 여기서 비용의 본체는
+    GPU가 삼각형을 그리는 작업이 아니라, 명령을 내리기 전에 CPU가 해야 하는
+    <strong>준비</strong>다.
+  </p>
+  <ul>
+    <li><strong>상태 변경</strong> — 셰이더 교체, 머티리얼 파라미터 설정, 텍스처·버퍼 바인딩.
+      렌더 상태가 바뀔 때마다 CPU와 그래픽스 드라이버가 이를 검증하고 GPU에 전달해야 한다.
+      Stats 창의 <strong>SetPass calls</strong>가 이 상태 전환의 횟수다.</li>
+    <li><strong>명령 제출</strong> — 오브젝트별 변환 행렬 등 데이터를 준비해 커맨드 버퍼에 쌓는 일.
+      드로우 하나하나는 싸 보여도 수천 번 반복되면 CPU 렌더 스레드의 시간을 통째로 삼킨다.</li>
+  </ul>
+  <p>
+    그래서 드로우콜이 많은 씬의 전형적인 증상은 "GPU는 놀고 있는데 프레임이 안 나오는"
+    <strong>CPU 바운드</strong> 상태다 — Station 01의 Profiler에서 렌더링 관련 마커가
+    CPU 타임라인을 채우고 있다면 이 경우를 의심한다. 그리고 팹 씬은 이 문제의 모범적인
+    피해자가 되기 쉽다. <strong>장비 500대를 순진하게 그리면 500번 이상의 드로우콜</strong>이고,
+    장비마다 상태등·배관 같은 부속이 붙으면 곱절로 불어난다.
+  </p>
+
+  <h2>배칭 3형제</h2>
+  <p>
+    <strong>배칭</strong><i class="en">(batching)</i>은 여러 오브젝트의 드로우를 묶어
+    CPU의 준비 비용을 나눠 갖게 하는 기법의 총칭이다. URP에서 실전에 쓰이는 것은 세 가지다.
+  </p>
+
+  <h3>SRP Batcher — URP의 기본기</h3>
+  <p>
+    <strong>SRP Batcher</strong>는 URP에서 기본으로 켜져 있는 배칭이다. 머티리얼 데이터를
+    GPU 메모리에 상주시켜 두고, <strong>같은 셰이더 변형</strong><i class="en">(shader variant)</i>을
+    쓰는 연속된 드로우 사이에서는 상태 준비를 건너뛴다. 핵심은 조건이 느슨하다는 것 —
+    <strong>머티리얼이 서로 달라도</strong> 셰이더 변형만 같으면 묶인다. URP/Lit 하나로
+    색과 파라미터만 다른 머티리얼 여러 장을 쓰는 씬이라면 거의 전부가 한 묶음이 된다.
+  </p>
+  <p>
+    한 가지 정확히 해 둘 점: SRP Batcher는 드로우콜의 <strong>개수를 줄이지 않는다</strong>.
+    콜 사이의 준비 비용을 줄일 뿐이다. Frame Debugger 목록에는 <strong>SRP Batch</strong>라는
+    항목 아래 여러 드로우가 접혀 들어간 모습으로 나타난다. URP 에셋의 SRP Batcher
+    체크박스를 꺼 보면(버전에 따라 추가 속성 표시를 켜야 보인다) 같은 씬의 CPU 렌더
+    비용이 어떻게 달라지는지 직접 비교할 수 있다.
+  </p>
+
+  <h3>GPU 인스턴싱 — 같은 것 수백 개를 한 번에</h3>
+  <p>
+    <strong>GPU 인스턴싱</strong><i class="en">(GPU instancing)</i>은
+    <strong>같은 메시 + 같은 머티리얼</strong>의 조합이 여러 개일 때, GPU에게
+    "이 메시를 N개 그려라"라는 <strong>드로우콜 하나</strong>로 처리하는 기법이다.
+    오브젝트별로 다른 것(위치·회전 등)은 인스턴스 데이터 배열로 한꺼번에 넘긴다.
+    머티리얼 인스펙터의 <strong>Enable GPU Instancing</strong> 체크박스 하나로 켜지며,
+    Frame Debugger에는 <strong>Draw Mesh (instanced)</strong>라는 항목으로 나타난다.
+  </p>
+  <p>
+    같은 비히클 메시 수백 대, 같은 상태등 수백 개 — 동일한 물건이 대량으로 반복되는
+    씬에 이상적이다. 다만 우선순위 규칙이 하나 있다:
+    <strong>SRP Batcher와 호환되는 렌더러에는 SRP Batcher가 우선 적용</strong>되어,
+    머티리얼에 인스턴싱을 켜 두어도 일반 MeshRenderer는 SRP Batch 경로로 그려질 수 있다.
+    (스크립트에서 <code>Graphics.RenderMeshInstanced</code>로 직접 그리는 경로는 예외다.)
+    어느 경로를 탔는지는 추측하지 말고 Frame Debugger로 확인하는 것이 정답이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="위: 오브젝트 6개를 각각 드로우콜 6번으로 그리는 경우. 아래: GPU 인스턴싱으로 드로우콜 1번에 6개를 그리는 경우.">
+      <defs>
+        <marker id="arr-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-soft"/>
+        </marker>
+        <marker id="arr-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-accent"/>
+        </marker>
+      </defs>
+
+      <!-- 위: 개별 드로우 -->
+      <text class="d-label-strong" x="24" y="28">개별 드로우 — CPU→GPU 명령 6번</text>
+
+      <rect class="d-node" x="40" y="70" width="110" height="64" rx="6" stroke-width="2"/>
+      <text class="d-title" x="95" y="98" text-anchor="middle">CPU</text>
+      <text class="d-label" x="95" y="118" text-anchor="middle">상태 준비 ×6</text>
+
+      <text class="d-label" x="576" y="36" text-anchor="middle">같은 장비 메시 ×6</text>
+      <rect class="d-node-2" x="420" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="478" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="536" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="594" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="652" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="710" y="44" width="44" height="40" rx="4" stroke-width="2"/>
+
+      <line class="d-soft" x1="155" y1="100" x2="436" y2="92" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <line class="d-soft" x1="155" y1="102" x2="494" y2="93" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <line class="d-soft" x1="155" y1="104" x2="552" y2="94" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <line class="d-soft" x1="155" y1="106" x2="610" y2="95" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <line class="d-soft" x1="155" y1="108" x2="668" y2="96" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <line class="d-soft" x1="155" y1="110" x2="726" y2="97" stroke-width="1.8" marker-end="url(#arr-soft)"/>
+      <text class="d-label" x="290" y="140">드로우콜 ×6 — 준비와 제출을 여섯 번 반복</text>
+
+      <!-- 구분선 -->
+      <line class="d-soft" x1="20" y1="162" x2="780" y2="162" stroke-width="1" stroke-dasharray="5 5"/>
+
+      <!-- 아래: 인스턴싱 -->
+      <text class="d-label-strong" x="24" y="190">GPU 인스턴싱 — CPU→GPU 명령 1번</text>
+
+      <rect class="d-node" x="40" y="222" width="110" height="64" rx="6" stroke-width="2"/>
+      <text class="d-title" x="95" y="250" text-anchor="middle">CPU</text>
+      <text class="d-label" x="95" y="270" text-anchor="middle">상태 준비 ×1</text>
+
+      <rect class="d-accent" x="400" y="200" width="372" height="102" rx="8" stroke-width="2" stroke-dasharray="6 4" fill="none"/>
+      <text class="d-label" x="586" y="220" text-anchor="middle">Draw Mesh (instanced) — 한 묶음</text>
+      <rect class="d-node-2" x="420" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="478" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="536" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="594" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="652" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-node-2" x="710" y="234" width="44" height="40" rx="4" stroke-width="2"/>
+
+      <line class="d-accent" x1="155" y1="252" x2="392" y2="252" stroke-width="3" marker-end="url(#arr-accent)"/>
+      <text class="d-label" x="180" y="276">드로우콜 ×1 — 인스턴스 6개를 동반</text>
+    </svg>
+    <figcaption>
+      같은 메시 6개를 그리는 두 가지 방법. 위는 오브젝트마다 상태 준비와 명령 제출을
+      반복하는 개별 드로우(6콜), 아래는 인스턴스 데이터를 한꺼번에 넘기고 명령은
+      한 번만 내리는 GPU 인스턴싱(1콜)이다. 오브젝트가 6개가 아니라 600개일 때
+      이 차이는 CPU 렌더 시간의 차원을 바꾼다.
+    </figcaption>
+  </figure>
+
+  <h3>정적 배칭 — 움직이지 않는 것들을 미리 합쳐 두기</h3>
+  <p>
+    <strong>정적 배칭</strong><i class="en">(static batching)</i>은 씬에서 절대 움직이지
+    않는 오브젝트들에 <strong>Static 플래그</strong>를 세워 두면, Unity가 빌드·씬 로드
+    시점에 그 메시들을 <strong>하나의 큰 정점 버퍼로 합쳐 두는</strong> 기법이다.
+    이후에는 오브젝트 사이의 상태 전환 없이 매우 싸게 그려진다. 대가는
+    <strong>메모리</strong>다 — 같은 메시 100개를 정적 배칭하면 100개 분량의 정점
+    데이터가 복제되어 저장되고, 당연히 런타임에 움직일 수도 없다. 바닥·벽·레일처럼
+    한번 놓이면 끝인 지오메트리가 대상이다.
+  </p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>기법</th>
+          <th>묶이는 조건</th>
+          <th>효과</th>
+          <th>비용 · 한계</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">SRP Batcher</td>
+          <td>같은 셰이더 변형 (머티리얼은 달라도 됨)</td>
+          <td>드로우콜 사이의 CPU 준비 비용 절감 — 콜 수 자체는 그대로</td>
+          <td>SRP 호환 셰이더 필요, MaterialPropertyBlock과 비호환</td>
+        </tr>
+        <tr>
+          <td class="rowhead">GPU 인스턴싱</td>
+          <td>같은 메시 + 같은 머티리얼 (Enable GPU Instancing)</td>
+          <td>N개를 드로우콜 1번으로 — 콜 수 자체가 줄어듦</td>
+          <td>인스턴스별 차이는 제한적, 호환 렌더러엔 SRP Batcher가 우선</td>
+        </tr>
+        <tr>
+          <td class="rowhead">정적 배칭</td>
+          <td>Static 플래그 + 같은 머티리얼, 움직이지 않는 오브젝트</td>
+          <td>합쳐 둔 메시를 상태 전환 없이 그림</td>
+          <td>합친 만큼 메모리 증가, 런타임 이동 불가</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="label">배칭이 깨지는 흔한 이유</span>
+    <p>
+      스크립트에서 <code>renderer.material</code>에 접근하는 순간 Unity는 그 렌더러만의
+      <strong>머티리얼 복사본</strong>을 조용히 만들어 낸다 — 이제 "같은 머티리얼" 조건이
+      깨져 그 오브젝트는 인스턴싱 묶음에서 이탈한다 (읽기만 할 때도 복제된다.
+      공유 상태를 건드리려면 <code>renderer.sharedMaterial</code>을 쓴다).
+      렌더러별 속성을 주는 <code>MaterialPropertyBlock</code>은 복제는 피하지만
+      <strong>SRP Batcher와 비호환</strong>이라 그 렌더러를 SRP Batch에서 빼낸다.
+      또한 셰이더 키워드가 달라 <strong>셰이더 변형이 갈리면</strong> 같은 셰이더라도
+      SRP Batch가 그 지점에서 쪼개진다. 어느 경우든 증상은 같다 — "분명히 같은
+      물건인데 배치 수가 늘어나 있다". 원인은 Frame Debugger의 배칭 실패 사유에서 찾는다.
+    </p>
+  </div>
+
+  <h2>실험: 완성본 실험장에서 확인</h2>
+  <p>
+    <code>FabSim-P4-Complete</code> 프로젝트의 <strong>StressField</strong> 씬
+    (<code>Assets/Scenes/StressField.unity</code>)은 이 이론을 눈으로 확인하기 위한
+    무대다. 6개 베이에 장비 박스 192대, 각 장비의 상태등 192개, 레일 6개,
+    바닥·천장, 그리고 순환 트랙을 도는 비히클 96대 — 합쳐서
+    <strong>렌더러 488개</strong>(빌드 로그 기준)로 구성된다.
+    씬을 만드는 <code>StressSceneBuilder.cs</code>는 모든 머티리얼에
+    GPU 인스턴싱을 켜 둔다.
+  </p>
+  <pre><code>// Assets/Editor/StressSceneBuilder.cs — CreateLitMaterial()
+var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+material.SetColor("_BaseColor", baseColor);
+material.SetFloat("_Metallic", metallic);
+material.SetFloat("_Smoothness", smoothness);
+
+// GPU 인스턴싱 — 같은 메시+머티리얼을 드로우콜 하나로 묶는 열쇠.
+material.enableInstancing = true;</code></pre>
+  <p>
+    움직이지 않는 지오메트리(바닥·천장·장비·레일·상태등)에는 Static 플래그가
+    일괄로 세워진다. 결국 이 씬에는 배칭 3형제가 모두 출동해 있는 셈이다 —
+    움직이는 비히클 96대는 Static이 될 수 없으니 인스턴싱이 맡고,
+    나머지는 정적 배칭과 SRP Batcher의 영역이다.
+  </p>
+  <pre><code>// Assets/Editor/StressSceneBuilder.cs — MarkStaticRecursively()
+foreach (Transform child in root.GetComponentsInChildren&lt;Transform&gt;(true))
+{
+    GameObjectUtility.SetStaticEditorFlags(child.gameObject, (StaticEditorFlags)~0);
+}</code></pre>
+  <p>관찰 절차는 다음과 같다.</p>
+  <ol>
+    <li>Unity로 <code>FabSim-P4-Complete</code>를 열고 StressField 씬을 로드한 뒤
+      Play — 비히클 무리가 팹 둘레를 돌기 시작한다.</li>
+    <li>Game 뷰 우상단의 <strong>Stats</strong>를 켜고 <strong>Batches</strong>와
+      <strong>SetPass calls</strong>를 기록한다. 렌더러가 488개라는 사실과 나란히 두면
+      배칭의 효과가 숫자로 보인다.</li>
+    <li>Window &gt; Analysis &gt; <strong>Frame Debugger</strong>를 열고 Enable.
+      게임이 멈추고 이 프레임의 이벤트 목록이 나타난다.</li>
+    <li>목록을 위에서 아래로 클릭하며 화면이 쌓이는 순서를 관찰한다 —
+      불투명 지오메트리가 먼저, 포스트 프로세싱(Bloom, Tonemapping)이 마지막이다.</li>
+    <li>목록에서 <strong>Draw Mesh (instanced)</strong> 항목을 찾는다 — 같은 메시
+      수백 개가 몇 번의 콜로 묶였는지 확인한다. 만약 대부분이
+      <strong>SRP Batch</strong> 항목으로만 보인다면, 그것대로 수확이다 —
+      "호환 렌더러에는 SRP Batcher가 우선"이라는 규칙을 눈으로 확인한 것이다.</li>
+    <li>URP 에셋(<code>Assets/Settings/FabSimUrp.asset</code>)에서
+      <strong>SRP Batcher를 꺼 보고</strong> Batches 수와 이벤트 목록이 어떻게
+      변하는지 비교한다. 관찰이 끝나면 반드시 다시 켠다.</li>
+  </ol>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      OHT <strong>수천 대</strong>가 움직이는 팹 트윈이 한 화면에 그려질 수 있는
+      이유가 바로 인스턴싱이다. 팹의 반송 세계는 렌더링 관점에서 축복받은 구조다 —
+      비히클은 전부 <strong>같은 메시의 반복</strong>이고, 레일과 장비도 몇 종류의
+      모듈이 복제된 것이다. "종류는 적고 개수는 많다"는 팹의 성질이 그대로
+      "묶을 수 있는 드로우가 많다"로 번역된다. 트윈의 시각화 성능 설계는
+      이 성질을 얼마나 살리느냐의 게임이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Profiler와 Frame Debugger의 역할 차이는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          Profiler는 <strong>시간</strong>의 도구다 — 한 프레임의 CPU/GPU 시간이
+          어떤 작업에 얼마나 쓰였는지 알려준다. Frame Debugger는
+          <strong>순서와 횟수</strong>의 도구다 — 그 프레임의 화면이 어떤 드로우콜을
+          어떤 순서로 거쳐 완성됐고, 무엇이 묶이고 무엇이 묶이지 못했는지 보여준다.
+          "렌더링이 느리다"는 진단은 Profiler에서, "왜 드로우가 많은가"의 답은
+          Frame Debugger에서 나온다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>드로우콜이 비싼 진짜 이유는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          GPU가 그리는 작업 자체보다 <strong>CPU 쪽의 준비</strong> — 셰이더·텍스처·버퍼
+          같은 렌더 상태를 바꾸고 검증해 명령을 제출하는 비용 — 가 본체이기 때문이다.
+          그래서 드로우콜 과다의 전형적 증상은 GPU가 아니라 CPU가 바쁜
+          <strong>CPU 바운드</strong>다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>SRP Batcher와 GPU 인스턴싱은 각각 무엇을 줄이는가?</summary>
+      <div class="answer">
+        <p>
+          SRP Batcher는 <strong>콜 사이의 준비 비용</strong>을 줄인다 — 같은 셰이더
+          변형이면 머티리얼이 달라도 묶이지만, 드로우콜 개수 자체는 그대로다.
+          GPU 인스턴싱은 <strong>콜 개수 자체</strong>를 줄인다 — 같은 메시+머티리얼
+          N개를 드로우콜 1번으로 그린다. 단 호환 렌더러에는 SRP Batcher가 우선
+          적용된다는 규칙이 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>스크립트에서 <code>renderer.material</code> 접근이 배칭을 깨는 이유는?</summary>
+      <div class="answer">
+        <p>
+          접근하는 순간 그 렌더러만의 <strong>머티리얼 복사본</strong>이 생성되어
+          "같은 머티리얼" 조건이 깨지기 때문이다. 공유 머티리얼을 쓰려면
+          <code>renderer.sharedMaterial</code>, 렌더러별 속성이 꼭 필요하면
+          <code>MaterialPropertyBlock</code>을 쓰되 후자는 SRP Batcher와
+          비호환이라는 트레이드오프를 감수해야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>StressField 씬의 렌더러 488개가 훨씬 적은 배치 수로 그려지는 이유는?</summary>
+      <div class="answer">
+        <p>
+          씬이 배칭에 유리하게 설계되어 있기 때문이다 — 오브젝트 대부분이
+          <strong>몇 종류의 메시·머티리얼의 반복</strong>이고, 모든 머티리얼에
+          GPU 인스턴싱이 켜져 있으며(<code>material.enableInstancing = true</code>),
+          움직이지 않는 지오메트리에는 Static 플래그가 세워져 있다. 움직이는
+          비히클은 인스턴싱이, 고정 지오메트리는 정적 배칭과 SRP Batcher가 묶는다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-profiler.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">Profiler 읽는 법 — CPU 타임라인 · GC</span>
+    </a>
+    <a class="next" href="03-optimization.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">최적화 기법 + 실험장</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 4 — PROFILING &amp; OPTIMIZATION</div>
+</footer>
+
+</body>
+</html>

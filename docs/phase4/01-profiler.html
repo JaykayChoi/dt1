@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 Profiler 읽는 법 — CPU 타임라인 · GC — DT1 Phase 4</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 4 최적화<span class="sep">/</span>01 Profiler
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 4 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-frame-debugger.html" title="Frame Debugger와 배칭">02</a></li>
+      <li><a href="03-optimization.html" title="최적화 기법">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 4 — 성능 분석·최적화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 4 · Station 01</p>
+    <h1>Profiler 읽는 법 — CPU 타임라인 · GC</h1>
+    <p class="lede">
+      "느린 것 같다"는 감각으로는 아무것도 고칠 수 없다. Unity Profiler는
+      프레임당 16.6ms의 예산이 정확히 어디에 쓰였는지 보여 주는 계측기다.
+      이 스테이션에서는 CPU 타임라인을 읽고, CPU 바운드인지 GPU 바운드인지
+      가려내고, 프레임을 훔쳐 가는 GC 할당을 추적하는 법을 배운다.
+    </p>
+  </div>
+
+  <h2>측정 없이는 최적화도 없다</h2>
+  <p>
+    Phase 4 전체를 지배하는 원칙은 하나다: <strong>측정 → 병목 확인 → 수정 → 재측정</strong>.
+    "오브젝트가 많아서 느린 것 같으니 줄이자", "그림자가 무거울 테니 끄자" 같은
+    추측 기반 최적화는 대개 <strong>엉뚱한 곳을 고친다</strong>. 실제 병목이 스크립트의
+    GC 할당인데 텍스처 해상도를 줄이고 있으면, 며칠을 써도 프레임은 그대로다.
+    최적화는 코드를 잘 쓰는 기술이기 이전에 <strong>어디가 느린지 찾아내는 기술</strong>이다.
+  </p>
+  <p>
+    기준선은 <strong>프레임 예산</strong><i class="en">(frame budget)</i>이다.
+    60fps로 돌리려면 한 프레임을 1000ms ÷ 60 ≈ <strong>16.6ms</strong> 안에
+    끝내야 한다. 30fps라면 33.3ms. 이 시간 안에 스크립트 실행, 물리, 애니메이션,
+    컬링과 드로우콜 제출, GPU의 실제 그리기까지 전부 끝나야 한다. 즉 한 프레임은
+    <strong>마감이 정해진 파이프라인</strong>이다.
+  </p>
+  <p>
+    Phase 2의 큐잉 이론을 기억한다면 이 그림이 낯설지 않을 것이다. 생산 라인의
+    처리량을 병목 스테이션이 결정했듯, <strong>프레임 타임은 파이프라인에서 가장
+    느린 구간이 결정한다</strong>. CPU가 5ms 만에 일을 끝내도 GPU가 25ms를 쓰면
+    그 프레임은 25ms짜리다. 반대로 GPU가 놀고 있어도 스크립트가 20ms를 먹으면
+    역시 60fps는 물 건너간다. 그래서 최적화의 첫 질문은 언제나
+    <strong>"지금 어느 구간이 병목인가"</strong>이고, 그 답을 주는 도구가 Profiler다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="프레임 타임 개념도: 16.6ms 예산선 아래 스크립트·렌더 준비·GPU 구간이 쌓인 정상 프레임들과, GC 스파이크로 예산을 초과한 프레임 하나의 대비">
+      <!-- 범례 -->
+      <g>
+        <rect class="d-fill-rail" x="60" y="18" width="12" height="12" rx="2"/>
+        <text class="d-label" x="78" y="28">스크립트 (Update 등)</text>
+        <rect class="d-fill-soft" x="240" y="18" width="12" height="12" rx="2"/>
+        <text class="d-label" x="258" y="28">렌더 준비 (컬링·드로우콜 제출)</text>
+        <rect class="d-node-2" x="478" y="18" width="12" height="12" rx="2"/>
+        <text class="d-label" x="496" y="28">GPU / 대기</text>
+        <rect class="d-fill-accent" x="600" y="18" width="12" height="12" rx="2"/>
+        <text class="d-label" x="618" y="28">GC 스파이크</text>
+      </g>
+
+      <!-- 16.6ms 예산선 -->
+      <line class="d-accent" x1="50" y1="120" x2="770" y2="120" stroke-width="2" stroke-dasharray="6 4"/>
+      <text class="d-label-strong" x="54" y="112">16.6 ms 예산 (60fps)</text>
+
+      <!-- 정상 프레임 1 -->
+      <g>
+        <rect class="d-fill-rail" x="80" y="200" width="70" height="50"/>
+        <rect class="d-fill-soft" x="80" y="165" width="70" height="35"/>
+        <rect class="d-node-2" x="80" y="140" width="70" height="25"/>
+        <text class="d-label" x="115" y="270" text-anchor="middle">프레임 1</text>
+      </g>
+
+      <!-- 정상 프레임 2 -->
+      <g>
+        <rect class="d-fill-rail" x="190" y="196" width="70" height="54"/>
+        <rect class="d-fill-soft" x="190" y="164" width="70" height="32"/>
+        <rect class="d-node-2" x="190" y="142" width="70" height="22"/>
+        <text class="d-label" x="225" y="270" text-anchor="middle">프레임 2</text>
+      </g>
+
+      <!-- 정상 프레임 3 -->
+      <g>
+        <rect class="d-fill-rail" x="300" y="202" width="70" height="48"/>
+        <rect class="d-fill-soft" x="300" y="166" width="70" height="36"/>
+        <rect class="d-node-2" x="300" y="143" width="70" height="23"/>
+        <text class="d-label" x="335" y="270" text-anchor="middle">프레임 3</text>
+      </g>
+
+      <!-- GC 스파이크 프레임 -->
+      <g>
+        <rect class="d-fill-rail" x="410" y="200" width="70" height="50"/>
+        <rect class="d-fill-accent" x="410" y="140" width="70" height="60"/>
+        <rect class="d-fill-soft" x="410" y="105" width="70" height="35"/>
+        <rect class="d-node-2" x="410" y="80" width="70" height="25"/>
+        <text class="d-label-strong" x="445" y="70" text-anchor="middle">GC 스파이크 — 프레임 튐</text>
+        <text class="d-label" x="445" y="270" text-anchor="middle">프레임 4</text>
+      </g>
+
+      <!-- 정상 프레임 5 -->
+      <g>
+        <rect class="d-fill-rail" x="520" y="199" width="70" height="51"/>
+        <rect class="d-fill-soft" x="520" y="165" width="70" height="34"/>
+        <rect class="d-node-2" x="520" y="141" width="70" height="24"/>
+        <text class="d-label" x="555" y="270" text-anchor="middle">프레임 5</text>
+      </g>
+
+      <!-- 정상 프레임 6 -->
+      <g>
+        <rect class="d-fill-rail" x="630" y="201" width="70" height="49"/>
+        <rect class="d-fill-soft" x="630" y="167" width="70" height="34"/>
+        <rect class="d-node-2" x="630" y="144" width="70" height="23"/>
+        <text class="d-label" x="665" y="270" text-anchor="middle">프레임 6</text>
+      </g>
+
+      <!-- 바닥(시간축) -->
+      <line class="d-rail" x1="50" y1="250" x2="770" y2="250" stroke-width="2"/>
+      <text class="d-label" x="770" y="270" text-anchor="end">시간 →</text>
+    </svg>
+    <figcaption>
+      프레임마다 스크립트·렌더 준비·GPU 구간이 쌓여 예산 안에서 끝나야 60fps가 유지된다.
+      프레임 4처럼 누적된 힙 할당이 GC를 깨우면 그 프레임만 예산을 넘겨 화면이 순간
+      멈칫한다 — 평균 fps에는 거의 안 보이지만 사용자 눈에는 확실히 보이는 종류의 문제다.
+    </figcaption>
+  </figure>
+
+  <h2>Profiler 열기와 기본 구조</h2>
+  <p>
+    Profiler는 <strong>Window &gt; Analysis &gt; Profiler</strong>(단축키 Ctrl+7)로 연다.
+    에디터에서 Play를 누르면 기록이 시작되고, 창은 크게 두 부분으로 나뉜다.
+  </p>
+  <ul>
+    <li><strong>위쪽 — 모듈 트랙</strong>: CPU Usage, Rendering, Memory 등 모듈별
+      시간축 차트. 프레임 하나가 세로 한 칸이고, 차트가 솟은 곳이 비싼 프레임이다.
+      필요한 모듈은 창 좌상단의 모듈 목록에서 켜고 끌 수 있다.</li>
+    <li><strong>아래쪽 — 상세 뷰</strong>: 위에서 선택한 모듈과 프레임의 내부를
+      보여 준다. CPU Usage 모듈을 선택했을 때의 상세 뷰가 이 페이지의 주인공이다.</li>
+  </ul>
+  <p>
+    기본 사용법은 <strong>"솟은 프레임을 클릭해 멈춰 놓고 읽기"</strong>다. 차트에서
+    스파이크가 보이면 그 프레임을 클릭한다 — 아래 상세 뷰가 해당 프레임의 데이터로
+    고정되고, 이제 그 16.6ms(혹은 그걸 넘긴 시간)가 어디에 쓰였는지 항목별로
+    추적할 수 있다. 흘러가는 차트를 눈으로 쫓는 것이 아니라, <strong>한 프레임을
+    박제해 놓고 해부하는 것</strong>이 Profiler의 기본 자세다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">에디터에서의 측정 함정</span>
+    <p>
+      에디터에서 측정한 수치에는 <strong>에디터 자신의 비용</strong>이 섞여 있다.
+      인스펙터·씬 뷰·Profiler 창 자체가 CPU와 메모리를 쓰고, 에디터 전용 안전 검사가
+      끼어들며, 코드 최적화 수준도 실제 빌드와 다르다. 그래서 에디터의 절대 수치를
+      "이 게임은 프레임당 12ms짜리"라고 믿으면 안 된다. 에디터 측정은
+      <strong>상대 비교와 경향 파악용</strong>이다 — "수정 전 8ms였던 항목이 수정 후
+      2ms가 됐다"는 판단은 유효하다. 최종 판정은 실제 빌드를 대상 기기에서 돌리며
+      프로파일링해서 내린다.
+    </p>
+  </div>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/sBpXiJ9G3OY" title="Introduction to the Profiler — Unity 공식" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity 공식 Profiler 입문 영상. 화면의 UI는 예전 버전이지만
+      <strong>모듈 트랙 + 상세 뷰라는 구조와 "프레임을 골라 읽는" 사용법은 지금과
+      동일</strong>하다. 모듈 차트에서 스파이크를 찾아 클릭하고 아래에서 원인을
+      추적하는 흐름을 눈으로 확인해 두자.
+      <a href="https://www.youtube.com/watch?v=sBpXiJ9G3OY">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>CPU 타임라인 읽는 법</h2>
+  <p>
+    CPU Usage 모듈의 상세 뷰는 두 가지 방식으로 볼 수 있다. 상세 뷰 좌상단의
+    드롭다운에서 전환한다.
+  </p>
+  <ul>
+    <li><strong>Hierarchy 뷰</strong> — 함수 호출을 트리로 접어 놓은 표.
+      항목별로 <strong>소요 시간(ms)</strong>, <strong>호출 횟수(Calls)</strong>,
+      <strong>GC Alloc</strong>(그 프레임에 할당한 힙 바이트) 열이 나온다.
+      "무엇이 비싼가"를 찾을 때 가장 빠르다. Time ms 열로 정렬해 놓고 읽는 것이 기본.</li>
+    <li><strong>Timeline 뷰</strong> — 스레드별 시간축 위에 각 작업이 실제로
+      언제, 얼마나 오래 실행됐는지를 띠로 보여 준다. 메인 스레드, 렌더 스레드,
+      잡 워커 스레드가 나란히 보이므로 "메인 스레드가 렌더 스레드를 기다리는가"
+      같은 <strong>스레드 사이의 관계</strong>는 여기서만 보인다.</li>
+  </ul>
+  <h3>읽는 순서</h3>
+  <ol>
+    <li><strong>프레임 총 ms를 확인한다</strong> — 예산(16.6ms) 대비 얼마나 초과했는가.</li>
+    <li><strong>가장 큰 항목부터 연다</strong> — 메인 스레드의 뿌리는 대부분
+      <code>PlayerLoop</code>이고, 그 아래에서 스크립트(<code>Update</code> 계열),
+      렌더링, 물리 중 <strong>어느 갈래가 시간을 먹는지</strong>부터 가른다.</li>
+    <li><strong>범인 갈래를 끝까지 판다</strong> — 스크립트라면 어느 컴포넌트의
+      Update인지, 렌더링이라면 컬링인지 드로우콜 제출인지까지 내려간다.</li>
+  </ol>
+  <h3>자주 만나는 항목</h3>
+  <ul>
+    <li><code>Update</code> / <code>LateUpdate</code> / <code>FixedUpdate</code> 계열 —
+      내가 쓴 스크립트의 비용. 그 아래에 컴포넌트별 항목이 나오므로 범인 지목이 쉽다.</li>
+    <li><code>Camera.Render</code> — 렌더링의 <strong>CPU 쪽</strong> 비용. 컬링,
+      드로우콜 준비·제출이 여기 들어간다. 이 항목이 크면 GPU가 아니라
+      "그리라고 지시하는 일" 자체가 비싼 것이고, 처방은 배칭·드로우콜 감소다
+      (Station 02의 주제).</li>
+    <li><code>Gfx.WaitForPresent</code> 계열의 대기 항목 — <strong>CPU가 GPU를
+      기다리는 시간</strong>. CPU는 일을 다 끝냈는데 GPU가 아직 이전 프레임을 그리고
+      있어서 노는 상태다. 이 항목이 크면 병목은 CPU 코드가 아니라 <strong>GPU</strong>다.</li>
+    <li><code>WaitForTargetFPS</code> — vsync나 목표 프레임레이트에 맞추기 위한
+      대기. 병목이 아니라 <strong>예산이 남는다는 뜻</strong>이므로 이걸 줄이려고
+      애쓸 필요는 없다.</li>
+  </ul>
+  <h3>CPU 바운드인가, GPU 바운드인가</h3>
+  <p>
+    이 판별이 이 페이지의 절반이다. 프레임이 예산을 넘겼을 때, 다음에 무엇을
+    최적화할지는 <strong>어느 쪽이 병목인지</strong>에 따라 완전히 달라진다.
+    CPU 바운드인데 셰이더를 다듬거나, GPU 바운드인데 스크립트를 다듬으면
+    프레임은 1ms도 안 줄어든다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Profiler에서 보이는 신호</th>
+          <th>진단</th>
+          <th>다음 행동</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Update 계열이 크다</td>
+          <td>CPU 바운드 — 스크립트</td>
+          <td>해당 컴포넌트 코드 최적화, GC Alloc 확인, 관리 주체 통합 (Station 03)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Camera.Render가 크다</td>
+          <td>CPU 바운드 — 렌더 제출</td>
+          <td>드로우콜 줄이기: 배칭, 컬링 (Station 02)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Gfx.WaitForPresent가 크다</td>
+          <td>GPU 바운드</td>
+          <td>해상도·셰이더 비용·오버드로우·그림자 품질 조정</td>
+        </tr>
+        <tr>
+          <td class="rowhead">WaitForTargetFPS가 크다</td>
+          <td>병목 없음 — 예산 여유</td>
+          <td>최적화 불필요. 다른 일을 하자</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout field">
+    <span class="label">현장 감각</span>
+    <p>
+      Hierarchy에서 내 스크립트가 익명의 항목 속에 묻혀 잘 안 보일 때는, 의심 가는
+      코드 구간을 <code>Profiler.BeginSample("구간 이름")</code>과
+      <code>Profiler.EndSample()</code>로 감싸 보자. 그 이름이 Hierarchy에 하나의
+      항목으로 나타나 시간과 GC Alloc이 따로 집계된다. "이 함수의 이 절반이 문제인가,
+      저 절반이 문제인가"를 가를 때 특히 유용한, 비용이 거의 없는 습관이다.
+    </p>
+  </div>
+
+  <h2>GC Alloc — 조용한 프레임 도둑</h2>
+  <p>
+    C# 코드에서 <code>new</code>로 만드는 클래스 인스턴스, 문자열, 배열은
+    <strong>관리 힙</strong><i class="en">(managed heap)</i>에 할당된다. 이 할당
+    자체는 싸다. 문제는 청소다 — 힙이 차면 <strong>가비지 컬렉터(GC)</strong>가 돌며
+    더 이상 안 쓰는 메모리를 회수하는데, 이 작업이 하필 바쁜 프레임에 끼어들면
+    그 프레임만 예산을 훌쩍 넘기는 <strong>스파이크</strong>가 생긴다. 위 도식의
+    프레임 4가 바로 그 순간이다. 인크리멘털 GC가 이 비용을 여러 프레임에 잘게
+    나눠 주긴 하지만, 근본 해법은 하나뿐이다: <strong>매 프레임 반복되는 할당을
+    없애는 것</strong>.
+  </p>
+  <p>
+    범인 찾기는 Hierarchy 뷰의 <strong>GC Alloc 열</strong>이 담당한다. 이 열로
+    정렬하면 그 프레임에 힙을 할당한 함수가 바이트 수와 함께 나온다. 한 번의 할당은
+    문제가 아니다 — 로딩이나 초기화 때의 할당은 정상이다. 찾아야 할 것은
+    <strong>매 프레임 꾸준히 0이 아닌 값을 찍는 함수</strong>다. 흔한 범인은 정해져 있다.
+  </p>
+  <ul>
+    <li><strong>매 프레임 문자열 생성</strong> — <code>"FPS: " + fps</code> 같은
+      연결·보간은 호출마다 새 문자열을 만든다. HUD 갱신 코드의 단골 문제.</li>
+    <li><strong>LINQ와 클로저</strong> — <code>Where</code>, <code>ToList</code> 등은
+      내부적으로 반복자와 컬렉션을 할당한다. Update 안의 LINQ는 거의 항상 유죄.</li>
+    <li><strong>박싱</strong> — 값 타입을 <code>object</code>나 인터페이스로 넘길 때
+      암묵적으로 힙 복사본이 생긴다.</li>
+    <li><strong>new 배열·리스트</strong> — 매 프레임 임시 배열을 만들거나, 호출할
+      때마다 배열을 반환하는 API를 쓰는 경우. 버퍼를 미리 만들어 재사용하는 것이 답.</li>
+  </ul>
+  <p>
+    목표는 명확하다: <strong>정상 상태에서 GC Alloc 0 B/프레임</strong>. 이 규율이
+    실제 코드에서 어떤 모습인지, Phase 4 완성본 프로젝트(FabSim-P4-Complete)의
+    두 스크립트로 확인하자.
+  </p>
+  <h3>사례 1 — VehicleFleet: 96대를 매니저 하나가 움직인다</h3>
+  <p>
+    완성본 씬에서는 OHT 비히클 96대가 순환 트랙을 돈다. 비히클마다
+    <code>Update</code>를 가진 스크립트를 붙이는 대신, <strong>매니저 하나가 배열을
+    순회하며 전부 이동</strong>시킨다. Unity가 스크립트의 Update를 호출하는 데는
+    건당 오버헤드가 있어서, 같은 일이라도 "Update 96번"보다 "Update 1번 + 루프
+    96회"가 훨씬 싸다.
+  </p>
+  <pre><code>private void Update()
+{
+    // 문자열도, 새 배열도, 박싱도 없다 — 이 루프의 GC Alloc은 0이어야 한다.
+    // Profiler의 GC Alloc 열에서 직접 확인해 볼 것.
+    float travel = Time.time * speed;
+    for (int i = 0; i &lt; vehicles.Length; i++)
+    {
+        Transform vehicle = vehicles[i];
+        float distance = Mathf.Repeat(travel + offsets[i], perimeter);
+        Vector3 position = vehicle.localPosition;
+        vehicle.localPosition = EvaluateTrack(distance, position.y);
+    }
+}</code></pre>
+  <p>
+    이 루프가 GC 0인 이유: 등장하는 타입이 전부 <strong>값 타입</strong>이다.
+    <code>float</code>, <code>int</code>, <code>Vector3</code>는 스택에서 살다
+    사라지고, <code>vehicles</code>와 <code>offsets</code> 배열은 시작할 때 한 번
+    만들어 계속 재사용한다. 루프 안에 <code>new</code>도, 문자열도, LINQ도 없다.
+    96대가 매 프레임 움직여도 힙은 1바이트도 자라지 않는다.
+  </p>
+  <h3>사례 2 — FpsHud: 문자열은 필요할 때만 만든다</h3>
+  <p>
+    화면에 프레임 타임을 표시하는 HUD는 문자열 없이는 성립하지 않는다. 그렇다고
+    매 프레임 만들 이유는 없다 — 사람 눈은 초당 60번 갱신되는 숫자를 읽지 못한다.
+    완성본의 HUD는 <strong>0.25초에 한 번만</strong> 문자열을 만들고, 나머지
+    프레임에는 캐시된 문자열을 그리기만 한다.
+  </p>
+  <pre><code>private void Update()
+{
+    accumulated += Time.unscaledDeltaTime;
+    frames++;
+    timer += Time.unscaledDeltaTime;
+    if (timer &lt; UpdateInterval)
+    {
+        return;
+    }
+
+    float averageMs = accumulated / frames * 1000f;
+    float fps = frames / accumulated;
+    builder.Length = 0;
+    builder.Append("Frame ").Append(averageMs.ToString("F2")).Append(" ms  (")
+        .Append(fps.ToString("F0")).Append(" FPS)");
+    display = builder.ToString();
+    accumulated = 0f;
+    frames = 0;
+    timer = 0f;
+}</code></pre>
+  <p>
+    갱신 주기가 되기 전에는 <code>return</code>으로 즉시 빠져나가므로, 60fps 기준
+    대략 15프레임 중 14프레임은 <strong>덧셈 몇 번 외에 아무것도 하지 않는다</strong>.
+    문자열을 만드는 1프레임도 미리 만들어 둔 <code>StringBuilder</code>를
+    <code>builder.Length = 0</code>으로 비워 재사용하니 낭비가 최소다. 할당을 완전히
+    0으로 만들 수는 없는 코드지만(<code>ToString</code>은 결국 문자열을 만든다),
+    "매 프레임"을 "4분의 1초마다"로 바꾸는 것만으로 할당 빈도가 15분의 1이 된다.
+    <strong>할당을 없앨 수 없다면 빈도를 낮추라</strong>는 규율의 전형이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      관제실의 디지털 트윈은 게임처럼 몇 시간 플레이하고 끄는 앱이 아니라
+      <strong>24시간 내내 떠 있는 화면</strong>이다. 평균 fps가 아무리 좋아도
+      몇 분에 한 번씩 GC 스파이크로 화면이 멈칫하면, 운영자는 "장비가 순간이동했다"고
+      느끼고 시스템에 대한 신뢰를 잃는다. 장시간 운전에서는 작은 할당도 반드시
+      누적되어 GC를 깨우므로, <strong>정상 상태 GC Alloc 0이라는 규율은 성능 취향이
+      아니라 제품 품질 그 자체</strong>다.
+    </p>
+  </div>
+
+  <h2>Memory Profiler — 존재만 알아 두기</h2>
+  <p>
+    내장 Profiler의 Memory 모듈은 "지금 총 메모리를 얼마나 쓰는가"의 실시간 추이를
+    보여 주는 수준이다. 더 깊은 분석 — <strong>어떤 에셋이 메모리를 차지하는가,
+    같은 텍스처가 중복 로드되지는 않았는가, 씬을 오갈수록 메모리가 새는가</strong> —
+    은 별도 패키지인 <strong>Memory Profiler</strong>가 담당한다. Package Manager에서
+    설치하며, 특정 시점의 메모리 <strong>스냅샷</strong>을 찍어 두 스냅샷을 나란히
+    비교하는 방식으로 쓴다. 이 로드맵의 실습 범위에서는 필요하지 않으니, "메모리
+    누수가 의심되면 꺼내는 전용 도구가 따로 있다"는 것만 기억하면 된다.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>16.6ms라는 숫자는 어디서 나오며, 무엇을 의미하는가?</summary>
+      <div class="answer">
+        <p>
+          1000ms ÷ 60프레임 ≈ 16.6ms. 60fps를 유지하려면 스크립트·물리·렌더 준비·GPU
+          그리기까지 <strong>한 프레임의 모든 일을 이 시간 안에 끝내야 한다</strong>는
+          예산이다. 최적화란 이 예산 안에서 무엇이 초과 지출 중인지 찾아 줄이는 일이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>CPU 바운드인지 GPU 바운드인지 Profiler에서 어떻게 가르는가?</summary>
+      <div class="answer">
+        <p>
+          CPU 타임라인에서 <strong><code>Gfx.WaitForPresent</code> 같은 GPU 대기
+          항목이 크면 GPU 바운드</strong>다 — CPU는 일을 끝내고 GPU를 기다리는 중이다.
+          반대로 Update 계열이나 <code>Camera.Render</code>가 프레임을 채우고 있으면
+          CPU 바운드이며, 전자는 스크립트, 후자는 드로우콜 제출이 범인이다.
+          병목이 어느 쪽이냐에 따라 처방이 완전히 달라지므로 이 판별이 항상 먼저다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>정상 상태에서 GC Alloc이 0 B/프레임이어야 하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          매 프레임의 작은 할당도 반드시 누적되어 언젠가 GC를 깨우고, GC는 하필
+          바쁜 프레임에 끼어들어 <strong>스파이크(프레임 튐)</strong>를 만든다.
+          평균 fps에는 거의 안 잡히지만 사용자 눈에는 명확히 보이는 문제이며,
+          24시간 도는 관제 트윈에서는 누적을 피할 방법이 없으므로 할당 자체를
+          없애는 것이 유일한 근본 해법이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>에디터에서 잰 수치를 최종 성능 판정에 쓰면 안 되는 이유는?</summary>
+      <div class="answer">
+        <p>
+          에디터 자체의 비용(인스펙터, 씬 뷰, Profiler 창, 에디터 전용 검사)이 수치에
+          섞이고 코드 최적화 수준도 빌드와 다르기 때문이다. 에디터 측정은
+          <strong>수정 전후의 상대 비교와 경향 파악용</strong>으로 쓰고, 최종 판정은
+          실제 빌드를 대상 기기에서 프로파일링해서 내린다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>VehicleFleet은 왜 비히클 96대 각각에 Update를 두지 않고 매니저 하나로 움직이는가?</summary>
+      <div class="answer">
+        <p>
+          Unity가 스크립트의 Update를 호출하는 데는 건당 오버헤드가 있어서, 같은
+          작업이라도 "Update 96번"보다 <strong>"Update 1번 + 배열 루프 96회"가 훨씬
+          싸다</strong>. 루프 안은 값 타입 연산뿐이라 GC Alloc도 0이다. Station 03에서
+          다룰 "관리 주체를 하나로" 원칙의 최소 사례다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase3/04-fabsim-practice.html">
+      <span class="dir">← PREV — PHASE 3</span>
+      <span class="title">실습 — FabSim 팹 씬 만들기 (Phase 3)</span>
+    </a>
+    <a class="next" href="02-frame-debugger.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">Frame Debugger와 배칭</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 4 — PROFILING &amp; OPTIMIZATION</div>
+</footer>
+
+</body>
+</html>
