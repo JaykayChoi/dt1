@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 큐잉 직관 — 병목과 대기시간 — DT1 Phase 2</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 2 DES<span class="sep">/</span>02 큐잉 직관
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 2 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-des-concepts.html" title="DES 핵심 개념">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-simpy.html" title="SimPy 실습">03</a></li>
+      <li><a href="04-descore.html" title="C# DES 코어">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 2 — 이산사건시뮬레이션(DES)</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 2 · Station 02</p>
+    <h1>큐잉 직관 — 병목과 대기시간</h1>
+    <p class="lede">
+      평균 처리 능력은 분명히 충분한데 줄이 생기고, 가동률을 조금 올렸을 뿐인데
+      대기시간이 폭발한다. 이 장에서는 그 이유를 공식 하나와 실측 데이터로
+      몸에 새긴다. 팹 물류를 이해하는 데 가장 중요한 곡선이 여기서 나온다.
+    </p>
+  </div>
+
+  <h2>평균으로는 여유인데, 왜 줄이 생기나</h2>
+  <p>
+    큐잉 이론의 언어는 딱 세 개의 기호로 시작한다.
+  </p>
+  <ul>
+    <li><strong>도착률 λ</strong><i class="en">(arrival rate)</i> — 단위시간당 일감이 도착하는 평균 개수. 예: 분당 0.9개의 FOUP이 스테이션에 도착.</li>
+    <li><strong>서비스율 μ</strong><i class="en">(service rate)</i> — 단위시간당 서버(장비 1대)가 처리할 수 있는 평균 개수. 예: 분당 1개 처리.</li>
+    <li><strong>가동률 ρ = λ/μ</strong><i class="en">(utilization)</i> — 들어오는 양을 처리 능력으로 나눈 값. 장기적으로 서버가 바쁜 시간의 비율이기도 하다.</li>
+  </ul>
+  <p>
+    ρ &lt; 1이면, 즉 처리 능력이 도착량보다 크기만 하면 문제가 없어 보인다.
+    λ = 0.9, μ = 1이면 매분 평균 0.1개씩 여유가 남는 셈이니까. 그런데 실제
+    시스템에서는 이 조건에서도 <strong>줄이 생기고, 그것도 꽤 길게 생긴다</strong>.
+  </p>
+  <p>
+    이유는 도착도 처리도 <strong>평균대로 오지 않기 때문</strong>이다. 도착은 몰렸다
+    끊겼다 하고, 처리 시간도 매번 다르다. 몰리는 동안 서버는 밀린 일을 큐에 쌓고,
+    한가한 동안 서버는 논다 — 그런데 <strong>노는 시간은 저축이 안 된다</strong>.
+    한가할 때 남긴 여유를 몰릴 때 꺼내 쓸 수 없으니, 몰림은 고스란히 대기로 남고
+    여유는 그냥 증발한다. 이 비대칭이 큐의 정체다. 한 문장으로:
+    <strong>대기는 변동이 걷어가는 세금</strong>이고, 평균은 그 세금을 보여주지 않는다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/F5Ri_HhziI0" title="engineerguy — Why the other line is likely to move faster" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      전화 교환기 설계에서 태어난 큐잉 이론이 계산대 줄에 그대로 적용되는
+      고전 영상(engineerguy). 왜 <strong>옆줄이 항상 더 빨리 줄어드는 것처럼
+      보이는지</strong>, 그리고 여러 줄보다 <strong>단일 대기열 + 여러 서버</strong>가
+      왜 빠른지를 직관으로 보여준다.
+      <a href="https://www.youtube.com/watch?v=F5Ri_HhziI0">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>가장 단순한 모델: M/M/1</h2>
+  <p>
+    큐잉 모델은 <strong>켄들 표기법</strong><i class="en">(Kendall notation)</i>
+    A/S/c로 부른다 — 도착 과정 / 서비스 시간 분포 / 서버 수. M은
+    <i class="en">Markovian</i>, "완전히 랜덤"이라는 뜻이다(포아송 도착, 지수분포
+    서비스 시간). 그래서 <strong>M/M/1</strong>은 "랜덤하게 도착하고, 처리 시간도
+    랜덤이고, 서버는 1대"인 가장 단순한 큐다.
+  </p>
+  <p>
+    이 모델의 평균 큐 대기시간은 닫힌 공식으로 나온다. 유도는 생략하고 결과만 쓰면:
+  </p>
+  <p>
+    <strong>W<sub>q</sub> = ρ/(μ−λ)</strong> — 큐에서 기다리는 평균 시간 (처리받는 시간 제외)
+  </p>
+  <p>
+    공식의 구조를 읽는 것이 암기보다 중요하다. 분모 <strong>(μ−λ)는 "남은 여유"</strong>다.
+    처리 능력에서 도착량을 뺀, 몰림을 소화하는 데 쓸 수 있는 유일한 자원.
+    ρ가 1에 다가가면 이 여유가 0으로 줄어들고, 0으로 나누는 꼴이 되면서
+    <strong>대기시간이 발산한다</strong>. 대기는 가동률에 비례해서 늘어나는 것이
+    아니라, <strong>남은 여유에 반비례해서</strong> 늘어난다 — 이것이 이 장 전체의 핵심이다.
+  </p>
+
+  <h2>실측으로 확인 — SimPy 실험</h2>
+  <p>
+    공식이 진짜인지 시뮬레이션으로 확인해 보자. 아래는 SimPy 실험
+    (<code>examples/phase2-simpy/03_utilization_sweep.py</code>, μ = 1로 고정하고
+    λ만 바꿔 가며 각각 20만 분씩 실행)의 실제 출력이다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>λ (도착률)</th>
+          <th>ρ (가동률)</th>
+          <th>측정 W<sub>q</sub> [분]</th>
+          <th>이론 W<sub>q</sub> [분]</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">0.50</td><td>0.50</td><td>1.0</td><td>1.0</td></tr>
+        <tr><td class="rowhead">0.60</td><td>0.60</td><td>1.5</td><td>1.5</td></tr>
+        <tr><td class="rowhead">0.70</td><td>0.70</td><td>2.4</td><td>2.3</td></tr>
+        <tr><td class="rowhead">0.80</td><td>0.80</td><td>4.0</td><td>4.0</td></tr>
+        <tr><td class="rowhead">0.90</td><td>0.90</td><td>8.6</td><td>9.0</td></tr>
+        <tr><td class="rowhead">0.95</td><td>0.95</td><td>18.3</td><td>19.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    측정값이 이론값을 거의 그대로 따라간다(0.9 이상에서 약간 벌어지는 것은
+    고가동률에서 시뮬레이션의 분산이 커지기 때문 — 더 오래 돌리면 수렴한다).
+    숫자를 세로로 읽어 보면 곡선의 성격이 드러난다.
+  </p>
+  <ul>
+    <li>ρ가 0.5에서 0.9로 <strong>1.8배</strong> 오르는 동안, 대기는 1.0분에서 8.6분으로 <strong>약 9배</strong> 늘었다.</li>
+    <li>ρ = 0.95에서는 <strong>19배</strong>. 부하를 5%p 더 올렸을 뿐인데 대기는 다시 2배가 됐다.</li>
+    <li>즉 대기는 ρ에 선형이 아니다. <strong>마지막 여유가 사라지는 순간 폭발한다</strong> — 남은 여유 (1−ρ)가 0.5 → 0.1 → 0.05로 줄어드는 것에 반비례해 1 → 9 → 19가 된 것이다.</li>
+  </ul>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가동률 ρ에 따른 평균 큐 대기시간 Wq 곡선. ρ가 1에 가까워질수록 대기시간이 급격히 발산하며, ρ=0.80에서 4분, ρ=0.95에서 19분이다.">
+      <!-- 가로 눈금선 (Wq = 5, 10, 15, 20) -->
+      <line class="d-soft" x1="80" y1="235" x2="760" y2="235" stroke-width="1" stroke-dasharray="2 5"/>
+      <line class="d-soft" x1="80" y1="170" x2="760" y2="170" stroke-width="1" stroke-dasharray="2 5"/>
+      <line class="d-soft" x1="80" y1="105" x2="760" y2="105" stroke-width="1" stroke-dasharray="2 5"/>
+      <line class="d-soft" x1="80" y1="40"  x2="760" y2="40"  stroke-width="1" stroke-dasharray="2 5"/>
+
+      <!-- 축 -->
+      <line class="d-rail" x1="80" y1="40" x2="80" y2="300" stroke-width="2"/>
+      <line class="d-rail" x1="80" y1="300" x2="760" y2="300" stroke-width="2"/>
+      <text class="d-label" x="84" y="28">평균 큐 대기 Wq [분]  (μ = 1)</text>
+      <text class="d-label" x="420" y="348" text-anchor="middle">가동률 ρ = λ/μ</text>
+
+      <!-- y축 눈금 -->
+      <text class="d-label" x="72" y="304" text-anchor="end">0</text>
+      <text class="d-label" x="72" y="239" text-anchor="end">5</text>
+      <text class="d-label" x="72" y="174" text-anchor="end">10</text>
+      <text class="d-label" x="72" y="109" text-anchor="end">15</text>
+      <text class="d-label" x="72" y="44"  text-anchor="end">20</text>
+
+      <!-- x축 눈금 -->
+      <line class="d-rail" x1="80"  y1="300" x2="80"  y2="306" stroke-width="2"/>
+      <line class="d-rail" x1="212" y1="300" x2="212" y2="306" stroke-width="2"/>
+      <line class="d-rail" x1="344" y1="300" x2="344" y2="306" stroke-width="2"/>
+      <line class="d-rail" x1="476" y1="300" x2="476" y2="306" stroke-width="2"/>
+      <line class="d-rail" x1="608" y1="300" x2="608" y2="306" stroke-width="2"/>
+      <line class="d-rail" x1="740" y1="300" x2="740" y2="306" stroke-width="2"/>
+      <text class="d-label" x="80"  y="322" text-anchor="middle">0.5</text>
+      <text class="d-label" x="212" y="322" text-anchor="middle">0.6</text>
+      <text class="d-label" x="344" y="322" text-anchor="middle">0.7</text>
+      <text class="d-label" x="476" y="322" text-anchor="middle">0.8</text>
+      <text class="d-label" x="608" y="322" text-anchor="middle">0.9</text>
+      <text class="d-label" x="740" y="322" text-anchor="middle">1.0</text>
+
+      <!-- ρ=1 수직 점근선 -->
+      <line class="d-soft" x1="740" y1="40" x2="740" y2="300" stroke-width="2" stroke-dasharray="4 4"/>
+      <text class="d-label-strong" x="748" y="60">∞</text>
+
+      <!-- 보조선: ρ=0.80 -->
+      <line class="d-soft" x1="476" y1="300" x2="476" y2="248" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line class="d-soft" x1="80" y1="248" x2="476" y2="248" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="488" y="256">ρ 0.80 · Wq 4분</text>
+
+      <!-- 보조선: ρ=0.95 -->
+      <line class="d-soft" x1="674" y1="300" x2="674" y2="62" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line class="d-soft" x1="80" y1="62" x2="674" y2="62" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="680" y="140">ρ 0.95 · 19분</text>
+
+      <!-- "팹이 사는 동네" 구간 표시 (ρ 0.80 ~ 0.95) -->
+      <line class="d-accent" x1="480" y1="284" x2="670" y2="284" stroke-width="2"/>
+      <line class="d-accent" x1="480" y1="279" x2="480" y2="289" stroke-width="2"/>
+      <line class="d-accent" x1="670" y1="279" x2="670" y2="289" stroke-width="2"/>
+      <text class="d-text" x="575" y="274" text-anchor="middle">여기가 팹(병목 장비)이 사는 동네</text>
+
+      <!-- 이론 곡선 Wq = ρ/(1−λ) -->
+      <polyline class="d-accent" stroke-width="3" stroke-linejoin="round" points="
+        80,287 146,284 212,280 278,276 344,270 410,261 476,248
+        542,226 608,183 634,151 661,96 674,53 678,40"/>
+
+      <!-- 측정점 (SimPy) -->
+      <circle class="d-fill-rail" cx="80"  cy="287" r="5"/>
+      <circle class="d-fill-rail" cx="212" cy="280" r="5"/>
+      <circle class="d-fill-rail" cx="344" cy="269" r="5"/>
+      <circle class="d-fill-rail" cx="476" cy="248" r="5"/>
+      <circle class="d-fill-rail" cx="608" cy="188" r="5"/>
+      <circle class="d-fill-rail" cx="674" cy="62"  r="5"/>
+
+      <!-- 범례 -->
+      <circle class="d-fill-rail" cx="120" cy="60" r="5"/>
+      <text class="d-label" x="132" y="64">측정 Wq (SimPy, 20만 분)</text>
+      <line class="d-accent" x1="112" y1="80" x2="128" y2="80" stroke-width="3"/>
+      <text class="d-label" x="132" y="84">이론 Wq = ρ/(μ−λ)</text>
+    </svg>
+    <figcaption>
+      가동률 ρ에 따른 평균 큐 대기시간. 점은 SimPy 측정값, 곡선은 M/M/1 이론값.
+      ρ = 0.8까지는 완만하지만 그 뒤로 벽처럼 솟는다 — 팹의 병목 장비들이
+      운영되는 구간(ρ 0.8~0.95)이 바로 이 벼랑 초입이다.
+    </figcaption>
+  </figure>
+
+  <h2>리틀의 법칙 — L = λW</h2>
+  <p>
+    큐잉 이론에서 하나만 외워야 한다면 이것이다.
+    <strong>리틀의 법칙</strong><i class="en">(Little's law)</i>:
+  </p>
+  <p>
+    <strong>L = λW</strong> — 시스템 안의 평균 개체 수 = 도착률 × 평균 체류시간
+  </p>
+  <p>
+    놀라운 점은 이 식이 <strong>분포와 무관하게 성립</strong>한다는 것이다. 도착이
+    포아송이든 아니든, 서비스 규칙이 선입선출이든 우선순위든, 서버가 몇 대든,
+    시스템이 안정적이기만 하면 항상 참이다. 그래서 모델을 못 믿을 때도 이 식은
+    믿을 수 있고, 시뮬레이션 결과의 <strong>검산 도구</strong>로도 쓴다 —
+    측정한 L, λ, W가 이 관계를 만족하지 않으면 통계 수집 코드가 틀린 것이다.
+  </p>
+  <p>
+    팹에 적용하면 <strong>재공(WIP) = 처리량 × 리드타임</strong>이 된다.
+    팹 안에 떠 있는 로트 수(L)가 재공이고, 시간당 완성되는 로트 수(λ)가 처리량,
+    로트가 팹에 머무는 시간(W)이 리드타임이다. 이 식을 뒤집으면 무서운 결론이
+    나온다: <strong>처리량이 같은데 WIP가 두 배라면, 리드타임도 정확히 두 배</strong>다.
+    로트를 많이 투입한다고 빨리 나오는 것이 아니라, 같은 속도로 더 오래 줄을 설 뿐이다.
+    WIP가 쌓이는 것 자체가 리드타임 악화의 다른 이름이다.
+  </p>
+
+  <h2>변동성이라는 두 번째 변수</h2>
+  <p>
+    대기를 결정하는 변수는 가동률만이 아니다. <strong>같은 평균이라도 변동이 크면
+    대기가 는다</strong>. 이를 보여 주는 표준 결과가 하나 있다: 가공 시간이
+    상수(변동 0)인 <strong>M/D/1</strong> 큐의 평균 대기는 <strong>M/M/1의 정확히
+    절반</strong>이다. 도착의 랜덤함은 그대로 두고 처리 시간의 랜덤함만 없앴는데
+    대기가 반으로 줄어든 것이다.
+  </p>
+  <p>
+    실무 함의가 크다. 대기가 길 때 반사적으로 나오는 답은 "장비를 늘리자"(μ 증설)지만,
+    <strong>변동을 줄이는 것 — 가공 시간 표준화, 투입 간격 평탄화 — 이 용량 증설만큼
+    힘이 세다</strong>. 게다가 장비는 수백억 원이고 표준화는 대부분 공짜다.
+    큐잉 직관이 있는 엔지니어와 없는 엔지니어는 여기서 다른 처방을 낸다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">평균의 함정</span>
+    <p>
+      평균 가동률이 낮아도 <strong>꼬리(최악값)는 길 수 있다</strong>. 하루 평균
+      ρ = 0.6인 구간도 시프트 교대나 로트 몰림 시간대에는 잠깐씩 ρ &gt; 1로 치솟고,
+      그 시간대에 걸린 로트는 평균과 무관하게 오래 기다린다. 그래서 Phase 1
+      Station 04에서 본 것처럼 반송 시스템의 성능은 평균 반송 시간이 아니라
+      <strong>분포의 꼬리(95·99퍼센타일)와 정시성</strong>으로 평가한다.
+      평균만 보고하는 시뮬레이션은 절반만 보고하는 것이다.
+    </p>
+  </div>
+
+  <h2>팹은 왜 가동률 100%를 노리지 않나</h2>
+  <p>
+    Phase 1 Station 04에서 반송 시스템의 지표로 <strong>가동률</strong>과
+    <strong>반송 시간</strong>을 봤다. 이 장의 곡선은 그 둘이
+    <strong>트레이드오프 관계</strong>임을 말해 준다: 가동률을 끝까지 끌어올리면
+    반송 시간이 발산하고, 반송 시간을 지키려면 여유를 남겨야 한다.
+    "장비가 놀고 있으니 낭비"라는 직관은 큐잉 앞에서 틀린다 —
+    <strong>그 여유가 몰림을 흡수하는 유일한 완충재</strong>이기 때문이다.
+  </p>
+  <p>
+    그렇다고 모든 장비에 여유를 두는 것은 낭비가 맞다. 열쇠는
+    <strong>병목</strong><i class="en">(bottleneck)</i>이다. 공장 전체의 처리량은
+    가장 느린 공정, 즉 병목이 결정한다. 그래서 관리는 병목에 집중된다.
+  </p>
+  <ul>
+    <li><strong>병목의 ρ를 관리한다</strong> — 병목 장비는 비싸고 대체가 없으므로 높은 가동률로 돌리되, 발산 구간(ρ → 1)에 들어가지 않게 투입을 제어한다.</li>
+    <li><strong>병목 앞에 버퍼를 둔다</strong> — 병목이 잠깐이라도 일감 없이 노는 것<i class="en">(starvation)</i>은 공장 전체의 처리량 손실이다. Phase 1 Station 02의 스토커와 STB가 정확히 이 역할 — 병목 장비 근처에 로트를 대기시켜 두는 물리적 큐다.</li>
+    <li><strong>비병목은 병목에 종속시킨다</strong> — 비병목 장비의 가동률을 올리는 것은 처리량을 늘리지 못하고 WIP만 쌓는다(리틀의 법칙: WIP 증가 = 리드타임 증가).</li>
+  </ul>
+  <p>
+    OHT 시스템도 같은 곡선 위에 산다. 레일의 교차로와 합류점 하나하나가 작은
+    큐잉 시스템이어서, 비히클을 늘리면 처리량이 늘다가 어느 지점부터는 정체가
+    정체를 낳으며 오히려 나빠진다. "몇 대가 최적인가"는 계산이 아니라
+    시뮬레이션으로 답하는 질문이고, 그것이 이 로드맵의 종착지다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 5의 미니 팹 시뮬레이터에서 이 곡선을 <strong>직접 재현</strong>한다.
+      장비 수(서버 수)와 반송 명령 발생률(λ)을 바꿔 가며 평균 반송 시간을 측정하면
+      이 장의 그래프가 그대로 나온다 — 그때 "ρ 0.9를 넘기면 벼랑"이라는 감각이
+      숫자에서 화면으로 옮겨온다. 디지털 트윈이 관제실에 주는 가치가 정확히 이것이다:
+      벼랑이 어디인지 실물을 위험에 빠뜨리지 않고 미리 보여 주는 것.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>가동률 ρ의 정의는 무엇이고, 어떤 의미를 갖는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>ρ = λ/μ</strong> — 도착률을 서비스율로 나눈 값. 장기적으로
+          서버가 바쁜 시간의 비율과 같다. ρ &lt; 1이어야 시스템이 안정적이지만,
+          ρ &lt; 1이라고 해서 대기가 없는 것은 아니다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>평균 처리 능력이 충분한데도(ρ &lt; 1) 줄이 생기는 이유는?</summary>
+      <div class="answer">
+        <p>
+          도착과 처리가 <strong>랜덤</strong>이기 때문이다. 몰리는 동안의 밀린 일은
+          큐로 쌓이지만, 한가한 동안의 남는 용량은 저축되지 않는다. 이 비대칭
+          때문에 변동이 있는 한 대기는 반드시 생긴다 — 대기는 변동의 세금이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>ρ가 1에 가까워질 때 대기시간이 폭발하는 이유를 공식의 구조로 설명하면?</summary>
+      <div class="answer">
+        <p>
+          W<sub>q</sub> = ρ/(μ−λ)의 분모 <strong>(μ−λ)가 "남은 여유"</strong>인데,
+          몰림을 소화할 수 있는 자원이 이것뿐이다. ρ → 1이면 여유가 0으로 가고
+          대기는 발산한다. 실측으로도 ρ 0.5 → 0.9(부하 1.8배)에 대기는 9배,
+          0.95에서는 19배가 됐다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>팹에 WIP 200로트가 떠 있고 시간당 25로트가 완성된다. 평균 리드타임은?</summary>
+      <div class="answer">
+        <p>
+          리틀의 법칙 L = λW에서 <strong>W = L/λ = 200/25 = 8시간</strong>.
+          분포나 배차 규칙을 몰라도 성립한다. 같은 처리량에서 WIP를 400로트로
+          늘리면 리드타임도 16시간으로 두 배가 된다 — 투입을 늘린다고 빨리
+          나오지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>팹은 왜 병목 장비를 가동률 100%로 운영하지 않는가?</summary>
+      <div class="answer">
+        <p>
+          ρ → 1에서 대기시간이 발산해 반송·리드타임을 지킬 수 없기 때문이다.
+          대신 병목의 ρ를 발산 구간 직전에서 관리하고, 병목이 굶지 않도록
+          앞에 버퍼(스토커·STB)를 두며, 비병목의 가동률은 올리지 않는다 —
+          비병목을 바쁘게 만드는 것은 WIP와 리드타임만 늘린다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-des-concepts.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">DES 핵심 개념 — 시간을 건너뛰는 시뮬레이션</span>
+    </a>
+    <a class="next" href="03-simpy.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">SimPy 실습 — 미니 반송 라인</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 2 — DISCRETE EVENT SIMULATION</div>
+</footer>
+
+</body>
+</html>
