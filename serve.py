@@ -20,6 +20,8 @@ PORT = 8377
 PROJECTS = {
     "fabsim": ROOT / "FabSim",                    # 실습용 (Phase 3~5 공용)
     "p3-complete": ROOT / "FabSim-P3-Complete",   # Phase 3 완성본 (참고용)
+    "p4-complete": ROOT / "FabSim-P4-Complete",   # Phase 4 완성본 (최적화 실험장)
+    "p5-complete": ROOT / "FabSim-P5-Complete",   # Phase 5 완성본 (미니 팹 시뮬레이터)
 }
 
 

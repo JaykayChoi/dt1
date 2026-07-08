@@ -8,6 +8,8 @@ $logPath = Join-Path $env:TEMP 'dt1-open.log'
 $projects = @{
     'fabsim'      = 'C:\work\dt1\FabSim'
     'p3-complete' = 'C:\work\dt1\FabSim-P3-Complete'
+    'p4-complete' = 'C:\work\dt1\FabSim-P4-Complete'
+    'p5-complete' = 'C:\work\dt1\FabSim-P5-Complete'
 }
 $unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Unity.exe'
 
