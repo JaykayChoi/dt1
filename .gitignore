@@ -13,13 +13,13 @@ __pycache__/
 bin/
 obj/
 
-# Unity (FabSim project — generated/cache dirs only)
-FabSim/[Ll]ibrary/
-FabSim/[Tt]emp/
-FabSim/[Oo]bj/
-FabSim/[Bb]uild/
-FabSim/[Bb]uilds/
-FabSim/[Ll]ogs/
-FabSim/[Uu]serSettings/
+# Unity (FabSim* projects — generated/cache dirs only)
+FabSim*/[Ll]ibrary/
+FabSim*/[Tt]emp/
+FabSim*/[Oo]bj/
+FabSim*/[Bb]uild/
+FabSim*/[Bb]uilds/
+FabSim*/[Ll]ogs/
+FabSim*/[Uu]serSettings/
 *.csproj.user
 *.sln.DotSettings.user
