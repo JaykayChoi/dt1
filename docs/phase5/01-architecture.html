@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 아키텍처 — DES 코어 ↔ Unity 브리지 — DT1 Phase 5</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 5 시뮬레이터<span class="sep">/</span>01 아키텍처
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 5 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-data-model.html" title="데이터 모델 — 레일 그래프 · MCS 명령 흐름">02</a></li>
+      <li><a href="03-milestones.html" title="마일스톤 — 직접 만드는 순서">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 5 — 미니 팹 시뮬레이터</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 5 · Station 01</p>
+    <h1>아키텍처 — DES 코어 ↔ Unity 브리지</h1>
+    <p class="lede">
+      네 개의 페이즈가 여기서 하나로 합쳐진다. 이 스테이션에서는 코드를 새로 쓰기 전에
+      완성본이 어떻게 조립되어 있는지를 본다 — 순수 C# 시뮬레이션과 Unity 화면이
+      어디서 갈라지고, <strong>시간과 공간이라는 두 개의 다리</strong>로 어떻게
+      다시 만나는지.
+    </p>
+  </div>
+
+  <h2>종점에 도착했다 — 무엇을 만드는가</h2>
+  <p>
+    지금까지의 여정은 전부 이 페이즈를 위한 부품 조달이었다.
+    <strong>Phase 1</strong>에서 도메인을 배웠다 — 반송 명령, MCS, 배차 규칙, 포트,
+    그리고 레일 위를 달리는 OHT. <strong>Phase 2</strong>에서 그 세계를 계산하는
+    엔진을 만들었다 — 우선순위 큐 기반 이벤트 스케줄러 DesCore.
+    <strong>Phase 3</strong>에서 무대를 세웠다 — PBR 머티리얼과 구운 조명의 팹 씬.
+    <strong>Phase 4</strong>에서 규율을 얻었다 — 매니저 통합, GC Alloc 0,
+    측정하고 바꾸고 다시 측정하는 습관. Phase 5는 새로운 것을 배우는 페이즈가
+    아니라 <strong>이 부품들을 하나의 실행물로 조립하는 페이즈</strong>다.
+  </p>
+  <p>
+    조립의 결과가 미니 팹 시뮬레이터다. 완성본
+    <code>C:\work\dt1\FabSim-P5-Complete</code>에서는 <strong>일방통행 루프
+    레일</strong> 위에 <strong>포트 6개</strong>가 놓여 있고, <strong>OHT
+    4대</strong>가 무작위로 발생하는 반송 명령을 받아 픽업하고, 실어 나르고,
+    내려놓는다. 화면 구석의 HUD는 <strong>처리량 · 평균 반송 시간 ·
+    함대 가동률</strong>을 실시간으로 갱신한다 — Phase 1에서 글로 배운 MCS의
+    세계가 그대로 화면 위에서 돌아가는 것이다.
+  </p>
+
+  <h2>핵심 설계 — 시뮬레이션과 뷰의 분리</h2>
+  <p>
+    이 프로젝트의 코드는 두 세계로 나뉜다. 폴더 경계가 곧 설계 경계다.
+  </p>
+  <ul>
+    <li><strong>Sim 계층</strong> — <code>Assets/DesCore/</code>와
+      <code>Assets/Scripts/Sim/</code>. <strong>순수 C#</strong>이며
+      <code>UnityEngine</code>을 단 한 줄도 참조하지 않는다. 시뮬레이션 클록,
+      레일 그래프, 배차 로직, 통계가 전부 여기 산다.</li>
+    <li><strong>View 계층</strong> — <code>Assets/Scripts/</code> 바로 아래의
+      MonoBehaviour들. 러너(<code>FabSimulation</code>), 시각화
+      (<code>VehicleFleetView</code>), HUD(<code>StatsHud</code>).
+      Sim 계층의 상태를 <strong>읽어서 그리기만</strong> 한다.</li>
+  </ul>
+  <p>
+    왜 이렇게 자르는가. 분리가 주는 보상이 세 가지 있고, 셋 다 공짜가 아니라
+    이 경계를 지킨 대가로만 주어진다.
+  </p>
+  <ul>
+    <li><strong>헤드리스 테스트</strong> — Sim 계층만 떼어 Unity 없이 돌릴 수 있다.
+      아래는 완성본의 스모크 테스트 출력이다: 시뮬레이션 1시간(3,600초),
+      비히클 4대, 평균 명령 간격 25초 조건에서 렌더링 한 프레임 없이
+      결과를 뽑았다.</li>
+  </ul>
+  <pre><code>[P5SmokeTest] jobs=160, avgDelivery=34.4s, utilization=38 %, pending=0, events=1893</code></pre>
+  <ul>
+    <li><strong>결정론적 재현</strong> — 난수는 시드 고정
+      <code>Random(seed)</code> 하나뿐이고, 이벤트 큐는 동시각 사건을
+      일련번호로 정렬한다. 같은 시드면 배속이 몇이든, 프레임레이트가 얼마든
+      <strong>같은 시뮬레이션 결과</strong>가 나온다. 버그 재현과 회귀 검증이
+      가능해지는 조건이다.</li>
+    <li><strong>Phase 2 코드의 무수정 재사용</strong> — <code>DesCore/</code>는
+      Phase 2에서 만든 엔진 폴더를 <strong>그대로 복사</strong>한 것이다.
+      한 글자도 고치지 않았다. 순수 C#으로 만들어 둔 덕에 콘솔 데모에서
+      Unity 프로젝트로 옮기는 비용이 0이었다.</li>
+  </ul>
+  <p>
+    스모크 출력 한 줄을 읽는 법: 1시간 동안 반송 <strong>160건</strong>을 처리했고
+    (시간당 160건), 명령 생성부터 드롭 완료까지 평균 <strong>34.4초</strong>,
+    함대 가동률 <strong>38%</strong>, 배차 대기 중인 명령은 <strong>0건</strong> —
+    4대로 수요를 여유 있게 감당한다는 뜻이다. 그리고 <code>events=1893</code> —
+    1시간어치 세계가 <strong>사건 1,893개</strong>로 전부 계산됐다. Phase 2에서
+    본 사건 기반 방식의 효율이 여기서도 그대로다.
+  </p>
+  <p>전체 부품 목록은 다음과 같다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>파일</th>
+          <th>계층</th>
+          <th>역할</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">DesCore/ (5파일)</td>
+          <td>Sim — 엔진</td>
+          <td><code>Simulation</code>, <code>EventQueue</code>, <code>SimEvent</code>,
+            <code>SimResource</code>, <code>RandomExtensions</code>.
+            Phase 2의 DES 엔진 폴더째 복사 — 클록, FEL, 자원, 지수분포 샘플링.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/RailGraph.cs</td>
+          <td>Sim — 모델</td>
+          <td>레일 웨이포인트 그래프. 노드 좌표, 경로 탐색, 경로 길이 계산.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/FabLayout.cs</td>
+          <td>Sim — 모델</td>
+          <td>일방통행 루프 레일과 포트 6개의 레이아웃을 생성한다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/TransportJob.cs</td>
+          <td>Sim — 모델</td>
+          <td>반송 명령 한 건 — 출발/도착 포트, 생성·배차·완료 시각.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/VehicleAgent.cs</td>
+          <td>Sim — 모델</td>
+          <td>비히클 상태 — 국면(Idle/ToPickup/Carrying), 현재 엣지의
+            출발·도착 노드와 시각.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/FabModel.cs</td>
+          <td>Sim — 모델</td>
+          <td>미니 MCS — 명령 생성 → 최근접 유휴 비히클 배차 →
+            픽업/이동/드롭 → 통계 집계.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FabSimulation.cs</td>
+          <td>View — 러너</td>
+          <td>모델을 소유하고 매 프레임 클록을 민다. 키 입력으로 배속 전환.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">VehicleFleetView.cs</td>
+          <td>View — 시각화</td>
+          <td>사건 사이를 선형 보간해 비히클 위치를 그린다. 적재 상태에 따라
+            FOUP 표시.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">StatsHud.cs</td>
+          <td>View — HUD</td>
+          <td>처리량·평균 반송 시간·가동률을 화면에 표시.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    남은 질문은 하나다. 서로를 모르는 두 세계가 <strong>어디서 만나는가?</strong>
+    접점은 정확히 두 곳뿐이다 — 시간의 다리와 공간의 다리.
+  </p>
+
+  <h2>브리지 ① 시간 — 클록을 프레임이 민다</h2>
+  <p>
+    Phase 2 Station 04의 마지막 절에서 <code>SimulationRunner</code>라는 스케치를
+    보여주며 "이게 전부다"라고 예고했었다. 그 스케치가 완성본에서 실물이 됐다.
+    <code>Assets/Scripts/FabSimulation.cs</code>의 <code>Update</code>가 시간의
+    다리 전체다.
+  </p>
+  <pre><code>private void Update()
+{
+    if (Input.GetKeyDown(KeyCode.Alpha0))
+    {
+        timeScale = 0f;
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha1))
+    {
+        timeScale = 1f;
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha2))
+    {
+        timeScale = 30f;
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha3))
+    {
+        timeScale = 120f;
+    }
+
+    // 시뮬레이션 시간과 벽시계 시간의 분리 — 엔진은 배속을 모른다.
+    Model.Simulation.Run(Model.Simulation.Now + Time.deltaTime * timeScale);
+}</code></pre>
+  <p>
+    마지막 한 줄이 핵심이다. 매 프레임, "현재 시뮬레이션 시각 + 이번 프레임의
+    실시간 × 배속"까지 클록을 밀어 달라고 엔진에 요청한다. 엔진의
+    <code>Run(until)</code>은 그 시각 이전의 사건을 전부 실행하고 클록을 정확히
+    <code>until</code>에 맞춘다 — Phase 2에서 이 시그니처로 설계한 이유가
+    바로 이 한 줄을 위해서였다.
+  </p>
+  <ul>
+    <li><strong>일시정지(배속 0)</strong> — <code>Run(Now + 0)</code>은 실행할
+      사건이 없으므로 아무 일도 하지 않는다. 정지 로직을 따로 만들 필요가 없다.</li>
+    <li><strong>120배속</strong> — 60fps 기준 한 프레임에 시뮬레이션 2초어치를
+      민다. DES는 사건과 사건 사이를 점프하므로 비용은 "흘려보낸 시간"이 아니라
+      <strong>그 구간의 사건 수</strong>에 비례한다 — 1시간이 통째로 사건
+      1,893개였으니, 한 프레임에 실행되는 사건은 평균 1개 남짓이다.</li>
+    <li><strong>엔진 무수정</strong> — 배속이 0이든 120이든 <code>Simulation</code>
+      코드는 한 줄도 바뀌지 않는다. 엔진은 "어디까지"만 들을 뿐, 그 값을 누가
+      어떤 배속으로 계산했는지 모른다.</li>
+  </ul>
+
+  <h2>브리지 ② 공간 — 사건 사이를 보간한다</h2>
+  <p>
+    시간의 다리만으로는 화면이 이상해진다. DES의 세계는 <strong>이산</strong>이다 —
+    모델은 "t=100에 노드 A를 출발했고, t=104에 노드 B에 도착한다"만 안다.
+    그 사이의 t=101.7에 비히클이 어디 있는지는 <strong>계산한 적도, 저장한 적도
+    없다</strong>. 반면 화면은 <strong>연속</strong>이다 — 매 프레임 비히클의
+    위치가 필요하다. 사건 시각만 알고 그대로 그리면 비히클은 노드에서 노드로
+    순간이동하는 것처럼 보일 것이다.
+  </p>
+  <p>
+    답은 보간이다. <code>VehicleAgent</code>가 현재 주행 중인 엣지의
+    출발/도착 노드와 시각(<code>EdgeFromNode</code>, <code>EdgeToNode</code>,
+    <code>EdgeDepartAt</code>, <code>EdgeArriveAt</code>)을 노출하고, 뷰는 렌더
+    시점의 진행률 <strong>t = (now − depart) / (arrive − depart)</strong>를 계산해
+    두 노드 좌표를 선형 보간한다. <code>Assets/Scripts/VehicleFleetView.cs</code>의
+    공간 다리가 이것이다.
+  </p>
+  <pre><code>private static Vector3 EvaluatePosition(VehicleAgent agent, RailGraph graph, double now)
+{
+    if (!agent.IsMoving)
+    {
+        return ToVector(graph.GetNode(agent.NodeId));
+    }
+
+    double span = agent.EdgeArriveAt - agent.EdgeDepartAt;
+    float t = span &lt;= 0.0
+        ? 1f
+        : Mathf.Clamp01((float)((now - agent.EdgeDepartAt) / span));
+    Vector3 from = ToVector(graph.GetNode(agent.EdgeFromNode));
+    Vector3 to = ToVector(graph.GetNode(agent.EdgeToNode));
+    return Vector3.Lerp(from, to, t);
+}</code></pre>
+  <p>
+    읽는 순서대로: 이동 중이 아니면 현재 노드 좌표를 그대로 쓴다. 이동 중이면
+    엣지 소요 시간 <code>span</code> 대비 경과 시간의 비율 <code>t</code>를 구하고
+    (<code>Clamp01</code>로 0~1 밖을 방어), 출발·도착 노드 좌표를
+    <code>Lerp</code>한다. 시뮬레이션은 위치를 매 프레임 갱신하지 않는다 —
+    <strong>위치는 뷰가 렌더 시점에 즉석에서 계산하는 파생값</strong>이다.
+  </p>
+  <p>
+    Phase 4의 규율도 이 파일에 그대로 살아 있다. 비히클마다 스크립트를 붙이는
+    대신 <strong>매니저 하나의 <code>LateUpdate</code>가 함대 전체를 순회하며
+    보간</strong>한다(매니저 통합 패턴). 그리고 FOUP 표시는 상태가 실제로 바뀐
+    프레임에만 갱신한다.
+  </p>
+  <pre><code>// SetActive는 상태가 바뀔 때만 호출한다 (매 프레임 호출은 낭비).
+bool isCarrying = agent.Phase == VehiclePhase.Carrying;
+if (isCarrying != foupVisible[i])
+{
+    foups[i].SetActive(isCarrying);
+    foupVisible[i] = isCarrying;
+}</code></pre>
+
+  <div class="callout warn">
+    <span class="label">뷰는 읽기 전용이다</span>
+    <p>
+      뷰에서 Sim 계층의 상태를 <strong>절대 변경하지 말 것</strong>. 흐름은 항상
+      한 방향 — 뷰는 클록을 밀고(<code>Run</code>), 상태를 읽는다. 그게 전부다.
+      뷰가 <code>VehicleAgent</code>의 좌표나 국면을 건드리는 순간, 같은 시드가
+      같은 결과를 내는 결정론이 깨지고, 헤드리스 테스트가 검증한 세계와 화면에
+      보이는 세계가 <strong>서로 다른 세계</strong>가 된다. 그때부터는 스모크
+      테스트가 통과해도 화면의 버그를 잡을 수 없다.
+    </p>
+  </div>
+
+  <h2>한 장의 도면 — 두 계층, 두 개의 다리</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="2계층 아키텍처 도식: 위는 Unity View 계층(FabSimulation, VehicleFleetView, StatsHud), 아래는 순수 C# Sim 계층(DesCore, FabModel, RailGraph와 VehicleAgent). 뷰에서 Sim으로 클록 밀기 화살표가 내려가고, Sim에서 뷰로 상태 읽기 화살표가 올라간다. Sim 계층만 떼어 헤드리스 스모크 테스트로 검증할 수 있다">
+      <defs>
+        <marker id="ah-rail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-rail" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+        <marker id="ah-soft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-soft" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+        <marker id="ah-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-accent" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+      </defs>
+
+      <!-- View 계층 (위) -->
+      <rect class="d-node" x="40" y="24" width="550" height="120" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="52" y="46">VIEW 계층 — Unity (MonoBehaviour)</text>
+      <rect class="d-node-2" x="56" y="64" width="168" height="62" rx="4"/>
+      <text class="d-label-strong" x="140" y="90" text-anchor="middle">FabSimulation</text>
+      <text class="d-label" x="140" y="108" text-anchor="middle">Run(Now+Δt×배속)</text>
+      <rect class="d-node-2" x="252" y="64" width="168" height="62" rx="4"/>
+      <text class="d-label-strong" x="336" y="90" text-anchor="middle">VehicleFleetView</text>
+      <text class="d-label" x="336" y="108" text-anchor="middle">사건 사이 보간</text>
+      <rect class="d-node-2" x="448" y="64" width="126" height="62" rx="4"/>
+      <text class="d-label-strong" x="511" y="90" text-anchor="middle">StatsHud</text>
+      <text class="d-label" x="511" y="108" text-anchor="middle">처리량·가동률</text>
+      <line class="d-soft" x1="226" y1="95" x2="246" y2="95" stroke-width="2" marker-end="url(#ah-soft)"/>
+      <line class="d-soft" x1="422" y1="95" x2="442" y2="95" stroke-width="2" marker-end="url(#ah-soft)"/>
+
+      <!-- Sim 계층 (아래) -->
+      <rect class="d-node" x="40" y="216" width="550" height="120" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="52" y="238">SIM 계층 — 순수 C# (UnityEngine 무의존)</text>
+      <rect class="d-node-2" x="56" y="256" width="168" height="62" rx="4"/>
+      <text class="d-label-strong" x="140" y="282" text-anchor="middle">DesCore</text>
+      <text class="d-label" x="140" y="300" text-anchor="middle">Simulation·EventQueue</text>
+      <rect class="d-node-2" x="252" y="256" width="168" height="62" rx="4"/>
+      <text class="d-label-strong" x="336" y="282" text-anchor="middle">FabModel</text>
+      <text class="d-label" x="336" y="300" text-anchor="middle">미니 MCS — 명령·배차</text>
+      <rect class="d-node-2" x="448" y="256" width="126" height="62" rx="4"/>
+      <text class="d-label-strong" x="511" y="282" text-anchor="middle">RailGraph</text>
+      <text class="d-label" x="511" y="300" text-anchor="middle">VehicleAgent</text>
+      <line class="d-soft" x1="248" y1="287" x2="230" y2="287" stroke-width="2" marker-end="url(#ah-soft)"/>
+      <line class="d-soft" x1="424" y1="287" x2="442" y2="287" stroke-width="2" marker-end="url(#ah-soft)"/>
+
+      <!-- 다리 ①: 클록 밀기 (View → Sim) -->
+      <line class="d-accent" x1="140" y1="150" x2="140" y2="210" stroke-width="2.5" marker-end="url(#ah-accent)"/>
+      <text class="d-label-strong" x="152" y="174">클록 밀기</text>
+      <text class="d-label" x="152" y="192">Run(until) — 매 프레임</text>
+
+      <!-- 다리 ②: 상태 읽기 (Sim → View) -->
+      <line class="d-rail" x1="470" y1="210" x2="470" y2="150" stroke-width="2.5" marker-end="url(#ah-rail)"/>
+      <text class="d-label-strong" x="482" y="174">상태 읽기</text>
+      <text class="d-label" x="482" y="192">Now·좌표·국면 (읽기 전용)</text>
+
+      <!-- 헤드리스 테스트 -->
+      <rect class="d-node" x="648" y="248" width="132" height="76" rx="6" stroke-width="2" stroke-dasharray="6 4"/>
+      <text class="d-label-strong" x="714" y="280" text-anchor="middle">헤드리스</text>
+      <text class="d-label-strong" x="714" y="298" text-anchor="middle">스모크 테스트</text>
+      <line class="d-soft" x1="592" y1="286" x2="644" y2="286" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah-soft)"/>
+      <text class="d-label" x="714" y="236" text-anchor="middle">Sim 계층만 떼어 검증</text>
+    </svg>
+    <figcaption>
+      두 계층과 두 개의 다리. 뷰는 매 프레임 클록을 밀고(앰버 화살표), 상태를
+      읽기 전용으로 가져가 그린다(블루 화살표). Sim 계층은 Unity를 모르므로
+      점선처럼 통째로 떼어 렌더링 없이 검증할 수 있다 — 위의 스모크 테스트
+      출력이 그 증거다.
+    </figcaption>
+  </figure>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      이 구조는 실물 관제 시스템과 <strong>동형</strong>이다. 지금 FabModel은
+      난수로 반송 명령을 만들어내지만, 그 자리를 <strong>실제 MCS의 이벤트
+      스트림 구독</strong>으로 바꾸면 — 명령 생성·배차·이동 사건이 난수 대신
+      현장에서 흘러들어오면 — 나머지 코드는 그대로인 채 이 시뮬레이터는
+      관제 트윈이 된다. Phase 1 Station 03에서 "시뮬레이션과 관제 트윈은 같은
+      뼈대의 양면"이라고 했던 말이, 여기서 코드 구조로 증명된 것이다.
+    </p>
+  </div>
+
+  <h2>완성본 열어 보기</h2>
+  <p>
+    도면을 봤으니 실물을 돌려 보자. 아래 버튼으로 완성본 프로젝트를 연다.
+  </p>
+  <p>
+    <button class="btn-launch alt" type="button" data-open="p5-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P5-Complete</span>
+    </button>
+  </p>
+  <p class="launch-note">
+    버튼은 어떤 방식으로 사이트를 열었든 동작한다 — 파일로 직접 열었다면
+    브라우저가 처음 한 번 "열기 허용" 확인창을 띄우니 허용하면 된다.
+  </p>
+  <p>Play를 누르면 이 페이지에서 설명한 전부가 움직이기 시작한다.</p>
+  <ul>
+    <li><strong>OHT 4대</strong>가 루프 레일을 돌며 포트로 향한다. 픽업하는 순간
+      비히클 아래에 <strong>FOUP이 나타나고</strong>, 드롭하면 사라진다 —
+      <code>VehiclePhase.Carrying</code> 상태가 그대로 보이는 것이다.</li>
+    <li><strong>HUD</strong>가 처리량·평균 반송 시간·가동률을 갱신한다.</li>
+    <li>키 <strong>0 / 1 / 2 / 3</strong>으로 배속을 0(일시정지) / 1 / 30 / 120배로
+      전환한다. 위에서 본 <code>Update</code>의 키 분기가 하는 일이다.</li>
+  </ul>
+  <p>
+    과제 하나. 배속 120으로 시뮬레이션 시각 1시간 지점까지 돌려 보고, HUD의
+    세 지표를 스모크 테스트 수치 — <strong>시간당 160건, 평균 34.4초, 가동률
+    38%</strong> — 와 비교해 보라. 시드가 같으므로(기본 7) 거의 일치해야 정상이다.
+    헤드리스로 검증한 세계와 화면에 그려지는 세계가 <strong>같은 세계</strong>임을
+    눈으로 확인하는 것 — 그것이 이 아키텍처가 약속하는 전부다.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Sim 계층과 View 계층을 분리하면 얻는 보상 세 가지는?</summary>
+      <div class="answer">
+        <p>
+          ① <strong>헤드리스 테스트</strong> — Sim만 떼어 렌더링 없이 시뮬레이션
+          1시간을 초 단위 만에 검증할 수 있다. ② <strong>결정론적 재현</strong> —
+          같은 시드면 배속·프레임레이트와 무관하게 같은 결과가 나와 버그 재현과
+          회귀 검증이 가능하다. ③ <strong>재사용</strong> — 순수 C#이므로
+          Phase 2의 DesCore를 폴더째, 무수정으로 가져올 수 있었다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Run(Now + Time.deltaTime × 배속) 한 줄이 일시정지와 120배속을 엔진 수정 없이 지원하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          엔진의 <code>Run(until)</code>은 "어디까지 진행할지"라는 절대 시각만
+          받고, 그 값이 어떻게 계산됐는지 모르기 때문이다. 배속 0이면
+          <code>until = Now</code>가 되어 실행할 사건이 없고(일시정지), 배속
+          120이면 한 프레임에 큰 구간을 밀 뿐이다. 배속이라는 개념은 전부
+          엔진 바깥(뷰의 <code>timeScale</code>)에 산다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이동 중인 비히클의 화면 위치는 어떤 공식으로 구하는가?</summary>
+      <div class="answer">
+        <p>
+          진행률 <strong>t = (now − EdgeDepartAt) / (EdgeArriveAt −
+          EdgeDepartAt)</strong>을 0~1로 클램프한 뒤, 출발 노드와 도착 노드
+          좌표를 <code>Vector3.Lerp(from, to, t)</code>로 선형 보간한다.
+          시뮬레이션은 엣지의 출발/도착 "사건 시각"만 기록하고, 그 사이의
+          위치는 뷰가 렌더 시점에 계산하는 파생값이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>뷰가 Sim 상태를 변경하면 안 되는 이유는?</summary>
+      <div class="answer">
+        <p>
+          결정론이 깨지기 때문이다. Sim의 상태 전이가 사건 실행으로만 일어나야
+          "같은 시드 = 같은 결과"가 성립하는데, 뷰가 프레임 타이밍에 따라 상태를
+          건드리면 실행마다 결과가 달라지고, 헤드리스 테스트가 검증한 모델과
+          화면의 모델이 서로 다른 세계가 된다. 흐름은 항상 한 방향 — 뷰는 클록을
+          밀고 상태를 읽기만 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>배속 120으로 돌려도 프레임 비용이 폭발하지 않는 이유는?</summary>
+      <div class="answer">
+        <p>
+          DES의 비용은 흘려보낸 시뮬레이션 시간이 아니라 <strong>그 구간의 사건
+          수</strong>에 비례하기 때문이다. 이 모델은 1시간 전체가 사건
+          1,893개다 — 60fps에서 배속 120이면 한 프레임에 시뮬레이션 2초어치,
+          즉 사건 평균 1개 남짓만 실행된다. 사건이 없는 구간은 계산 자체를
+          하지 않는다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase4/03-optimization.html">
+      <span class="dir">← PREV — PHASE 4</span>
+      <span class="title">최적화 기법과 실험장 (Phase 4)</span>
+    </a>
+    <a class="next" href="02-data-model.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">데이터 모델 — 레일 그래프 · MCS 명령 흐름</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 5 — MINI FAB SIMULATOR</div>
+</footer>
+
+</body>
+</html>

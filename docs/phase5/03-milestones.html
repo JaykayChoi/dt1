@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 마일스톤 — 직접 만드는 순서 — DT1 Phase 5</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 5 시뮬레이터<span class="sep">/</span>03 마일스톤
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 5 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-architecture.html" title="아키텍처 — 시뮬레이션과 뷰의 분리">01</a></li>
+      <li><a href="02-data-model.html" title="데이터 모델 — 레일 그래프 · MCS 명령 흐름">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 5 — 미니 팹 시뮬레이터</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 5 · Station 03</p>
+    <h1>마일스톤 — 직접 만드는 순서</h1>
+    <p class="lede">
+      Station 01~02에서 완성본의 구조와 데이터 모델을 읽었다. 이번 스테이션은
+      그 구조를 <strong>자기 손으로 재구축하는 순서</strong>다. 여섯 개의
+      마일스톤을 지나면, 읽어서 이해한 시뮬레이터가 내가 만든 시뮬레이터가 된다.
+    </p>
+  </div>
+
+  <h2>읽었으면 이제 만든다</h2>
+  <p>
+    이 페이즈의 실습은 완성본을 베끼는 것이 아니라 <strong>순서대로 재구축하는
+    것</strong>이다. 무대는 실습 프로젝트 <strong>FabSim</strong> — Phase 3에서
+    직접 세운 팹 베이 씬 위에, Phase 2에서 만든 DES 코어를 얹고, 그 위에
+    시뮬레이터를 쌓는다. 원칙은 두 가지다.
+  </p>
+  <ul>
+    <li><strong>마일스톤마다 "돌아가는 상태"를 유지한다</strong> — 한 번에 다
+      만들지 않는다. 각 마일스톤은 실행해서 눈으로 확인 가능한 상태로 끝나고,
+      다음 마일스톤은 그 위에서만 출발한다. 문제가 생기면 직전 마일스톤과의
+      차이만 의심하면 되므로 디버깅 범위가 항상 좁다.</li>
+    <li><strong>막히면 완성본을 참고서로 쓴다</strong> — 통째로 복사하지 말고,
+      막힌 지점의 해법만 읽고 돌아온다. 보고 베끼는 것과 손으로 만드는 것은
+      다른 학습이다.</li>
+  </ul>
+  <p>
+    <button class="btn-launch" type="button" data-open="fabsim">
+      <span class="glyph">▶</span><span class="btn-label">실습 프로젝트 열기 — FabSim</span>
+    </button>
+    <button class="btn-launch alt" type="button" data-open="p5-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P5-Complete</span>
+    </button>
+  </p>
+  <p class="launch-note">
+    버튼은 어떤 방식으로 사이트를 열었든 동작한다 — 파일로 직접 열었다면 브라우저가
+    처음 한 번 "열기 허용" 확인창을 띄우니 허용하면 된다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="마일스톤 노선도: M1 DesCore 이식부터 M6 프로파일링까지 여섯 개의 역이 한 레일 위에 놓여 있다">
+      <text class="d-label" x="400" y="24" text-anchor="middle">각 역은 "돌아가는 상태" — 다음 역은 그 위에서만 출발한다</text>
+
+      <line class="d-rail" x1="50" y1="70" x2="750" y2="70" stroke-width="3"/>
+      <rect class="d-fill-accent" x="130" y="55" width="26" height="11" rx="2"/>
+
+      <g stroke-width="2">
+        <circle class="d-node" cx="80" cy="70" r="16"/>
+        <circle class="d-node" cx="208" cy="70" r="16"/>
+        <circle class="d-node" cx="336" cy="70" r="16"/>
+        <circle class="d-node" cx="464" cy="70" r="16"/>
+        <circle class="d-node" cx="592" cy="70" r="16"/>
+        <circle class="d-node" cx="720" cy="70" r="16"/>
+      </g>
+      <text class="d-label-strong" x="80" y="74" text-anchor="middle">M1</text>
+      <text class="d-label-strong" x="208" y="74" text-anchor="middle">M2</text>
+      <text class="d-label-strong" x="336" y="74" text-anchor="middle">M3</text>
+      <text class="d-label-strong" x="464" y="74" text-anchor="middle">M4</text>
+      <text class="d-label-strong" x="592" y="74" text-anchor="middle">M5</text>
+      <text class="d-label-strong" x="720" y="74" text-anchor="middle">M6</text>
+
+      <text class="d-text" x="80" y="110" text-anchor="middle">DesCore 이식</text>
+      <text class="d-text" x="208" y="110" text-anchor="middle">레일 그래프</text>
+      <text class="d-text" x="336" y="110" text-anchor="middle">비히클 이동</text>
+      <text class="d-text" x="464" y="110" text-anchor="middle">MCS 배차</text>
+      <text class="d-text" x="592" y="110" text-anchor="middle">통계 HUD</text>
+      <text class="d-text" x="720" y="110" text-anchor="middle">프로파일링</text>
+
+      <text class="d-label" x="80" y="130" text-anchor="middle">에러 0</text>
+      <text class="d-label" x="208" y="130" text-anchor="middle">FindPath OK</text>
+      <text class="d-label" x="336" y="130" text-anchor="middle">배속 무관</text>
+      <text class="d-label" x="464" y="130" text-anchor="middle">FOUP 운반</text>
+      <text class="d-label" x="592" y="130" text-anchor="middle">지표 수렴</text>
+      <text class="d-label" x="720" y="130" text-anchor="middle">GC 0</text>
+    </svg>
+    <figcaption>
+      마일스톤은 노선의 역이다. 각 역에서 시뮬레이터는 실행 가능한 상태로 정차하고,
+      역마다 "여기까지 됐다"를 판정하는 완료 기준이 하나씩 붙어 있다.
+    </figcaption>
+  </figure>
+
+  <h2>마일스톤 6개 — 목표 · 할 일 · 완료 기준</h2>
+  <p>
+    각 마일스톤은 <strong>목표</strong>(무엇이 생기는가), <strong>할 일</strong>(무엇을
+    만드는가), <strong>완료 기준</strong><i class="en">(Definition of Done, DoD)</i>
+    세 조각으로 정의된다. 완료 기준을 통과하기 전에는 다음으로 넘어가지 않는다.
+  </p>
+
+  <h3>M1 — DesCore 이식</h3>
+  <p>
+    <strong>목표</strong>: Phase 2에서 만든 DES 엔진이 Unity 프로젝트 안에서
+    컴파일된다.
+  </p>
+  <ul>
+    <li><code>examples/phase2-descore/DesCore</code>의 .cs 파일 5개 —
+      <code>Simulation.cs</code>, <code>EventQueue.cs</code>, <code>SimEvent.cs</code>,
+      <code>SimResource.cs</code>, <code>RandomExtensions.cs</code> — 를 FabSim의
+      <code>Assets/DesCore</code> 폴더로 복사한다.</li>
+    <li>에디터로 돌아가 자동 컴파일을 기다린 뒤 Console을 확인한다. DesCore는
+      UnityEngine에 의존하지 않는 순수 C#이므로 수정 없이 그대로 컴파일되어야 한다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — Console에 컴파일 에러 0. 이것이 전부다.
+    가장 쉬운 마일스톤이라서 첫 마일스톤이다 — 출발부터 돌아가는 상태로 시작한다.
+  </p>
+
+  <h3>M2 — 레일 그래프와 시각물</h3>
+  <p>
+    <strong>목표</strong>: Phase 3 씬의 천장 레일 위에 논리 좌표계(웨이포인트
+    그래프)가 정확히 얹힌다.
+  </p>
+  <ul>
+    <li><code>RailGraph</code> 작성 — 노드 좌표와 엣지(구간 길이)를 담고,
+      다익스트라 최단 경로로 <code>FindPath(from, to)</code>를 제공하는
+      순수 C# 클래스.</li>
+    <li>자기만의 <code>FabLayout</code> 작성 — 노드 좌표와 연결 관계를
+      <strong>한 곳에서</strong> 정의한다. 반드시 자기 씬에 깔아 둔 레일의 실제
+      위치에 맞출 것 — 완성본의 FabLayout은 완성본 씬 기준이므로 그대로 베끼면
+      자기 씬과 어긋난다.</li>
+    <li>노드 위치 검증 — <code>OnDrawGizmos</code>로 기즈모를 그리거나 임시
+      구체를 노드 좌표에 생성해서, 그래프의 노드가 눈에 보이는 레일 위에
+      정확히 앉는지 확인한다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — 아무 두 노드를 골라 <code>FindPath</code>를
+    호출하면 기대한 경로가 반환된다. <code>Debug.Log</code>로 경로의 노드
+    번호를 찍어 눈으로 확인한다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">M2가 흔들리면 전부 흔들린다</span>
+    <p>
+      그래프(논리)와 레일(시각물)이 어긋난 채 다음으로 넘어가면, M3에서 비히클이
+      레일 밖 허공을 달리고, M4에서 FOUP이 장비 옆 엉뚱한 자리에 내려앉는다.
+      그때 가서는 이동 코드를 의심하게 되지만 범인은 M2다. 좌표와 연결을
+      <strong>FabLayout 한 파일에서만 정의</strong>하는 단일 정의 원칙을 지키고,
+      기즈모 검증을 건너뛰지 말 것 — 여기서 쓰는 10분이 뒤의 몇 시간을 아낀다.
+    </p>
+  </div>
+
+  <h3>M3 — 비히클 이동</h3>
+  <p>
+    <strong>목표</strong>: 비히클 1대가 그래프 위를 달리고, 화면이 그 움직임을
+    매끄럽게 그린다.
+  </p>
+  <ul>
+    <li><code>VehicleAgent</code> — 현재 노드, 이동 중인 엣지의 양 끝 노드,
+      엣지 출발/도착 시각 같은 시뮬레이션 상태를 담는 데이터 클래스.</li>
+    <li><code>TraversePath</code> — 경로를 엣지 단위 사건의 연쇄로 굴리는
+      이동 로직. "사건이 사건을 낳는" Phase 2의 패턴 그대로다.</li>
+    <li>뷰 보간 — MonoBehaviour 뷰가 매 프레임 현재 시뮬레이션 시각을 기준으로
+      엣지 위 위치를 보간해 Transform을 갱신한다. 시뮬레이션은 도착 사건만 알고,
+      그 사이를 채우는 것은 뷰의 몫이다.</li>
+    <li>테스트 — 비히클 1대를 임의 노드로 보내 본다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — 배속을 0(일시정지) · 1 · 30으로 바꿔도 움직임이
+    매끄럽고 위치가 튀지 않는다. 이 기준이 통과되면 시뮬레이션과 뷰의 분리가
+    제대로 된 것이다.
+  </p>
+
+  <h3>M4 — MCS 배차</h3>
+  <p>
+    <strong>목표</strong>: 반송 명령이 스스로 흘러들어오고, 비히클이 일감을 받아
+    FOUP을 나른다.
+  </p>
+  <ul>
+    <li><code>TransportJob</code> 생성 — 지수분포 간격(<code>NextExponential</code>)으로
+      명령 도착 사건을 스케줄하고, 출발/도착 포트를 무작위로 고른다.</li>
+    <li>최근접 유휴 배차 — 대기 명령은 선입선출, 유휴 비히클 중 픽업 지점까지의
+      경로가 가장 짧은 것에 할당한다 (Phase 1 Station 04에서 배운 배차 규칙).</li>
+    <li>픽업/드롭 dwell — 핸드오프를 고정 시간으로 근사하고, 그 동안 FOUP
+      오브젝트를 비히클에 붙였다가 목적지에서 뗀다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — FOUP이 실리고 내려지는 것이 화면에 보이고,
+    완료 카운트가 꾸준히 증가한다. 여기서부터 시뮬레이터가 "일하는 팹"처럼 보인다.
+  </p>
+
+  <h3>M5 — 통계 HUD</h3>
+  <p>
+    <strong>목표</strong>: 시뮬레이터가 숫자로 말한다 — 보이는 움직임이 아니라
+    측정된 지표가 결과물이 된다.
+  </p>
+  <ul>
+    <li>HUD에 지표 4종 — <strong>처리량</strong>(건/시간),
+      <strong>평균 반송 시간</strong>(명령 생성 → 드롭 완료),
+      <strong>함대 가동률</strong>, <strong>대기 명령 수</strong>.</li>
+    <li>리틀의 법칙 검산 — Station 02에서 본 것처럼, 평균 대기 명령 수가
+      도착률 × 평균 대기 시간과 맞아떨어지는지 교차 검증한다. 통계 코드도
+      코드이므로, 자기 자신을 검증할 방법을 갖춰야 한다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — 시뮬레이션 시간 1시간을 배속으로 돌렸을 때
+    지표가 안정적으로 수렴하고, 리틀의 법칙 검산이 크게 어긋나지 않는다.
+  </p>
+
+  <h3>M6 — 프로파일링 패스 (Phase 4 복습)</h3>
+  <p>
+    <strong>목표</strong>: 부하를 올려도 프레임과 메모리가 무너지지 않음을
+    측정으로 증명한다.
+  </p>
+  <ul>
+    <li>부하 스텝업 — 비히클을 12대로 늘리고 명령 도착 간격을 절반으로 줄인다.</li>
+    <li>Profiler 확인 — 정상 운전 중 매 프레임 GC Alloc이 0인지, CPU 타임이
+      프레임 예산 안에 들어오는지 본다. 통계 문자열 갱신처럼 사소해 보이는
+      코드가 흔한 범인이다.</li>
+  </ul>
+  <p>
+    <strong>완료 기준</strong> — Phase 4 Station 03의 실험 기록 템플릿 1장을
+    작성한다: 가설 → 측정 → 변경 → 재측정. 기록이 없으면 최적화는 없었던 일이 된다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      완성본과 실습본의 <strong>차이가 곧 학습의 증거</strong>다. 자기 손으로 만든
+      버전에는 자기만의 결정이 남는다 — 레일을 어떤 모양으로 돌렸는지, 노드를 몇
+      개로 나눴는지, dwell을 몇 초로 근사했는지. 완성본을 베끼면 이 결정들이
+      전부 남의 것이 되고, 나중에 "왜 이렇게 했나요"라는 질문에 답할 수 없게 된다.
+      결정의 이유를 말할 수 있는 코드만 포트폴리오가 된다.
+    </p>
+  </div>
+
+  <h2>확장 과제 — 다음 산들</h2>
+  <p>
+    M6까지가 기본 완주다. 여기서 멈춰도 되지만, 아래 과제들은 이 시뮬레이터를
+    실제 팹 관제의 난제에 한 걸음씩 가깝게 만든다. 어느 것이든 하나를 고르면
+    그것이 자기만의 프로젝트가 된다.
+  </p>
+  <ul>
+    <li><strong>구간 점유 교통 제어</strong> — 한 엣지에는 한 대만 (지금은
+      비히클끼리 겹쳐 지나간다). 힌트: <code>SimResource</code>를 엣지에 붙이면
+      Phase 2의 리소스 점유 패턴이 그대로 교통 제어가 된다.</li>
+    <li><strong>데드락 실험</strong> — 레일을 양방향으로 바꿔 서로 마주 보고
+      진입하는 상황을 일부러 만들어 본다. Phase 1 Station 04에서 글로 읽은
+      데드락을 자기 시뮬레이터에서 직접 재현하는 것이다.</li>
+    <li><strong>배차 규칙 교체 비교</strong> — 최근접 유휴 대신 단순 FIFO로
+      바꾸고, 같은 시드·같은 부하에서 처리량과 평균 반송 시간을 비교하는
+      실험을 돌린다. 규칙 하나가 지표를 얼마나 움직이는지 숫자로 확인한다.</li>
+    <li><strong>상태 기계로 리팩터</strong> — 픽업 → 이동 → 드롭을 잇는 콜백
+      연쇄를 명시적 상태 기계로 정리한다. Phase 2 Station 04에서 예고한
+      구조 개선을 실행에 옮기는 과제다.</li>
+    <li><strong>스토커/버퍼 추가</strong> — 포트에 자리가 없으면 FOUP이 임시
+      보관소에서 대기하도록 한다. 포트 용량이라는 새 제약이 대기 행렬을
+      어디로 옮기는지 관찰한다.</li>
+  </ul>
+
+  <h2>로드맵 완주 체크</h2>
+  <p>
+    다섯 페이즈를 지나온 지금, 각 페이즈의 완료를 판정하는 자가진단은 한 줄씩이면
+    충분하다. "할 수 있다"에 자신 있게 답하지 못하는 줄이 있으면 그 페이즈로
+    돌아가면 된다 — 노선도는 언제든 다시 탈 수 있다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>이것을 할 수 있으면 완료</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">P1 도메인</td>
+          <td>OHT · MCS · 배차가 무엇이고 왜 필요한지, 이 도메인을 처음 듣는 사람에게 설명할 수 있다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">P2 DES</td>
+          <td>내 시뮬레이션을 M/M/1 이론값과 교차 검증하는 이유와 방법을 말할 수 있다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">P3 렌더링</td>
+          <td>프리미티브만으로 라이트맵이 구워진 팹 씬을 처음부터 만들 수 있다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">P4 최적화</td>
+          <td>프레임이 느릴 때 어디가 병목인지 프로파일러 근거를 들어 판별할 수 있다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">P5 시뮬레이터</td>
+          <td>배속이 조절되고 지표가 검산되는, 돌아가는 미니 팹 시뮬레이터가 내 코드로 존재한다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    입사 첫 주, 팀장이 "우리 팀이 뭐 하는 팀인지 알아요?"라고 물으면 — 그 답이
+    이 사이트 전체다. 천장 레일 위의 비히클(P1)을, 이산사건으로 계산하고(P2),
+    구운 빛 아래 그리고(P3), 수백 대에서도 프레임을 지키며(P4), 하나의
+    시뮬레이터로 묶는 것(P5). 그것이 공장 물류 디지털 트윈이고, 당신은 그것을
+    이미 한 번, 처음부터 끝까지 만들어 봤다.
+  </p>
+
+  <div class="callout field">
+    <span class="label">면접·입사 대비 — 3분 데모</span>
+    <p>
+      이 시뮬레이터를 포트폴리오로 시연할 때는 순서가 있다.
+      <strong>① 배속 조절</strong> — 0에서 멈추고 30으로 올리며 "시뮬레이션과
+      렌더링이 분리되어 있다"를 보여 준다. <strong>② HUD 지표</strong> — 처리량과
+      가동률을 짚고 리틀의 법칙으로 검산했다고 말한다. <strong>③ 병목 실험</strong> —
+      비히클 수를 올려 지표가 어떻게 움직이는지 보여 주고 프로파일링 기록을 꺼낸다.
+      세 단계가 각각 아키텍처, 검증 습관, 측정 습관의 증거가 된다 —
+      화려한 그래픽보다 이 세 가지가 훨씬 강한 인상을 남긴다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>마일스톤을 왜 이 순서(M1→M6)로 쌓는가?</summary>
+      <div class="answer">
+        <p>
+          의존 방향 때문이다. 엔진(M1) 없이는 사건이 없고, 그래프(M2) 없이는
+          이동(M3)이 없고, 이동 없이는 배차(M4)가 없고, 배차 없이는 잴
+          통계(M5)가 없고, 통계 없이는 부하 실험(M6)의 판정 기준이 없다.
+          그리고 각 마일스톤이 "돌아가는 상태"로 끝나므로, 문제가 생기면
+          직전 마일스톤과의 차이에서만 원인을 찾으면 된다 — 디버깅 범위를
+          항상 한 층으로 좁히는 순서다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M3의 완료 기준이 하필 "배속을 바꿔도 매끄럽다"인 이유는?</summary>
+      <div class="answer">
+        <p>
+          배속 변화는 시뮬레이션과 뷰의 분리를 판정하는 리트머스 시험지이기
+          때문이다. 뷰가 시뮬레이션 시각(엣지 출발/도착 시각)을 기준으로
+          위치를 보간하면 배속이 몇이든 궤적은 같고 움직임은 매끄럽다.
+          반대로 위치가 튀거나 배속에 따라 궤적이 달라진다면, 뷰가 프레임
+          시간에 상태를 직접 누적하고 있다는 증거다 — 그 구조로는 배속도
+          일시정지도 성립하지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>"한 엣지에 한 대" 교통 제어를 SimResource로 구현한다는 아이디어를 설명하면?</summary>
+      <div class="answer">
+        <p>
+          엣지마다 용량 1짜리 <code>SimResource</code>를 붙인다. 비히클은 엣지에
+          진입하기 전에 점유를 요청하고, 빠져나온 뒤 해제한다. 이미 점유
+          중이면 요청은 대기열에 서는데 — 그 대기가 곧 <strong>정체</strong>다.
+          Phase 2에서 스테이션 점유에 쓰던 리소스 패턴을 엣지에 옮기는 것만으로,
+          교통 정체라는 현상이 별도 코드 없이 모델에서 저절로 나타난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M5의 리틀의 법칙 검산은 무엇을 잡아 주는가?</summary>
+      <div class="answer">
+        <p>
+          통계 코드 자체의 버그다. 평균 대기 명령 수, 도착률, 평균 대기 시간은
+          서로 다른 코드에서 독립적으로 집계되지만, 안정 상태에서는 리틀의
+          법칙(L = λW)이라는 관계를 반드시 만족해야 한다. 크게 어긋나면 셋 중
+          어딘가의 집계나 모델이 틀렸다는 신호다 — Phase 2에서 M/M/1 이론값으로
+          엔진을 검증했던 것과 같은 교차 검증 습관을, 이번에는 자기가 만든
+          통계에 적용하는 것이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-data-model.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">데이터 모델 — 레일 그래프 · MCS 명령 흐름</span>
+    </a>
+    <a class="next" href="../index.html">
+      <span class="dir">NEXT — 노선도 →</span>
+      <span class="title">노선도 — 전체 로드맵 완주</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 5 — MINI FAB SIMULATOR</div>
+</footer>
+
+</body>
+</html>

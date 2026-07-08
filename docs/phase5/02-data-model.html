@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 데이터 모델 — 레일 그래프 · MCS 명령 흐름 — DT1 Phase 5</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 5 시뮬레이터<span class="sep">/</span>02 데이터 모델
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 5 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-architecture.html" title="아키텍처 — DES 코어 ↔ Unity 브리지">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-milestones.html" title="마일스톤 — 직접 만드는 순서">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 5 — 미니 팹 시뮬레이터</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 5 · Station 02</p>
+    <h1>데이터 모델 — 레일 그래프 · MCS 명령 흐름</h1>
+    <p class="lede">
+      미니 팹의 뼈대는 세 파일이다. 레일을 정의하는 FabLayout, 그 위에서
+      길을 찾는 RailGraph, 그리고 반송 명령을 만들어 배차하고 완주시키는
+      미니 MCS인 FabModel. Phase 1에서 말로 배운 레이아웃·명령 생애주기·배차
+      규칙이 이 페이지에서 전부 자료구조와 코드가 된다.
+    </p>
+  </div>
+
+  <h2>레이아웃은 곧 그래프다</h2>
+  <p>
+    Phase 1 Station 02는 "팹 레이아웃 도면은 그 자체로 그래프 정의서"라고
+    예고했다. 그 예고가 코드가 되는 곳이 여기다.
+    <strong>노드</strong><i class="en">(node)</i>는 비히클이 정지하거나 방향을
+    바꾸는 <strong>웨이포인트</strong><i class="en">(waypoint)</i> — 포트, 코너,
+    분기 지점이고, <strong>엣지</strong><i class="en">(edge)</i>는 노드와 노드를
+    잇는 <strong>방향 있는 레일 구간</strong>이다. OHT 레일은 일방통행이
+    기본이므로 방향성은 장식이 아니라 본질이다.
+  </p>
+  <p>
+    이것을 담는 그릇이 <code>RailGraph</code>다. Phase 2의 DesCore와 같은
+    이유로 <strong>UnityEngine 무의존 순수 C#</strong>이라, Unity 없이 콘솔에서
+    돌려 보며 검증할 수 있다. 인터페이스는 세 개가 전부다.
+  </p>
+  <ul>
+    <li><code>AddNode(x, y, z)</code> — 3D 좌표를 등록하고 노드 id(등록 순번)를 돌려준다.</li>
+    <li><code>AddEdge(from, to)</code> — from → to <strong>방향성 엣지</strong>를
+      추가한다. 가중치를 따로 저장하지 않는다 — 길이는 두 노드의 좌표에서
+      계산한다(<code>GetDistance</code>). <strong>노드 좌표가 곧 유일한 진실</strong>이다.</li>
+    <li><code>FindPath(start, goal)</code> — 다익스트라 최단 경로. 노드 시퀀스를
+      반환하고, 도달 불가능하면 <code>null</code>.</li>
+  </ul>
+  <p>
+    <code>FindPath</code>의 심장부를 보자.
+  </p>
+  <pre><code>bestCost[start] = 0f;
+
+// 노드 수가 작아(수십 개) 선형 탐색 다익스트라로 충분하다.
+while (true)
+{
+    int current = -1;
+    float currentCost = float.PositiveInfinity;
+    for (int i = 0; i &lt; nodes.Count; i++)
+    {
+        if (!visited[i] &amp;&amp; bestCost[i] &lt; currentCost)
+        {
+            current = i;
+            currentCost = bestCost[i];
+        }
+    }
+
+    if (current == -1)
+    {
+        return null;
+    }
+
+    if (current == goal)
+    {
+        break;
+    }
+
+    visited[current] = true;
+    foreach (int next in outgoing[current])
+    {
+        float cost = currentCost + GetDistance(current, next);
+        if (cost &lt; bestCost[next])
+        {
+            bestCost[next] = cost;
+            previous[next] = current;
+        }
+    }
+}</code></pre>
+  <p>
+    교과서의 다익스트라는 "미방문 노드 중 비용 최소"를 우선순위 큐로 뽑지만,
+    여기서는 배열을 <strong>처음부터 끝까지 훑는 선형 탐색</strong>이다.
+    Phase 2에서는 사건이 수천 개 쌓이는 FEL을 위해 이진 최소 힙을 직접
+    만들었는데, 왜 여기서는 안 만들었을까? <strong>노드가 12개</strong>이기
+    때문이다. O(V²)라도 열두 개의 제곱은 아무것도 아니다. 자료구조는
+    교과서가 아니라 <strong>규모가 고른다</strong> — 같은 프로젝트 안에서
+    힙을 만든 손과 선형 탐색을 고른 손이 같은 손이라는 것이 이 선택의 교훈이다.
+  </p>
+  <p>
+    도달 불가능하면 <code>null</code>을 돌려주는 것도 의미가 있다. 모든 엣지가
+    한 방향이므로 엣지 하나만 빠뜨려도 그래프가 끊긴다 — <code>null</code>은
+    레이아웃 정의 버그를 가장 시끄럽게 드러내는 신호다.
+  </p>
+
+  <h2>FabLayout — 한 곳에서 정의하는 진실</h2>
+  <p>
+    미니 팹의 레이아웃 전체가 파일 하나다. 상수 세 개와 메서드 하나 —
+    전문을 그대로 싣는다.
+  </p>
+  <pre><code>namespace FabSim.Sim
+{
+    /// &lt;summary&gt;
+    /// 미니 팹의 레일 레이아웃 정의 — 일방통행 직사각 루프 + 포트 노드.
+    /// 씬 빌더(시각물)와 런타임(그래프)이 같은 정의를 공유해 어긋남을 막는다.
+    /// 일방통행 루프는 Phase 1에서 배운 데드락 구조적 회피이기도 하다.
+    /// &lt;/summary&gt;
+    public static class FabLayout
+    {
+        /// &lt;summary&gt;레일 높이 [m].&lt;/summary&gt;
+        public const float RailHeight = 4f;
+
+        /// &lt;summary&gt;루프의 X 반폭 [m].&lt;/summary&gt;
+        public const float HalfWidth = 6f;
+
+        /// &lt;summary&gt;루프의 Z 반길이 [m].&lt;/summary&gt;
+        public const float HalfLength = 16f;
+
+        /// &lt;summary&gt;
+        /// 일방통행 루프 그래프를 만든다. 반환된 portNodes는 픽업/드롭이
+        /// 일어나는 노드 id들(긴 변의 비코너 노드 6개)이다.
+        /// &lt;/summary&gt;
+        public static RailGraph Build(out int[] portNodes)
+        {
+            var graph = new RailGraph();
+            float y = RailHeight;
+
+            // 반시계 방향 일방통행 루프 — 12개 노드.
+            int n0 = graph.AddNode(-HalfWidth, y, -HalfLength);
+            int n1 = graph.AddNode(-HalfWidth, y, -8f);
+            int n2 = graph.AddNode(-HalfWidth, y, 0f);
+            int n3 = graph.AddNode(-HalfWidth, y, 8f);
+            int n4 = graph.AddNode(-HalfWidth, y, HalfLength);
+            int n5 = graph.AddNode(0f, y, HalfLength);
+            int n6 = graph.AddNode(HalfWidth, y, HalfLength);
+            int n7 = graph.AddNode(HalfWidth, y, 8f);
+            int n8 = graph.AddNode(HalfWidth, y, 0f);
+            int n9 = graph.AddNode(HalfWidth, y, -8f);
+            int n10 = graph.AddNode(HalfWidth, y, -HalfLength);
+            int n11 = graph.AddNode(0f, y, -HalfLength);
+
+            int[] loop = { n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11 };
+            for (int i = 0; i &lt; loop.Length; i++)
+            {
+                graph.AddEdge(loop[i], loop[(i + 1) % loop.Length]);
+            }
+
+            // 긴 변의 중간 노드들이 장비 로드포트 위 정지 지점이다.
+            portNodes = new[] { n1, n2, n3, n7, n8, n9 };
+            return graph;
+        }
+    }
+}</code></pre>
+  <p>이 짧은 파일에 설계 결정이 세 개 들어 있다.</p>
+  <h3>① 씬과 시뮬레이션이 같은 정의를 읽는다</h3>
+  <p>
+    레일 메시와 장비를 배치하는 씬 빌더도, 경로를 계산하는 런타임도
+    <strong>같은 <code>Build()</code>를 호출</strong>한다. 레이아웃 정의가
+    두 벌이면 언젠가 반드시 어긋난다 — 시각 레일과 시뮬레이션 그래프가
+    조금이라도 다르면 비히클이 레일 밖 허공을 달리는 화면이 나온다.
+    정의를 한 곳에 모아 두면 이 부류의 버그가 <strong>원천적으로 생길 수
+    없다</strong>. "고치려면 한 군데만 고친다"는 보너스는 덤이다.
+  </p>
+  <h3>② 일방통행 루프 — 레이아웃으로 사는 데드락 회피</h3>
+  <p>
+    <code>(i + 1) % loop.Length</code> — 엣지 12개가 전부 같은 방향이고,
+    역방향 엣지는 하나도 없다. Phase 1 Station 04에서 데드락의 성립
+    조건은 <strong>순환 대기</strong>, 즉 서로가 서로의 길을 막고 마주 보며
+    기다리는 고리라고 배웠다. 모든 비히클이 같은 방향으로 도는 루프에서는
+    <strong>마주 보는 대기 자체가 성립할 수 없다</strong> — 앞차가 언젠가
+    움직이면 나도 움직인다. 데드락 방지를 감지·회피 알고리즘으로 사는 대신
+    <strong>레이아웃 선택으로 산 것</strong>이다. 물론 공짜는 아니다.
+    목적지가 바로 뒤 노드여도 루프를 한 바퀴 돌아야 한다 — 경로 자유도를
+    안전과 맞바꾼 거래이고, 실제 팹의 OHT 레일이 일방통행을 기본으로 까는
+    이유이기도 하다.
+  </p>
+  <h3>③ 포트 노드 — 긴 변의 비코너 6개</h3>
+  <p>
+    픽업·드롭이 일어나는 <strong>포트 노드</strong>는 긴 변(±X 두 변)의
+    중간 노드들 — <code>n1, n2, n3</code>과 <code>n7, n8, n9</code> — 이다.
+    코너는 방향을 꺾는 구간이라 정지 지점으로 쓰지 않고, 긴 변의 중간 노드
+    바로 아래에 장비 로드포트가 놓인다. Phase 1에서 본 "OHT가 장비 위
+    레일에 정지해 호이스트를 내리는" 바로 그 지점이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      <code>Build()</code>의 노드 좌표를 하드코딩 대신 <strong>실팹 CAD
+      도면·설비 DB에서 뽑은 좌표</strong>로 바꾸면, 이 페이지의 나머지 코드는
+      한 줄도 고치지 않고 실물 레이아웃 위에서 돈다. 그래프·배차·통계는
+      좌표가 어디서 왔는지 모르기 때문이다. 디지털 트윈에서 레이아웃
+      데이터의 원천은 도면과 설비 마스터이고, <code>FabLayout</code> 자리에
+      그 로더가 들어간다.
+    </p>
+  </div>
+
+  <h2>반송 명령의 생애 — 코드로 다시 보는 Station 03</h2>
+  <p>
+    Phase 1 Station 03에서 반송 명령의 생애주기를 배웠다 — 생성되고,
+    배차되고, 픽업·이동·드롭을 거쳐 완료된다. <code>FabModel</code>은 그
+    생애주기를 그대로 코드로 옮긴 <strong>미니 MCS</strong>다. 명령 하나는
+    <code>TransportJob</code> 객체다: 어디서 어디로(<code>FromPort</code>,
+    <code>ToPort</code>)에 더해 <strong>타임스탬프 세 개</strong> —
+    <code>CreatedAt</code>(생성), <code>AssignedAt</code>(배차),
+    <code>CompletedAt</code>(완료) — 를 지니고 다닌다. 이 세 시각이 뒤에서
+    볼 통계의 원료 전부다. 비히클들은 시작 시 루프 위에 고르게 흩어 놓는다.
+  </p>
+  <h3>생성 — 지수분포 간격으로 도착하는 명령</h3>
+  <pre><code>private void ScheduleNextJobArrival()
+{
+    Simulation.Schedule(random.NextExponential(jobIntervalMean), () =&gt;
+    {
+        OnJobArrived();
+        ScheduleNextJobArrival();
+    });
+}
+
+private void OnJobArrived()
+{
+    int from = portNodes[random.Next(portNodes.Length)];
+    int to = from;
+    while (to == from)
+    {
+        to = portNodes[random.Next(portNodes.Length)];
+    }
+
+    pendingJobs.Enqueue(new TransportJob
+    {
+        Id = nextJobId++,
+        FromPort = from,
+        ToPort = to,
+        CreatedAt = Simulation.Now,
+    });
+    TryDispatch();
+}</code></pre>
+  <p>
+    Phase 2의 도착 프로세스가 그대로다. 지수분포 간격(<code>NextExponential</code> —
+    포아송 도착)으로 다음 도착을 예약하고, <strong>도착 사건이 다음 도착
+    사건을 스스로 예약</strong>한다. 출발·도착 포트는 랜덤으로 뽑되 같으면
+    다시 뽑고, 큐에 넣자마자 <code>TryDispatch()</code>를 부른다 — 상위
+    시스템(MES)이 내려보낸 반송 요청이 MCS의 대기 큐에 꽂히는 순간이다.
+  </p>
+  <h3>배차 — 선입선출 × 최근접 유휴</h3>
+  <pre><code>// 배차 규칙: 대기 명령 선입선출 × 최근접 유휴 비히클 (Phase 1 Station 04).
+private void TryDispatch()
+{
+    while (pendingJobs.Count &gt; 0)
+    {
+        TransportJob job = pendingJobs.Peek();
+        VehicleAgent best = null;
+        float bestDistance = float.PositiveInfinity;
+        foreach (VehicleAgent vehicle in vehicles)
+        {
+            if (vehicle.Phase != VehiclePhase.Idle)
+            {
+                continue;
+            }
+
+            List&lt;int&gt; path = graph.FindPath(vehicle.NodeId, job.FromPort);
+            if (path == null)
+            {
+                continue;
+            }
+
+            float distance = graph.GetPathLength(path);
+            if (distance &lt; bestDistance)
+            {
+                bestDistance = distance;
+                best = vehicle;
+            }
+        }
+
+        if (best == null)
+        {
+            return;
+        }
+
+        pendingJobs.Dequeue();
+        Assign(best, job);
+    }
+}</code></pre>
+  <p>
+    Phase 1 Station 04에서 본 가장 단순한 배차 규칙 —
+    <strong>선입선출 × 최근접 유휴</strong> — 이 30줄로 끝난다. 뜯어볼
+    지점이 셋 있다.
+  </p>
+  <ul>
+    <li><strong><code>Peek()</code> — 큐의 머리만 본다.</strong> 머리 명령이
+      배차될 때까지 뒤 명령은 절대 먼저 나가지 못한다. 유휴 비히클이 없으면
+      <code>best == null</code>로 통째로 <code>return</code>하고, 명령은 큐에
+      남아 다음 기회 — 새 명령 도착 또는 작업 완료 — 를 기다린다.
+      <code>TryDispatch</code>가 불리는 곳이 정확히 그 두 곳
+      (<code>OnJobArrived</code> 끝, <code>CompleteJob</code> 끝)이다.
+      상태가 바뀌는 순간에만 다시 계산한다 — DES의 문법 그대로다.</li>
+    <li><strong>최근접의 "거리"는 그래프 거리다.</strong> <code>FindPath</code>로
+      경로를 찾고 <code>GetPathLength</code>로 잰다. 일방통행 루프에서는
+      픽업 포트 <strong>바로 뒤</strong> 노드에 있는 비히클이 사실은 가장 먼
+      비히클이다 — 한 바퀴를 다 돌아야 하니까. 직선거리로 쟀다면 최악의
+      비히클을 뽑았을 것이다.</li>
+    <li><strong><code>while</code> — 한 번에 여러 건.</strong> 유휴 비히클이
+      여럿이면 대기 명령을 연달아 배차한다. 작업 완료 한 번이 밀린 큐를
+      한꺼번에 풀 수 있다.</li>
+  </ul>
+  <h3>배차 이후 — 픽업·dwell·드롭의 콜백 연쇄</h3>
+  <pre><code>private void Assign(VehicleAgent vehicle, TransportJob job)
+{
+    vehicle.Phase = VehiclePhase.ToPickup;
+    vehicle.CurrentJob = job;
+    vehicle.BusyStartedAt = Simulation.Now;
+    job.AssignedAt = Simulation.Now;
+
+    List&lt;int&gt; toPickup = graph.FindPath(vehicle.NodeId, job.FromPort);
+    TraversePath(vehicle, toPickup, 1, () =&gt;
+    {
+        // 픽업 핸드오프 (Phase 1의 E84 자리) — 고정 dwell로 근사.
+        Simulation.Schedule(PickupDwell, () =&gt;
+        {
+            vehicle.Phase = VehiclePhase.Carrying;
+            List&lt;int&gt; toDrop = graph.FindPath(job.FromPort, job.ToPort);
+            TraversePath(vehicle, toDrop, 1, () =&gt;
+            {
+                Simulation.Schedule(DropDwell, () =&gt; CompleteJob(vehicle));
+            });
+        });
+    });
+}</code></pre>
+  <p>
+    람다 세 겹 — Phase 2 Station 04가 "콜백 연쇄는 단계가 늘면 급격히 읽기
+    어려워진다"고 경고했던 바로 그 구조다. 픽업 경로를 완주하면 4초
+    dwell(실팹이라면 SEMI E84 핸드오프 절차가 도는 자리 — 코드 주석이
+    그대로 말하고 있다), 상태가 <code>Carrying</code>으로 바뀌고, 드롭 경로
+    완주 후 다시 dwell, 그리고 <code>CompleteJob</code>. Station 03에서
+    그림으로 배운 생애주기의 각 화살표가 콜백 하나씩에 대응한다.
+  </p>
+
+  <h2>이동은 사건의 연쇄다</h2>
+  <p>
+    <code>Assign</code>이 두 번 부르는 <code>TraversePath</code>가 이동의
+    전부다. 경로를 통째로 "이동 완료" 사건 하나로 예약할 수도 있었지만,
+    이 코드는 <strong>엣지 하나를 완주할 때마다 사건 하나</strong>를 건다.
+  </p>
+  <pre><code>// 경로를 엣지 단위 사건의 연쇄로 굴린다 — "사건이 사건을 낳는" Phase 2 패턴.
+private void TraversePath(VehicleAgent vehicle, List&lt;int&gt; path, int nextIndex,
+    Action onArrived)
+{
+    if (nextIndex &gt;= path.Count)
+    {
+        vehicle.IsMoving = false;
+        vehicle.NodeId = path[path.Count - 1];
+        onArrived();
+        return;
+    }
+
+    int from = path[nextIndex - 1];
+    int to = path[nextIndex];
+    double travel = graph.GetDistance(from, to) / vehicleSpeed;
+    vehicle.IsMoving = true;
+    vehicle.EdgeFromNode = from;
+    vehicle.EdgeToNode = to;
+    vehicle.EdgeDepartAt = Simulation.Now;
+    vehicle.EdgeArriveAt = Simulation.Now + travel;
+
+    Simulation.Schedule(travel, () =&gt;
+    {
+        vehicle.NodeId = to;
+        TraversePath(vehicle, path, nextIndex + 1, onArrived);
+    });
+}</code></pre>
+  <p>
+    구간 이동 시간을 계산해 "구간 완주" 사건을 예약하고, 그 사건이 실행되면
+    <code>NodeId</code>를 갱신하고 다음 구간에 대해 자기 자신을 다시 부른다 —
+    도착 사건이 출발 사건을 낳는 재귀다. Phase 2에서 배운
+    <strong>"사건이 사건을 낳는다"</strong>가 실전에서 어떻게 쓰이는지를
+    보여주는 가장 좋은 예제다. 왜 굳이 엣지 단위로 쪼갰을까.
+  </p>
+  <ul>
+    <li><strong>화면 보간은 직선 구간에서만 성립한다.</strong> 경로는 코너를
+      꺾는다 — "출발점에서 도착점까지 직선 보간"은 엣지 안에서만 참이다.</li>
+    <li><strong><code>NodeId</code>가 구간마다 갱신된다.</strong> 배차의 최근접
+      계산이 "마지막으로 지난 노드" 기준으로 정확해진다.</li>
+    <li><strong>교통 제어가 들어올 자리가 엣지 경계다.</strong> 나중에 구간
+      점유(한 구간에 한 대)를 넣는다면, 잡고 놓는 코드가 정확히 이 재귀의
+      머리와 꼬리에 들어간다.</li>
+  </ul>
+  <p>
+    그리고 이동 중 상태를 담는 <code>VehicleAgent</code>의 필드들 —
+  </p>
+  <pre><code>/// &lt;summary&gt;정지 중이거나 마지막으로 도착한 노드.&lt;/summary&gt;
+public int NodeId;
+
+/// &lt;summary&gt;이동 중 여부. true면 아래 엣지 필드들이 유효하다.&lt;/summary&gt;
+public bool IsMoving;
+
+public int EdgeFromNode;
+public int EdgeToNode;
+public double EdgeDepartAt;
+public double EdgeArriveAt;</code></pre>
+  <p>
+    이 네 필드 (어느 엣지를, 언제 출발해, 언제 도착하는가) 가 모델과 뷰
+    사이의 <strong>데이터 계약</strong>이다. 모델은 비히클의 위치를 매 프레임
+    갱신하지 않는다 — 사건 두 개 사이의 시각만 남긴다. Unity 쪽 뷰는 렌더
+    시점 t에 대해 <code>(t − EdgeDepartAt) / (EdgeArriveAt − EdgeDepartAt)</code>
+    비율로 두 노드 좌표를 보간해 그린다. 모델은 매끄러운 움직임을 모른 채
+    통계적으로 정확하고, 뷰는 시뮬레이션 로직을 모른 채 매끄럽다 —
+    Station 01에서 세운 브리지 원칙이 이 필드 네 개로 구현된다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">이 모델이 생략한 것</span>
+    <p>
+      <strong>교통 제어(구간 점유)와 충돌</strong>이다. 루프가 한 방향이라
+      정면충돌도 추월도 구조적으로 없지만, 같은 구간에 두 대가 동시에 있을
+      수는 있다 — 포트에서 dwell 중인 비히클을 뒤차가 유령처럼 통과한다.
+      시각적으로는 겹침으로 보이고, 통계에는 아무 영향이 없다(감속도 대기도
+      없으므로). 실팹 OHT는 선행 차량 추종·구간 점유 제어가 필수이고, 이를
+      넣는 것 — 엣지를 용량 1짜리 리소스로 만드는 것 — 이 Station 03에서
+      제안하는 확장 과제다.
+    </p>
+  </div>
+
+  <h2>한 장으로 보는 데이터 모델</h2>
+  <p>
+    위쪽은 <code>FabLayout.Build()</code>가 만드는 그래프를 실제 좌표 비례로,
+    아래쪽은 반송 명령 하나가 지나가는 상태 흐름을 담당 코드와 함께 그린 것이다.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 800 436" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="위: FabLayout이 만드는 일방통행 루프 그래프 — 노드 12개 중 긴 변의 6개가 포트 노드로 장비와 연결된다. 아래: 반송 명령의 상태 흐름 — 생성, 대기 큐, 배차, 픽업 이동, 픽업 dwell, 드롭 이동, 완료·통계, 완료 후 재배차">
+      <!-- ① 루프 그래프 -->
+      <text class="d-label-strong" x="20" y="20">① 일방통행 루프 그래프 — FabLayout.Build()</text>
+
+      <!-- 장비 (위 3대) -->
+      <g>
+        <rect class="d-node-2" x="245" y="34" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <rect class="d-node-2" x="365" y="34" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <rect class="d-node-2" x="485" y="34" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <text class="d-label" x="280" y="50" text-anchor="middle">장비</text>
+        <text class="d-label" x="400" y="50" text-anchor="middle">장비</text>
+        <text class="d-label" x="520" y="50" text-anchor="middle">장비</text>
+        <line class="d-soft" x1="280" y1="58" x2="280" y2="71" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <line class="d-soft" x1="400" y1="58" x2="400" y2="71" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <line class="d-soft" x1="520" y1="58" x2="520" y2="71" stroke-width="1.5" stroke-dasharray="3 3"/>
+      </g>
+
+      <!-- 루프 엣지 -->
+      <line class="d-rail" x1="160" y1="80" x2="640" y2="80" stroke-width="3"/>
+      <line class="d-rail" x1="640" y1="80" x2="640" y2="260" stroke-width="3"/>
+      <line class="d-rail" x1="640" y1="260" x2="160" y2="260" stroke-width="3"/>
+      <line class="d-rail" x1="160" y1="260" x2="160" y2="80" stroke-width="3"/>
+
+      <!-- 진행 방향 화살표 -->
+      <polygon class="d-fill-rail" points="229,80 217,74 217,86"/>
+      <polygon class="d-fill-rail" points="589,80 577,74 577,86"/>
+      <polygon class="d-fill-rail" points="640,134 634,122 646,122"/>
+      <polygon class="d-fill-rail" points="640,224 634,212 646,212"/>
+      <polygon class="d-fill-rail" points="571,260 583,254 583,266"/>
+      <polygon class="d-fill-rail" points="211,260 223,254 223,266"/>
+      <polygon class="d-fill-rail" points="160,206 154,218 166,218"/>
+      <polygon class="d-fill-rail" points="160,116 154,128 166,128"/>
+
+      <!-- 일반 노드 (코너 + 짧은 변 중간) -->
+      <circle class="d-node" cx="160" cy="80" r="6" stroke-width="2"/>
+      <circle class="d-node" cx="640" cy="80" r="6" stroke-width="2"/>
+      <circle class="d-node" cx="640" cy="170" r="6" stroke-width="2"/>
+      <circle class="d-node" cx="640" cy="260" r="6" stroke-width="2"/>
+      <circle class="d-node" cx="160" cy="260" r="6" stroke-width="2"/>
+      <circle class="d-node" cx="160" cy="170" r="6" stroke-width="2"/>
+
+      <!-- 포트 노드 (앰버) -->
+      <circle class="d-fill-accent" cx="280" cy="80" r="8"/>
+      <circle class="d-fill-accent" cx="400" cy="80" r="8"/>
+      <circle class="d-fill-accent" cx="520" cy="80" r="8"/>
+      <circle class="d-fill-accent" cx="520" cy="260" r="8"/>
+      <circle class="d-fill-accent" cx="400" cy="260" r="8"/>
+      <circle class="d-fill-accent" cx="280" cy="260" r="8"/>
+
+      <!-- 노드 라벨 -->
+      <text class="d-label" x="146" y="76" text-anchor="end">n0</text>
+      <text class="d-label" x="280" y="104" text-anchor="middle">n1</text>
+      <text class="d-label" x="400" y="104" text-anchor="middle">n2</text>
+      <text class="d-label" x="520" y="104" text-anchor="middle">n3</text>
+      <text class="d-label" x="654" y="76">n4</text>
+      <text class="d-label" x="654" y="174">n5</text>
+      <text class="d-label" x="654" y="266">n6</text>
+      <text class="d-label" x="520" y="246" text-anchor="middle">n7</text>
+      <text class="d-label" x="400" y="246" text-anchor="middle">n8</text>
+      <text class="d-label" x="280" y="246" text-anchor="middle">n9</text>
+      <text class="d-label" x="146" y="266" text-anchor="end">n10</text>
+      <text class="d-label" x="146" y="174" text-anchor="end">n11</text>
+
+      <!-- 루프 안 설명 -->
+      <text class="d-label-strong" x="400" y="160" text-anchor="middle">일방통행 루프 — 노드 12 · 방향 엣지 12</text>
+      <text class="d-label" x="400" y="182" text-anchor="middle">HalfWidth 6 m × HalfLength 16 m (좌표 비례)</text>
+      <circle class="d-fill-accent" cx="292" cy="204" r="5"/>
+      <text class="d-label" x="303" y="208">포트 노드 6개 — 픽업·드롭 정지 지점 (portNodes)</text>
+
+      <!-- 장비 (아래 3대) -->
+      <g>
+        <line class="d-soft" x1="280" y1="269" x2="280" y2="280" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <line class="d-soft" x1="400" y1="269" x2="400" y2="280" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <line class="d-soft" x1="520" y1="269" x2="520" y2="280" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <rect class="d-node-2" x="245" y="280" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <rect class="d-node-2" x="365" y="280" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <rect class="d-node-2" x="485" y="280" width="70" height="24" rx="3" stroke-width="1.5"/>
+        <text class="d-label" x="280" y="296" text-anchor="middle">장비</text>
+        <text class="d-label" x="400" y="296" text-anchor="middle">장비</text>
+        <text class="d-label" x="520" y="296" text-anchor="middle">장비</text>
+      </g>
+
+      <!-- ② 명령 상태 흐름 -->
+      <text class="d-label-strong" x="20" y="330">② 반송 명령의 상태 흐름 — FabModel</text>
+
+      <!-- 완료 → 재배차 (되돌아가는 점선) -->
+      <polyline class="d-accent" points="739,360 739,346 295,346 295,349" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+      <polygon class="d-fill-accent" points="295,358 289,349 301,349"/>
+      <text class="d-label" x="517" y="336" text-anchor="middle">완료 → 비히클 유휴 → TryDispatch 재호출</text>
+
+      <!-- 상태 박스 7개 -->
+      <rect class="d-node" x="28" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <rect class="d-node-2" x="139" y="360" width="90" height="40" rx="18" stroke-width="2"/>
+      <rect class="d-node" x="250" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <rect class="d-node" x="361" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <rect class="d-node" x="472" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <rect class="d-node" x="583" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <rect class="d-node" x="694" y="360" width="90" height="40" rx="6" stroke-width="2"/>
+      <text class="d-text" x="73" y="385" text-anchor="middle">생성</text>
+      <text class="d-text" x="184" y="385" text-anchor="middle">대기 큐</text>
+      <text class="d-text" x="295" y="385" text-anchor="middle">배차</text>
+      <text class="d-text" x="406" y="385" text-anchor="middle">픽업 이동</text>
+      <text class="d-text" x="517" y="385" text-anchor="middle">픽업 dwell</text>
+      <text class="d-text" x="628" y="385" text-anchor="middle">드롭 이동</text>
+      <text class="d-text" x="739" y="385" text-anchor="middle">완료·통계</text>
+
+      <!-- 상태 사이 화살표 -->
+      <line class="d-rail" x1="119" y1="380" x2="130" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="137,380 129,374 129,386"/>
+      <line class="d-rail" x1="230" y1="380" x2="241" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="248,380 240,374 240,386"/>
+      <line class="d-rail" x1="341" y1="380" x2="352" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="359,380 351,374 351,386"/>
+      <line class="d-rail" x1="452" y1="380" x2="463" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="470,380 462,374 462,386"/>
+      <line class="d-rail" x1="563" y1="380" x2="574" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="581,380 573,374 573,386"/>
+      <line class="d-rail" x1="674" y1="380" x2="685" y2="380" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="692,380 684,374 684,386"/>
+
+      <!-- 담당 코드 -->
+      <text class="d-label" x="73" y="418" text-anchor="middle">OnJobArrived</text>
+      <text class="d-label" x="184" y="418" text-anchor="middle">pendingJobs (FIFO)</text>
+      <text class="d-label" x="295" y="418" text-anchor="middle">TryDispatch</text>
+      <text class="d-label" x="406" y="418" text-anchor="middle">TraversePath</text>
+      <text class="d-label" x="517" y="418" text-anchor="middle">4 s (E84 자리)</text>
+      <text class="d-label" x="628" y="418" text-anchor="middle">TraversePath</text>
+      <text class="d-label" x="739" y="418" text-anchor="middle">CompleteJob</text>
+    </svg>
+    <figcaption>
+      위 — 노드 배치는 FabLayout의 실제 좌표(X ±6 m, Z ±16 m) 비례.
+      화살표 방향의 엣지 12개뿐이라 역주행이 없고, 앰버 포트 노드 아래에만
+      장비가 놓인다. 아래 — 명령 하나가 지나는 상태들과 각 단계를 담당하는
+      코드. 완료가 비히클을 유휴로 되돌려 다음 배차를 부르는 점선이
+      이 시스템의 순환 고리다.
+    </figcaption>
+  </figure>
+
+  <h2>통계는 어디서 나오나</h2>
+  <p>
+    시뮬레이터 HUD에 뜨는 숫자 네 개는 전부 이 페이지에서 본 타임스탬프와
+    카운터에서 나온다. Phase 1 Station 04의 지표 표와 1:1로 대응된다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>지표 <i class="en">Station 04</i></th>
+          <th>FabModel의 계산</th>
+          <th>원천 데이터</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">처리량</td>
+          <td><code>GetThroughputPerHour</code> — 완료 수 ÷ 경과 시간</td>
+          <td><code>CompletedJobs</code> 카운터</td>
+        </tr>
+        <tr>
+          <td class="rowhead">평균 반송 시간</td>
+          <td><code>GetAverageDeliveryTime</code> — Σ(완료 − 생성) ÷ 완료 수</td>
+          <td><code>TransportJob</code>의 <code>CreatedAt</code>·<code>CompletedAt</code></td>
+        </tr>
+        <tr>
+          <td class="rowhead">가동률</td>
+          <td><code>GetFleetUtilization</code> — busy 시간 적분 ÷ (경과 시간 × 대수)</td>
+          <td><code>VehicleAgent</code>의 <code>BusyStartedAt</code>·<code>TotalBusyTime</code></td>
+        </tr>
+        <tr>
+          <td class="rowhead">대기 명령 수</td>
+          <td><code>PendingJobCount</code></td>
+          <td><code>pendingJobs</code> 큐 길이</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    두 가지가 눈에 띈다. 첫째, 평균 반송 시간의 기준은 <code>AssignedAt</code>이
+    아니라 <strong><code>CreatedAt</code></strong>이다 — 배차를 기다린 시간까지
+    포함한 "요청한 쪽 관점"의 리드타임이라는 뜻이다. <code>AssignedAt</code>을
+    쓰면 대기와 이동을 분해할 수 있다 — 타임스탬프를 세 개 다 남기는 이유다.
+    둘째, 가동률은 Phase 2의 <code>SimResource</code>와 같은
+    <strong>시간 적분</strong> 수법이다. 작업이 끝날 때마다
+    <code>TotalBusyTime</code>에 누적하고, 조회 시점에 진행 중인 작업의
+    <code>now − BusyStartedAt</code>을 더해 "지금 이 순간까지"의 값을 만든다.
+  </p>
+  <p>스모크 런의 실측은 이렇다.</p>
+  <pre><code>완료 반송      : 160 건/시간
+평균 반송 시간 : 34.4 초 (명령 생성 → 드롭 완료)
+함대 가동률    : 38 %
+실행 사건 수   : 1,893</code></pre>
+  <p>
+    이 숫자들은 Phase 2 Station 02의 <strong>리틀의 법칙</strong>으로 검산할
+    수 있다. L = λW — 도착률 λ ≈ 160건/시간 = 160/3600 건/초, 체류 시간
+    W = 34.4초이므로 시스템 안(생성부터 완료 사이)에 떠 있는 명령 수는
+    평균 L ≈ 160/3600 × 34.4 ≈ <strong>1.5건</strong>이어야 한다.
+    HUD의 대기 명령 수에 이동 중인 명령을 더한 값의 시간 평균이 이 근처면
+    통계 로직이 맞다는 강한 증거다 — 독립적인 법칙으로 자기 코드를 검산하는
+    습관은 Phase 2의 교차 검증과 같은 기본기다. 가동률 38%는 함대에 여유가
+    많다는 뜻이고, 실제로 대기 큐는 거의 항상 비어 있다. 마지막 줄도
+    지나치지 말자 — 수백 건의 반송이 도착하고, 배차되고, 구간을 완주하고,
+    dwell을 거쳐 완료되는 세계 전체가 <strong>사건 1,893개</strong>로 끝났다.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>FindPath는 왜 우선순위 큐 없는 선형 탐색 다익스트라인가?</summary>
+      <div class="answer">
+        <p>
+          노드가 12개(확장해도 수십 개)라서다. O(V²)라도 이 규모에서는
+          비용이 무의미하고, 힙을 붙이는 복잡도가 오히려 손해다. 사건이
+          수천 개 쌓이는 Phase 2의 FEL에는 이진 힙을 직접 만들었다 —
+          자료구조 선택은 교과서가 아니라 데이터의 규모가 결정한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>씬 빌더와 런타임이 FabLayout 하나를 공유하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          시각물(레일 메시·장비 배치)과 시뮬레이션 그래프가 어긋나는 부류의
+          버그를 원천 차단하기 위해서다. 정의가 두 벌이면 언젠가 달라지고,
+          그러면 비히클이 화면의 레일 밖을 달린다. 단일 정의(single source
+          of truth)를 양쪽이 읽으면 이 불일치가 구조적으로 불가능해진다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>일방통행 루프는 어떻게 데드락을 "구조적으로" 막는가?</summary>
+      <div class="answer">
+        <p>
+          데드락의 성립 조건인 순환 대기는 서로가 서로의 길을 막고 마주 보며
+          기다릴 때 생긴다. 모든 엣지가 같은 방향인 루프에서는 마주 보는
+          대기 자체가 성립할 수 없다 — 앞차가 움직이면 나도 움직인다.
+          감지·회피 알고리즘 없이 레이아웃 선택만으로 조건 하나를 제거한
+          것이고, 대가는 우회 거리(목적지가 바로 뒤여도 한 바퀴)다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>TraversePath는 왜 경로 전체가 아니라 엣지 단위로 사건을 예약하는가?</summary>
+      <div class="answer">
+        <p>
+          셋 때문이다. ① 뷰의 직선 보간은 엣지 안에서만 성립한다(경로는
+          코너를 꺾는다). ② 구간마다 NodeId가 갱신돼 배차의 최근접 계산이
+          정확해진다. ③ 나중에 구간 점유(교통 제어)를 넣을 자리가 정확히
+          엣지 경계다. 도착 사건이 다음 출발 사건을 예약하는 이 재귀가
+          Phase 2의 "사건이 사건을 낳는다" 패턴의 실전형이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>평균 반송 시간은 어느 두 시각의 차이고, 배차 대기를 포함하는가?</summary>
+      <div class="answer">
+        <p>
+          CreatedAt(명령 생성)부터 CompletedAt(드롭 완료)까지 — 배차 대기를
+          포함한다. 요청한 쪽이 체감하는 리드타임이기 때문이다. AssignedAt을
+          함께 기록해 두었으므로 필요하면 대기 시간(생성→배차)과 수행
+          시간(배차→완료)으로 분해할 수 있고, 리틀의 법칙(L = λW)으로
+          평균 재공 명령 수를 검산하는 데도 이 시각들이 쓰인다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-architecture.html">
+      <span class="dir">← STATION 01</span>
+      <span class="title">아키텍처 — DES 코어 ↔ Unity 브리지</span>
+    </a>
+    <a class="next" href="03-milestones.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">마일스톤 — 직접 만드는 순서</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 5 — MINI FAB SIMULATOR</div>
+</footer>
+
+</body>
+</html>
