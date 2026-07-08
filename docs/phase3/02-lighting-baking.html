@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 라이팅과 베이킹 — 빛을 미리 굽는다 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>02 라이팅·베이킹
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 이론">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱">03</a></li>
+      <li><a href="04-fabsim-practice.html" title="팹 씬 실습">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 02</p>
+    <h1>라이팅과 베이킹 — 빛을 미리 굽는다</h1>
+    <p class="lede">
+      Station 01의 PBR 머티리얼은 "표면이 빛을 어떻게 반사하는가"를 정의했다.
+      이번 스테이션의 질문은 그 앞 단계다 — <strong>그 빛은 누가, 언제 계산하는가.</strong>
+      결론부터 말하면, 현실감의 대부분을 만드는 간접광은 실시간으로 감당할 수 없어서
+      <strong>미리 계산해 저장</strong>한다. 이것이 베이킹이다.
+    </p>
+  </div>
+
+  <h2>직접광은 싸고, 간접광은 비싸다</h2>
+  <p>
+    빛은 두 갈래로 나눠 생각한다.
+    <strong>직접광</strong><i class="en">(direct lighting)</i>은 광원에서 표면으로
+    곧장 도착하는 빛이다. 광원 위치와 표면만 알면 되는 단순한 계산이라
+    현대 GPU는 이것을 그림자까지 포함해 <strong>매 프레임 실시간으로</strong> 처리할 수 있다.
+  </p>
+  <p>
+    <strong>간접광</strong><i class="en">(indirect lighting)</i>은 표면에 부딪힌 빛이
+    튕겨 나와 다른 표면을 밝히는 빛이다. 천장만 비추는 조명 아래에서도 방 전체가 밝은 이유,
+    그늘이 완전한 검정이 아니라 주변 색을 은은하게 머금는 이유가 전부 간접광이다.
+    이렇게 빛이 씬 전체를 튕겨 다니는 것까지 계산하는 일을
+    <strong>전역 조명</strong><i class="en">(GI, Global Illumination)</i>이라 부른다.
+  </p>
+  <p>
+    문제는 비용이다. 튕김을 제대로 추적하려면 표면마다 수백~수천 개의 광선을 쏘아
+    여러 번의 반사를 따라가야 한다. 영화 렌더링이 한 프레임에 몇 시간을 쓰는 계산을,
+    게임은 16밀리초 안에 끝내야 한다. <strong>실시간으로는 불가능한 수준</strong>이다.
+  </p>
+  <p>
+    돌파구는 관찰 하나에서 나온다 — <strong>움직이지 않는 것들 사이의 빛은 결과가 변하지 않는다.</strong>
+    벽과 바닥과 조명이 그대로라면, 벽이 받는 간접광도 어제와 오늘이 같다.
+    그렇다면 그 값을 <strong>미리 계산해 텍스처에 저장</strong>해 두고 런타임에는 읽기만 하면 된다.
+    이 사전 계산이 <strong>베이킹</strong><i class="en">(baking)</i>,
+    저장된 텍스처가 <strong>라이트맵</strong><i class="en">(lightmap)</i>이다.
+  </p>
+
+  <div class="callout field">
+    <span class="label">현장 감각</span>
+    <p>
+      팹 씬은 베이킹의 낙원이다. 벽·바닥·천장 레일·공정 장비 — 씬의 99%가
+      한 번 배치되면 움직이지 않는 정적 지오메트리이고, 움직이는 것은 반송 장비뿐이다.
+      비싼 전역 조명을 미리 구워서 <strong>공짜로 얻을 수 있는 이상적인 무대</strong>라는 뜻이고,
+      실무의 팹 디지털 트윈이 예외 없이 이 전략을 쓰는 이유다.
+    </p>
+  </div>
+
+  <h2>광원의 세 가지 모드, 오브젝트의 Static</h2>
+  <p>
+    Unity에서 Light 컴포넌트의 <code>Mode</code>는 "이 광원의 빛을 언제 계산할 것인가"를 정한다.
+    전부 실시간(Realtime), 전부 구움(Baked), 그리고 절충(Mixed) — 세 가지다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>Realtime</th>
+          <th>Mixed</th>
+          <th>Baked</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">직접광</td>
+          <td>실시간</td>
+          <td>실시간</td>
+          <td>구움</td>
+        </tr>
+        <tr>
+          <td class="rowhead">간접광 (GI)</td>
+          <td>없음 (별도 실시간 GI 시스템 없이는)</td>
+          <td>구움</td>
+          <td>구움</td>
+        </tr>
+        <tr>
+          <td class="rowhead">그림자</td>
+          <td>실시간 — 동적 물체도 드리움</td>
+          <td>실시간 — 동적 물체도 드리움</td>
+          <td>라이트맵에 구움 — 정적 물체만</td>
+        </tr>
+        <tr>
+          <td class="rowhead">광원 이동</td>
+          <td>자유</td>
+          <td>불가 — 위치는 굽는 시점에 고정, 밝기·색은 직접광에 한해 조정 가능</td>
+          <td>불가 — 바꾸면 다시 구워야 함</td>
+        </tr>
+        <tr>
+          <td class="rowhead">런타임 비용</td>
+          <td>높음 — 광원 수만큼 증가</td>
+          <td>중간 — 직접광·그림자만 지불</td>
+          <td>거의 0 — 텍스처 읽기뿐</td>
+        </tr>
+        <tr>
+          <td class="rowhead">어울리는 곳</td>
+          <td>움직이는 광원 — 장비 경광등, 차량 헤드라이트</td>
+          <td>팹 천장등 — 동적 장비에 실시간 그림자가 필요할 때</td>
+          <td>완전히 고정된 조명 — 벽 매입등, 장식 조명</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    광원 모드는 이야기의 절반이다. 나머지 절반은 <strong>오브젝트 쪽</strong>에 있다 —
+    어떤 물체가 베이크에 참여할지는 오브젝트의
+    <strong>Static 플래그</strong>(그중 <code>Contribute GI</code>)로 선언한다.
+    이 플래그가 켜진 물체만 라이트맵의 자리를 배정받아 빛을 구워 받고,
+    빛을 튕겨 다른 물체의 간접광에도 기여한다. 꺼진 물체는 "움직일 수 있는 것"으로
+    간주되어 라이트맵에서 제외되고, 대신 뒤에서 다룰 <strong>프로브</strong>로 조명을 받는다.
+  </p>
+  <p>
+    즉 결과는 <strong>광원 모드 × 오브젝트 Static의 조합</strong>으로 결정된다.
+    Baked 광원을 켜 두어도 물체가 Static이 아니면 그 물체엔 아무것도 구워지지 않고,
+    물체를 Static으로 지정해도 씬에 Baked/Mixed 광원이 없으면 구울 빛이 없다.
+    둘을 항상 짝으로 점검하는 습관이 필요하다.
+  </p>
+
+  <h2>라이트맵 베이킹의 실제</h2>
+  <p>
+    <strong>라이트맵</strong>은 정적 지오메트리가 받는 (간접)광을 구워 담은 텍스처다.
+    씬의 모든 정적 표면이 이 텍스처 위에 각자의 영역을 배정받는데, 이때 쓰이는 것이
+    물체의 <strong>두 번째 UV 채널</strong> — <strong>라이트맵 UV</strong>다.
+    베이스 맵용 UV는 표면끼리 겹쳐 써도 되지만, 라이트맵 UV는 표면마다 받는 빛이
+    다르므로 <strong>절대 겹치면 안 된다</strong>(겹치면 서로 다른 표면이 같은 조명 값을
+    공유해 빛이 "새는" 아티팩트가 생긴다). 모델 임포트 설정의
+    <code>Generate Lightmap UVs</code>를 켜면 Unity가 자동으로 펼쳐 준다.
+  </p>
+  <p>
+    베이크는 <strong>Lighting 창</strong>(<code>Window &gt; Rendering &gt; Lighting</code>)에서
+    수행한다. 씬에 라이팅 설정 에셋이 없다면 <code>New Lighting Settings</code>로 만들고,
+    <code>Generate Lighting</code> 버튼을 누르면 굽기가 시작된다. 품질과 시간을 좌우하는
+    핵심 노브는 세 가지다.
+  </p>
+  <ul>
+    <li><strong>Lightmap Resolution</strong> <i class="en">(texels per unit)</i> —
+      씬 공간 1미터당 라이트맵 텍셀을 몇 개 배정할지. 올리면 구운 그림자의 경계가
+      선명해지지만, 텍셀 수는 <strong>면적 기준</strong>으로 늘어나므로 해상도 2배는
+      텍셀 4배 — 굽는 시간과 메모리가 그 이상으로 는다.</li>
+    <li><strong>샘플 수</strong> — 텍셀 하나의 조명을 추정하려고 쏘는 광선의 개수.
+      적으면 빨리 굽지만 결과가 얼룩덜룩(노이즈)하고, 많으면 매끈하지만 오래 걸린다.
+      디노이저가 노이즈를 상당 부분 정리해 주므로 무작정 올릴 필요는 없다.</li>
+    <li><strong>Progressive Lightmapper (GPU)</strong> — Unity의 라이트매퍼는
+      결과를 <strong>점진적으로</strong> 계산한다. 굽기를 시작하면 씬 뷰에서 거친 결과가
+      먼저 나타나 점점 선명하게 수렴하므로, 끝까지 기다리지 않고도 조명 배치가
+      틀렸는지 일찍 알아챌 수 있다. GPU 가속을 쓰면 굽는 시간이 크게 줄어든다.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="label">주의</span>
+    <p>
+      베이크는 <strong>스냅샷</strong>이다. 구운 뒤에 벽을 옮기면 그림자는 원래 자리에
+      남아 있다 — 다시 구울 때까지 조명이 지오메트리를 따라오지 않는다.
+      레이아웃을 만지는 동안에는 베이크 결과를 믿지 말 것. 그리고 위에서 말한 비용 곡선을
+      기억할 것 — <strong>해상도를 두 배 올리면 굽는 시간은 그 이상으로 늘어난다.</strong>
+      "최고 품질로 한 번에"는 이 워크플로에서 가장 비싼 실수다.
+    </p>
+  </div>
+
+  <h2>움직이는 것들을 위한 장치</h2>
+  <p>
+    라이트맵은 정적 표면 전용이다. 그럼 레일 위를 달리는 OHT와 통로의 AGV는
+    구운 간접광을 어떻게 받을까? 답은 두 종류의 <strong>프로브</strong>다.
+  </p>
+
+  <h3>라이트 프로브 — 공간에 심어 둔 조명 측정점</h3>
+  <p>
+    <strong>라이트 프로브</strong><i class="en">(Light Probe)</i>는 씬 공간에 심어 두는
+    측정점이다. 베이크할 때 각 프로브 위치에서 "여기에 사방에서 도착하는 빛"을 압축해
+    저장해 두고, 런타임에 움직이는 물체가 지나가면 <strong>주변 프로브들의 값을 보간</strong>해서
+    그 물체의 조명으로 쓴다. 밝은 통로를 지나는 OHT는 밝게, 장비 그늘로 들어간 OHT는
+    어둡게 — 물체가 구운 조명 환경 속을 "통과하며 물드는" 효과가 이 장치로 만들어진다.
+    씬에는 <code>Light Probe Group</code> 컴포넌트로 배치한다.
+  </p>
+  <p>
+    배치 요령은 하나로 요약된다 — <strong>균일한 그물이 아니라, 밝기가 변하는 경계에 촘촘히.</strong>
+    조명이 일정한 넓은 구역에는 프로브가 듬성해도 보간 결과가 같지만, 조명 바로 아래에서
+    그늘로 넘어가는 경계, 밝은 통로에서 어두운 베이 안쪽으로 꺾이는 입구 같은 곳은
+    프로브가 성기면 물체의 밝기가 뚝뚝 끊겨 보인다. 참고로 Unity 6 URP에는 프로브를
+    지오메트리 기준으로 자동 배치해 주는 <strong>Adaptive Probe Volumes</strong><i class="en">(APV)</i>도
+    있어서, 수동 배치가 부담스러운 큰 씬의 대안이 된다.
+  </p>
+
+  <h3>리플렉션 프로브 — "무엇이 비치는가"의 공급자</h3>
+  <p>
+    Station 01에서 본 대로, 금속성이 높고 매끈한 표면의 생김새는 사실상
+    <strong>반사되는 상</strong>이 결정한다. 그런데 그 표면에 "무엇이 비치는지"는
+    조명 계산만으로는 나오지 않는다 — 주변 환경의 이미지가 필요하다.
+    <strong>리플렉션 프로브</strong><i class="en">(Reflection Probe)</i>는 자기 위치에서
+    사방을 촬영한 <strong>큐브맵</strong><i class="en">(cubemap)</i>을 구워 두고,
+    근처의 매끈한 표면들에게 반사 이미지로 공급한다.
+  </p>
+  <p>
+    프로브가 없으면 실내의 스테인리스 장비에 하늘(스카이박스)이 비치는 어색한 그림이 된다 —
+    실내 금속이 이상해 보이는 가장 흔한 원인이다. 기본 전략은 <strong>방(구역)마다 하나</strong>:
+    베이 하나, 통로 한 구간마다 프로브를 놓고 영향 범위를 그 구역에 맞춘다.
+    <code>Box Projection</code>을 켜면 큐브맵을 방의 박스 형태에 투영해, 표면 위치에 따라
+    반사 상이 미끄러지는 문제를 줄여 준다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="팹 베이 단면: 천장의 Baked 조명이 정적 벽·바닥·장비를 비추어 라이트맵에 구워지고, 레일 위 OHT는 주변 라이트 프로브 값을 보간해 조명을 받으며, 구석의 리플렉션 프로브가 반사용 큐브맵을 캡처한다">
+      <!-- 천장/바닥 -->
+      <line class="d-soft" x1="20" y1="28" x2="780" y2="28" stroke-width="2"/>
+      <text class="d-label" x="24" y="20">CEILING</text>
+      <line class="d-rail" x1="20" y1="302" x2="780" y2="302" stroke-width="2"/>
+      <text class="d-label" x="24" y="318">FLOOR (정적 — 라이트맵)</text>
+
+      <!-- 좌측 벽 (정적, 라이트맵 격자) -->
+      <rect class="d-node-2" x="34" y="28" width="20" height="274"/>
+      <g class="d-soft" stroke-width="1" opacity="0.55">
+        <line x1="44" y1="28" x2="44" y2="302"/>
+        <line x1="34" y1="70" x2="54" y2="70"/>
+        <line x1="34" y1="112" x2="54" y2="112"/>
+        <line x1="34" y1="154" x2="54" y2="154"/>
+        <line x1="34" y1="196" x2="54" y2="196"/>
+        <line x1="34" y1="238" x2="54" y2="238"/>
+      </g>
+
+      <!-- 천장 조명 (Baked) + 직접광 -->
+      <rect class="d-fill-accent" x="310" y="28" width="90" height="10" rx="2"/>
+      <text class="d-label-strong" x="355" y="54" text-anchor="middle">천장 조명 (BAKED)</text>
+      <g class="d-accent" stroke-width="1.5" stroke-dasharray="5 4">
+        <line x1="330" y1="40" x2="185" y2="236"/>
+        <line x1="355" y1="40" x2="355" y2="236"/>
+        <line x1="380" y1="40" x2="500" y2="300"/>
+      </g>
+      <text class="d-label" x="392" y="170">직접광</text>
+
+      <!-- 간접광 튕김 → 벽 -->
+      <line class="d-soft" x1="185" y1="236" x2="56" y2="140" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <text class="d-label" x="62" y="126">간접광 — 라이트맵에 저장</text>
+
+      <!-- OHT 레일 -->
+      <line class="d-soft" x1="130" y1="28" x2="130" y2="70" stroke-width="2"/>
+      <line class="d-soft" x1="250" y1="28" x2="250" y2="70" stroke-width="2"/>
+      <line class="d-soft" x1="640" y1="28" x2="640" y2="70" stroke-width="2"/>
+      <line class="d-rail" x1="80" y1="72" x2="760" y2="72" stroke-width="4"/>
+      <text class="d-label" x="84" y="64">OHT RAIL</text>
+
+      <!-- OHT (동적) -->
+      <rect class="d-fill-rail" x="540" y="76" width="56" height="18" rx="3"/>
+      <rect class="d-fill-accent" x="550" y="98" width="36" height="24" rx="3"/>
+      <text class="d-label-strong" x="568" y="64" text-anchor="middle">OHT (동적)</text>
+
+      <!-- 라이트 프로브 + 보간 -->
+      <g class="d-accent" stroke-width="1" stroke-dasharray="2 3">
+        <line x1="568" y1="110" x2="460" y2="140"/>
+        <line x1="568" y1="110" x2="460" y2="220"/>
+        <line x1="568" y1="110" x2="670" y2="140"/>
+        <line x1="568" y1="110" x2="670" y2="220"/>
+      </g>
+      <circle class="d-fill-accent" cx="460" cy="140" r="4"/>
+      <circle class="d-fill-accent" cx="460" cy="220" r="4"/>
+      <circle class="d-fill-accent" cx="670" cy="140" r="4"/>
+      <circle class="d-fill-accent" cx="670" cy="220" r="4"/>
+      <text class="d-label" x="505" y="176">보간</text>
+      <text class="d-label-strong" x="560" y="248" text-anchor="middle">라이트 프로브 (동적 물체용)</text>
+
+      <!-- 리플렉션 프로브 -->
+      <circle class="d-accent" cx="722" cy="182" r="46" stroke-width="1" stroke-dasharray="4 4" fill="none"/>
+      <circle class="d-node" cx="722" cy="182" r="13" stroke-width="2"/>
+      <text class="d-label-strong" x="722" y="252" text-anchor="middle">리플렉션 프로브</text>
+      <text class="d-label" x="722" y="268" text-anchor="middle">(큐브맵 캡처)</text>
+
+      <!-- 공정 장비 2대 (정적, 라이트맵 격자) -->
+      <text class="d-label-strong" x="255" y="226" text-anchor="middle">라이트맵 (정적)</text>
+      <g stroke-width="2">
+        <rect class="d-node" x="110" y="238" width="130" height="64" rx="4"/>
+        <rect class="d-node" x="270" y="238" width="130" height="64" rx="4"/>
+      </g>
+      <g class="d-soft" stroke-width="1" opacity="0.55">
+        <line x1="137" y1="238" x2="137" y2="266"/>
+        <line x1="164" y1="238" x2="164" y2="266"/>
+        <line x1="191" y1="238" x2="191" y2="266"/>
+        <line x1="218" y1="238" x2="218" y2="266"/>
+        <line x1="110" y1="252" x2="240" y2="252"/>
+        <line x1="297" y1="238" x2="297" y2="266"/>
+        <line x1="324" y1="238" x2="324" y2="266"/>
+        <line x1="351" y1="238" x2="351" y2="266"/>
+        <line x1="378" y1="238" x2="378" y2="266"/>
+        <line x1="270" y1="252" x2="400" y2="252"/>
+      </g>
+      <text class="d-title" x="175" y="290" text-anchor="middle">공정 장비 A</text>
+      <text class="d-title" x="335" y="290" text-anchor="middle">공정 장비 B</text>
+    </svg>
+    <figcaption>
+      한 씬 안의 두 세계. 벽·바닥·장비 같은 정적 표면은 천장 조명의 직접광과 튕긴 간접광을
+      <strong>라이트맵</strong>에 구워 받고, 레일 위를 달리는 OHT는 주변
+      <strong>라이트 프로브</strong> 값을 보간해 조명을 받는다. 구석의
+      <strong>리플렉션 프로브</strong>는 매끈한 표면에 비칠 큐브맵을 공급한다.
+    </figcaption>
+  </figure>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 5의 미니 팹 시뮬레이터에서 수백 대의 OHT가 달릴 때, 그 전부가
+      <strong>프로브 조명</strong>으로 굴러간다는 점을 기억해 두자. 프로브 보간은 물체당
+      비용이 거의 고정된 값싼 연산이라 장비가 늘어도 조명 비용이 따라 늘지 않는다.
+      만약 장비마다 실시간 광원과 실시간 GI로 조명했다면 대수에 비례해 비용이 폭발했을 것이다 —
+      "정적인 것은 굽고, 동적인 것은 보간한다"는 이 분업이 대규모 씬을 성립시킨다.
+    </p>
+  </div>
+
+  <h2>베이킹 워크플로 체크리스트</h2>
+  <p>
+    순서 자체는 단순하다. 중요한 것은 반복의 리듬이다 —
+    <strong>낮은 해상도로 자주 굽고, 배치가 확정된 마지막에 해상도를 올려 최종 굽기.</strong>
+  </p>
+  <ol>
+    <li>움직이지 않는 모든 오브젝트에 <strong>Static</strong>(<code>Contribute GI</code>)을 지정한다.
+      비어 있으면 아무것도 구워지지 않는다.</li>
+    <li>광원의 <strong>Mode</strong>를 정한다 — 팹 천장등은 <code>Baked</code>,
+      동적 장비에 실시간 그림자가 필요하면 <code>Mixed</code>.</li>
+    <li><code>Window &gt; Rendering &gt; Lighting</code>에서 <code>New Lighting Settings</code>를
+      만들고, <strong>Lightmap Resolution은 낮게</strong> 시작한다 — 지금 목표는 품질이 아니라
+      빠른 확인이다.</li>
+    <li><code>Generate Lighting</code>으로 굽는다.</li>
+    <li>Scene 뷰의 디버그 뷰(<code>Baked Lightmap</code>)로 결과를 확인한다 —
+      라이트맵이 아예 안 입혀진 물체(Static 누락), 얼룩(샘플 부족), 빛샘(라이트맵 UV 문제)을
+      이 화면에서 잡는다.</li>
+    <li><strong>Light Probe Group</strong>과 <strong>Reflection Probe</strong>를 배치하고
+      다시 굽는다 — 프로브도 베이크의 일부라서, 배치를 바꾸면 재베이크가 필요하다.</li>
+  </ol>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/Ja9bmglB81I" title="Unity 라이트 베이킹 워크플로 영상" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity에서 라이트를 굽는 실제 워크플로. 오브젝트 <strong>Static 지정</strong>,
+      Lighting 창의 설정 항목들, 그리고 <code>Generate Lighting</code>을 누른 뒤
+      씬이 거친 상태에서 점점 선명하게 수렴하는 <strong>Progressive Lightmapper</strong>의
+      동작을 눈으로 확인할 수 있다 — 이 문서의 체크리스트가 화면에서 그대로 재생된다.
+      <a href="https://www.youtube.com/watch?v=Ja9bmglB81I">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Mixed 모드는 왜 "간접광만 굽는" 절충이 되는가?</summary>
+      <div class="answer">
+        <p>
+          두 성분의 성질이 다르기 때문이다. 직접광과 그림자는 실시간으로 계산해도 쌀 뿐
+          아니라, 움직이는 물체(OHT·AGV)가 그림자를 드리우고 받으려면 실시간이어야 한다.
+          반면 간접광은 실시간으로는 감당 못 하게 비싸지만 정적 환경에서는 결과가 변하지
+          않으므로 구워 둘 수 있다. 비싸고 안 변하는 것은 굽고, 싸고 변하는 것은
+          실시간으로 — 이것이 Mixed의 분업이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>오브젝트의 Static(Contribute GI) 플래그는 무엇을 선언하는 것인가?</summary>
+      <div class="answer">
+        <p>
+          "이 물체는 움직이지 않으니 베이크에 참여시켜라"는 선언이다. 켜진 물체만
+          라이트맵에 영역을 배정받아 구운 빛을 받고, 빛을 튕겨 다른 물체의 간접광에도
+          기여한다. 광원 모드와 짝이라는 점이 핵심이다 — Baked 광원이 있어도 물체가
+          Static이 아니면 구워지지 않고, 그 물체는 프로브 조명으로 넘어간다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>라이트맵이 있는데 라이트 프로브가 따로 필요한 이유는?</summary>
+      <div class="answer">
+        <p>
+          라이트맵은 정적 표면의 고정된 위치에 구운 값이라 움직이는 물체에는 쓸 수 없기
+          때문이다. 라이트 프로브는 표면이 아니라 <strong>공간의 점</strong>에 간접광을
+          구워 두고, 동적 물체가 지나갈 때 주변 프로브 값을 보간해 준다. 덕분에 OHT가
+          밝은 통로와 어두운 그늘을 오가며 자연스럽게 밝기가 변한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Lightmap Resolution을 올리면 무엇을 얻고 무엇을 잃는가?</summary>
+      <div class="answer">
+        <p>
+          얻는 것은 구운 조명의 디테일 — 그림자 경계가 선명해지고 좁은 틈의 음영이
+          살아난다. 잃는 것은 시간과 메모리인데, 텍셀 수가 면적 기준으로 늘어나므로
+          해상도 2배는 텍셀 4배다. 그래서 작업 중에는 낮은 해상도로 자주 굽고,
+          배치가 확정된 마지막에만 올려서 최종 굽기를 하는 것이 표준 리듬이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>라이트 프로브는 어디에 촘촘히 심어야 하는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>밝기가 변하는 경계</strong>다. 조명 바로 아래에서 그늘로 넘어가는 곳,
+          밝은 통로에서 어두운 베이 안쪽으로 꺾이는 입구 같은 곳에 촘촘히 심는다.
+          조명이 균일한 넓은 구역은 듬성해도 보간 결과가 같으므로 프로브를 아껴도 된다.
+          균일한 그물로 깔면 필요 없는 곳에 낭비하고 필요한 곳엔 모자라게 된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-pbr-theory.html">
+      <span class="dir">← STATION 01</span>
+      <span class="title">PBR 이론 — 머티리얼이 빛을 다루는 법</span>
+    </a>
+    <a class="next" href="03-post-processing.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">포스트 프로세싱 — URP Volume</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>

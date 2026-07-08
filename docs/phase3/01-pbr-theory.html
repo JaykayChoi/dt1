@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 PBR 이론 — 머티리얼이 빛을 다루는 법 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>01 PBR 이론
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 베이킹">02</a></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱">03</a></li>
+      <li><a href="04-fabsim-practice.html" title="팹 씬 실습">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 01</p>
+    <h1>PBR 이론 — 머티리얼이 빛을 다루는 법</h1>
+    <p class="lede">
+      화면 속 스테인리스가 스테인리스로 보이는 이유는 색이 아니라
+      <strong>빛을 다루는 방식</strong>에 있다. 표면과 빛의 상호작용을 물리 법칙에
+      맞게 근사하는 것이 PBR이고, Unity의 머티리얼 파라미터는 전부 이 물리
+      직관 몇 가지로 설명된다. Phase 3 전체의 기초가 되는 스테이션이다.
+    </p>
+  </div>
+
+  <h2>렌더링이 계산하는 것</h2>
+  <p>
+    화면에 찍히는 모든 픽셀은 결국 한 가지 질문의 답이다 —
+    <strong>"이 표면에 닿은 빛 중 얼마가, 어떤 색으로 카메라에 들어오는가."</strong>
+    이 질문에 답하는 계산 규칙을 <strong>셰이딩 모델</strong><i class="en">(shading model)</i>이라
+    부르고, 그 규칙을 실제 빛의 물리 법칙에 대한 근사로 맞춘 방식이
+    <strong>PBR</strong><i class="en">(Physically Based Rendering, 물리 기반 렌더링)</i>이다.
+  </p>
+  <p>물리를 따르는 대가로 얻는 것이 두 가지 있는데, 둘 다 실무적으로 결정적이다.</p>
+  <ul>
+    <li><strong>조명이 바뀌어도 재질은 재질이다</strong> — 재질의 물성과 조명이 분리되어
+      있으므로, 낮 씬에서 만든 스테인리스 머티리얼을 밤 씬이나 실내 조명 씬으로 가져가도
+      여전히 스테인리스로 보인다. 과거 방식은 특정 조명을 가정하고 텍스처에 음영을 그려
+      넣었기 때문에, 조명이 바뀌는 순간 재질이 깨졌다.</li>
+    <li><strong>제작 규칙의 표준화</strong> — "금속이면 Metallic 1, 거칠기는 실물 기준"처럼
+      물리적인 기준이 있어 작업자나 프로젝트가 달라도 결과가 흔들리지 않는다. 덕분에
+      에셋 스토어 자산이나 실측 스캔 텍스처를 어떤 씬에든 그대로 재사용할 수 있다.</li>
+  </ul>
+  <p>
+    Unity에서 새 머티리얼을 만들면 기본으로 붙는 <strong>URP Lit 셰이더</strong>가 바로
+    이 PBR 셰이더다. 그 파라미터들이 왜 그렇게 생겼는지는, 아래 물리 직관 세 가지만
+    이해하면 전부 풀린다.
+  </p>
+
+  <h2>물리 직관 세 가지</h2>
+
+  <h3>① 난반사와 정반사 — 빛은 두 갈래로 나뉜다</h3>
+  <p>
+    표면에 닿은 빛의 일부는 표면에서 곧장 <strong>거울처럼 튕겨</strong> 나온다.
+    이것이 <strong>정반사</strong><i class="en">(specular reflection)</i>로, 하이라이트와
+    비침(반사상)을 만든다. 나머지 빛은 <strong>표면 아래로 파고들어</strong> 재질 입자와
+    부딪히며 산란되다가, 일부는 흡수되고 남은 빛이 사방으로 다시 빠져나온다. 이것이
+    <strong>난반사</strong><i class="en">(diffuse reflection)</i>다. 재질이 어떤 파장을
+    흡수하느냐가 빠져나오는 빛의 색을 결정하므로, 우리가 "표면의 색"이라 부르는 것의
+    정체가 바로 난반사다.
+  </p>
+
+  <h3>② 금속과 비금속 — 재질의 세계는 둘로 나뉜다</h3>
+  <p>
+    <strong>금속</strong>은 자유전자가 표면 아래로 들어온 빛을 즉시 흡수해 버린다.
+    난반사가 거의 없다는 뜻이고, 따라서 금속에서 <strong>알베도(난반사 색)는 무의미</strong>하다.
+    대신 금속의 정반사에는 <strong>금속 고유의 색이 실린다</strong> — 금의 하이라이트는
+    노랗고, 구리의 하이라이트는 붉다. 반면 <strong>비금속</strong><i class="en">(dielectric, 유전체)</i>의
+    정반사는 <strong>무색</strong>이고 정면에서 볼 때 약 4% 수준으로 약하다. 비금속의 색은
+    전적으로 난반사가 결정한다. 플라스틱, 도장면, 콘크리트, 나무 — 금속이 아닌 모든 것이
+    이쪽이다.
+  </p>
+
+  <h3>③ 프레넬 — 스칠수록 반사한다</h3>
+  <p>
+    <strong>모든 재질</strong>은 시선이 표면을 <strong>스치는 각도에 가까워질수록 반사가
+    강해진다</strong>. 이것이 <strong>프레넬 효과</strong><i class="en">(Fresnel effect)</i>다.
+    물웅덩이를 바로 위에서 내려다보면 바닥이 보이지만 멀리 있는 웅덩이는 하늘이 비치는
+    이유이고, 무광 종이조차 눈높이로 스쳐 보면 번들거리는 이유다. PBR 셰이더에는 프레넬이
+    <strong>자동으로 내장</strong>되어 있어 따로 만질 파라미터가 없다 — 물체의 가장자리가
+    은은하게 밝아지는 효과를 공짜로 얻는다.
+  </p>
+
+  <p>
+    마지막으로 이 모든 것을 묶는 원칙이 <strong>에너지 보존</strong><i class="en">(energy conservation)</i>이다.
+    표면이 내보내는 빛(정반사 + 난반사)과 흡수하는 빛의 합은 들어온 빛을 넘을 수 없다.
+    정반사가 강해지면 난반사가 줄고, 거친 표면의 하이라이트는 넓게 퍼지는 대신 흐려진다.
+    엔진이 이 원칙을 강제하기 때문에 "물리적으로 불가능한 재질"을 실수로 만들기 어렵고,
+    그것이 앞서 말한 PBR의 일관성이 유지되는 이유다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="표면 단면 도식: 입사광의 일부는 표면에서 정반사로 튕기고, 표면 아래로 들어간 빛은 산란된 뒤 난반사로 방출된다. 오른쪽은 프레넬 효과 — 정면에서는 반사가 약하고 스치는 각에서는 반사가 강해진다">
+      <defs>
+        <marker id="ah-rail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-rail" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+        <marker id="ah-soft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-soft" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+        <marker id="ah-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-accent" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+      </defs>
+
+      <!-- 왼쪽 패널: 난반사 vs 정반사 -->
+      <text class="d-title" x="40" y="30">① 난반사 vs 정반사</text>
+
+      <rect class="d-fill-soft" opacity="0.22" x="40" y="210" width="420" height="72"/>
+      <line class="d-rail" x1="40" y1="210" x2="460" y2="210" stroke-width="3"/>
+      <text class="d-label" x="426" y="200">표면</text>
+      <text class="d-label" x="48" y="274">표면 아래 — 재질 내부</text>
+
+      <!-- 입사광 -->
+      <line class="d-soft" x1="120" y1="70" x2="222" y2="202" stroke-width="2.5" marker-end="url(#ah-soft)"/>
+      <text class="d-label-strong" x="78" y="58">입사광</text>
+
+      <!-- 정반사 -->
+      <line class="d-rail" x1="238" y1="202" x2="342" y2="70" stroke-width="2.5" marker-end="url(#ah-rail)"/>
+      <text class="d-label-strong" x="322" y="52">정반사 (SPECULAR)</text>
+      <text class="d-label" x="356" y="96">하이라이트 · 비침</text>
+
+      <!-- 표면 아래 산란 경로 -->
+      <polyline class="d-accent" points="226,210 240,236 210,250 242,262" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label" x="252" y="258">내부 산란</text>
+
+      <!-- 난반사 (산란 후 방출) -->
+      <line class="d-accent" x1="212" y1="210" x2="146" y2="140" stroke-width="2" marker-end="url(#ah-accent)"/>
+      <line class="d-accent" x1="212" y1="210" x2="198" y2="122" stroke-width="2" marker-end="url(#ah-accent)"/>
+      <line class="d-accent" x1="214" y1="210" x2="246" y2="156" stroke-width="2" marker-end="url(#ah-accent)"/>
+      <text class="d-label-strong" x="48" y="120">난반사 (DIFFUSE)</text>
+      <text class="d-label" x="48" y="136">표면의 색을 만든다</text>
+
+      <!-- 패널 구분선 -->
+      <line class="d-soft" x1="495" y1="44" x2="495" y2="290" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- 오른쪽 패널: 프레넬 -->
+      <text class="d-title" x="520" y="30">② 프레넬 — 각도가 반사를 바꾼다</text>
+
+      <rect class="d-fill-soft" opacity="0.22" x="520" y="210" width="260" height="72"/>
+      <line class="d-rail" x1="520" y1="210" x2="780" y2="210" stroke-width="3"/>
+
+      <!-- 스치는 각: 반사 급증 -->
+      <line class="d-soft" x1="526" y1="180" x2="600" y2="202" stroke-width="2" marker-end="url(#ah-soft)"/>
+      <line class="d-accent" x1="616" y1="204" x2="692" y2="188" stroke-width="4" marker-end="url(#ah-accent)"/>
+      <text class="d-label-strong" x="524" y="252">스치는 각 — 반사 급증</text>
+
+      <!-- 정면: 반사 약함 -->
+      <line class="d-soft" x1="696" y1="76" x2="714" y2="200" stroke-width="2" marker-end="url(#ah-soft)"/>
+      <line class="d-soft" x1="726" y1="200" x2="744" y2="82" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah-soft)"/>
+      <text class="d-label" x="722" y="56" text-anchor="middle">정면 — 반사 약함</text>
+    </svg>
+    <figcaption>
+      왼쪽 — 표면에 닿은 빛의 일부는 곧장 튕겨 <strong>정반사</strong>(하이라이트·비침)가
+      되고, 나머지는 표면 아래로 들어가 산란·흡수를 거친 뒤 사방으로 빠져나와
+      <strong>난반사</strong>(표면의 색)가 된다. 금속은 이 난반사 경로가 거의 없다.
+      오른쪽 — 같은 재질이라도 시선이 표면을 스치는 각도에 가까울수록 반사가
+      강해진다(<strong>프레넬</strong>).
+    </figcaption>
+  </figure>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/4nblUEcGFvw" title="PBR materials explained — Reawote" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      실측 스캔 텍스처 제작사 Reawote의 PBR 머티리얼 설명 영상. 알베도·러프니스·노멀 등
+      각 물성이 <strong>실물 재질감의 어떤 부분을 담당하는지</strong>를 실제 스캔 데이터로
+      보여준다. 글로 읽은 "빛의 두 갈래"가 재질 위에서 어떻게 보이는지 눈으로 확인하기 좋다.
+      <a href="https://www.youtube.com/watch?v=4nblUEcGFvw">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>URP Lit 머티리얼 해부</h2>
+  <p>
+    Unity 6의 URP 프로젝트에서 머티리얼을 만들면 기본 셰이더는 <strong>Lit</strong>이고,
+    기본 워크플로는 <strong>Metallic</strong> 방식이다. 인스펙터의 Surface Inputs에 늘어선
+    파라미터들은 앞의 물리 직관을 그대로 노브로 옮긴 것이다.
+  </p>
+  <ul>
+    <li><strong>Base Map</strong> — 난반사의 색, 즉 <strong>알베도</strong><i class="en">(albedo)</i>를
+      주는 텍스처와 색 틴트. 비금속에서는 표면의 색이 되고, 금속에서는 이 색이 정반사
+      하이라이트에 실린다.</li>
+    <li><strong>Metallic</strong> — 이 표면이 금속인가 아닌가. 물리적으로는 <strong>0 아니면 1</strong>이
+      원칙이고, 중간값은 먼지가 앉은 금속이나 녹슨 부분과의 경계처럼 한 픽셀 안에
+      금속/비금속이 섞이는 특수한 경우를 위한 것이다.</li>
+    <li><strong>Smoothness</strong> — 표면 미세 요철의 매끈함. 높으면 하이라이트가 작고
+      선명해지고, 낮으면 넓고 흐릿해진다. 다른 툴에서 쓰는 Roughness와 반대 방향의 같은
+      개념(smoothness = 1 − roughness)이다. 텍스처로 줄 때는 별도 맵이 아니라
+      <strong>메탈릭 맵의 알파 채널</strong>에 싣는 것이 Unity의 관례다.</li>
+    <li><strong>Normal Map</strong> — 표면 요철의 <strong>법선(방향)을 픽셀 단위로 저장</strong>한
+      텍스처. 지오메트리를 추가하지 않고도 스크래치, 패널 이음새, 미세 요철이 빛에 반응하게
+      만든다.</li>
+    <li><strong>Occlusion Map</strong> — 틈새와 구석처럼 주변광이 잘 들지 못하는 정도를 미리
+      구워 둔 텍스처. 간접광을 어둡게 눌러 형태의 깊이감을 살린다.</li>
+    <li><strong>Emission</strong> — 조명과 무관하게 <strong>스스로 빛나는 표면</strong>.
+      장비 상태등, 모니터, 사이니지에 쓴다. 주변을 실제로 밝히게 하려면 다음 스테이션에서
+      다룰 베이크가 필요하다.</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/6lioyniEl_E" title="PBR Texture Maps Explained" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      PBR 텍스처 맵의 종류별 역할을 하나씩 보여주는 영상. 위 목록의 각 슬롯이 어떤
+      텍스처를 받아 무엇을 바꾸는지가 시각적으로 정리된다. 영상은 <strong>Roughness</strong>
+      기준으로 설명하는데, Unity의 Smoothness는 그 반대 방향이라는 것만 기억하면 된다.
+      <a href="https://www.youtube.com/watch?v=6lioyniEl_E">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>팹 자재로 보는 값 감각</h2>
+  <p>
+    파라미터의 의미를 알았으니, Phase 5에서 만들 미니 팹의 실제 자재들로 값 감각을
+    잡아 보자. 핵심은 <strong>Metallic은 재질의 종류, Smoothness는 표면의 상태</strong>를
+    말한다는 것이다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>재질</th>
+          <th>Metallic</th>
+          <th>Smoothness</th>
+          <th>노트</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">스테인리스 장비 패널</td>
+          <td>1</td>
+          <td>0.7 ~ 0.85</td>
+          <td>반사가 선명하다. 주변 장비와 조명이 또렷하게 비친다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">무광 도장 벽 · 격벽</td>
+          <td>0</td>
+          <td>0.25 ~ 0.4</td>
+          <td>하이라이트가 넓고 흐릿하다. 팹 실내의 대부분을 차지하는 값대.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">에폭시 코팅 바닥</td>
+          <td>0</td>
+          <td>0.6 ~ 0.8</td>
+          <td>비금속인데 매끈한 대표 사례 — 조명과 장비가 뿌옇게 비친다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">아노다이즈드 알루미늄 레일</td>
+          <td>1</td>
+          <td>0.4 ~ 0.6</td>
+          <td>무광 금속. 금속인데도 반사가 흐리게 퍼진다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FOUP 폴리카보네이트</td>
+          <td>0</td>
+          <td>0.5 ~ 0.7</td>
+          <td>반투명한 느낌은 알베도 색으로 근사한다. 매끈한 플라스틱 반사.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">장비 상태등 LED</td>
+          <td>0</td>
+          <td>—</td>
+          <td>Emission으로 표현한다. 색은 Emission 컬러가 결정.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    표의 값은 어디까지나 <strong>출발값</strong>이다. 같은 스테인리스도 지문이 묻으면
+    Smoothness가 떨어지고, 같은 도장면도 세월에 따라 달라진다. 최종 판단은 항상
+    <strong>씬의 조명 아래에서 눈으로</strong> 하고, 값은 그 판단을 물리적으로 말이 되는
+    범위 안에 잡아 두는 가드레일로 쓴다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">흔한 실수</span>
+    <p>
+      초보 씬이 CG 티가 나는 가장 흔한 이유는 <strong>모든 것이 번쩍이기 때문</strong>이다.
+      Smoothness를 올리면 당장은 "고급스러워" 보여서 벽도 바닥도 장비도 전부 매끈하게
+      만들기 쉬운데, 현실의 공장은 대부분 <strong>무광</strong>이다. 번쩍임은 스테인리스
+      패널, 에폭시 바닥처럼 실제로 매끈한 소수의 재질에만 허락하라. 대비가 있어야
+      매끈함도 살아난다.
+    </p>
+  </div>
+
+  <h2>텍스처의 규율</h2>
+  <p>
+    PBR의 일관성은 텍스처를 물리 규칙대로 만들었을 때만 성립한다. 어기기 쉬운 순서대로
+    네 가지.
+  </p>
+  <ul>
+    <li><strong>알베도에 조명·그림자를 굽지 마라</strong> — 조명은 엔진이 계산한다.
+      텍스처에 음영을 미리 그려 넣으면 엔진 조명과 겹쳐 <strong>이중 조명</strong>이 되고,
+      씬의 조명을 옮기는 순간 텍스처 속 그림자만 엉뚱한 방향에 남는다.</li>
+    <li><strong>순흑·순백을 피하라</strong> — 현실 재질에 완전한 검정도 완전한 하양도 없다.
+      석탄조차 빛을 조금은 반사하고, 새하얀 눈도 전부 반사하지는 못한다. 극단값 알베도는
+      조명을 받아도 밝아지지 않거나 금세 타 버려서, 어떤 라이팅으로도 구제할 수 없다.</li>
+    <li><strong>노멀 맵은 Normal map 타입으로 임포트하라</strong> — 노멀 맵의 RGB는 색이
+      아니라 <strong>방향 벡터 데이터</strong>다. 임포트 설정에서 Texture Type을
+      Normal map으로 지정해야 sRGB 색공간 보정을 거치지 않고 올바르게 해석된다. 보라색
+      텍스처를 그냥 꽂았는데 요철이 이상하다면 십중팔구 이 설정이다.</li>
+    <li><strong>AO는 Occlusion 슬롯에 넣어라</strong> — 알베도에 곱해 넣으면 직사광이
+      닿는 면까지 어두워진다. Occlusion 슬롯에 넣으면 간접광에만 적용되어, 빛이 드는
+      곳은 밝고 틈새만 어두운 올바른 결과가 된다.</li>
+  </ul>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      관제 화면의 설득력은 <strong>재질의 사실성</strong>에서 나온다. 스테인리스가
+      스테인리스로, 에폭시 바닥이 에폭시 바닥으로 보여야 "우리 팹을 옮겨 놓았다"는
+      신뢰가 생기고, 그 신뢰가 디지털 트윈을 보고 내리는 판단의 근거가 된다. 동시에
+      머티리얼의 <strong>개수와 복잡도는 곧 렌더링 비용</strong>이다 — 머티리얼이
+      늘어날수록 드로우콜과 배칭 문제가 따라오는데, 장비 수백 대 씬에서 이것이 어떻게
+      병목이 되고 어떻게 다스리는지는 Phase 4에서 정면으로 다룬다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>금속에서 알베도(난반사 색)는 왜 무의미한가?</summary>
+      <div class="answer">
+        <p>
+          금속은 자유전자가 표면 아래로 들어온 빛을 즉시 흡수해 버려서
+          <strong>난반사가 거의 없기</strong> 때문이다. 금속의 색은 대신 정반사에
+          실린다 — 금의 노란 하이라이트, 구리의 붉은 하이라이트가 그것이고, Unity에서는
+          Metallic 1일 때 Base Map 색이 그 역할을 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>프레넬 효과란 무엇이고, Unity에서 어떻게 켜는가?</summary>
+      <div class="answer">
+        <p>
+          시선이 표면을 <strong>스치는 각도에 가까울수록 반사가 강해지는</strong> 현상으로,
+          모든 재질에 적용된다. 물웅덩이를 멀리서 보면 하늘이 비치는 이유다. PBR 셰이더에
+          <strong>자동으로 내장</strong>되어 있으므로 따로 켜는 파라미터가 없다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>에폭시 바닥은 Metallic 0인데 왜 조명이 비치는가?</summary>
+      <div class="answer">
+        <p>
+          반사상이 선명한가는 Metallic이 아니라 <strong>Smoothness가 결정</strong>하기
+          때문이다. 비금속도 약 4%의 정반사를 항상 가지며, 표면이 매끈하면 그 반사가
+          흩어지지 않고 모여 상이 맺힌다. 여기에 프레넬까지 더해져, 바닥을 얕은 각도로
+          멀리 볼수록 비침이 더 강해진다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>알베도 텍스처에 그림자를 구워 넣으면 안 되는 이유는?</summary>
+      <div class="answer">
+        <p>
+          조명은 엔진이 실시간으로 계산하므로, 텍스처에 그린 음영과 엔진 조명이 겹쳐
+          <strong>이중 조명</strong>이 된다. 결정적으로 씬의 조명을 바꾸면 텍스처 속
+          그림자는 그대로 남아 엉뚱한 방향을 가리킨다 — "어떤 조명에서도 일관된 재질"이라는
+          PBR의 핵심 장점을 스스로 버리는 일이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Metallic 슬라이더의 0과 1 사이 값은 언제 쓰는가?</summary>
+      <div class="answer">
+        <p>
+          원칙적으로 재질은 금속(1) 아니면 비금속(0)이다. 중간값은 <strong>한 픽셀 안에
+          둘이 섞이는 경우</strong> — 먼지가 얇게 앉은 금속, 녹이나 도장이 벗겨지는 경계
+          부분 같은 특수한 상황을 위한 것이다. "적당히 금속 같아 보이게" 0.5를 주는 것은
+          물리적으로 존재하지 않는 재질을 만드는 일이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase2/04-descore.html">
+      <span class="dir">← PHASE 2 — STATION 04</span>
+      <span class="title">C# DES 엔진 설계 (Phase 2)</span>
+    </a>
+    <a class="next" href="02-lighting-baking.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">라이팅과 베이킹 — 빛을 미리 굽는다</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>

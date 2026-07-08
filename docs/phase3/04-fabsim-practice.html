@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 실습 — FabSim 팹 씬 만들기 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>04 FabSim 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 머티리얼 이론">01</a></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 라이트맵 베이킹">02</a></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱 — URP Volume">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 04</p>
+    <h1>실습 — FabSim 팹 씬 만들기</h1>
+    <p class="lede">
+      Station 01~03에서 재질, 빛, 후처리를 순서대로 배웠다. 이번 스테이션은
+      읽는 페이지가 아니라 <strong>만드는 페이지</strong>다. 준비된 빈 Unity 프로젝트
+      FabSim에 큐브와 플레인만으로 팹 베이 한 칸을 세우고, 배운 것을 전부 적용해
+      "구워진 씬" 하나를 완성한다.
+    </p>
+  </div>
+
+  <h2>FabSim — 준비된 무대</h2>
+  <p>
+    실습 무대는 이미 마련되어 있다. <code>C:\work\dt1\FabSim</code>은
+    <strong>Unity 6000.3.8f1</strong>로 생성된 프로젝트이고,
+    <strong>URP 17.3.0</strong> 구성이 끝나 있다 — 파이프라인 에셋
+    <code>Assets/Settings/FabSimUrp.asset</code>과 렌더러
+    <code>Assets/Settings/FabSimRenderer.asset</code>이 Graphics/Quality 설정에
+    할당된 상태다. 즉 새 머티리얼을 만들면 곧바로 URP의
+    <strong>Lit 셰이더</strong>가 기본으로 잡힌다.
+  </p>
+  <p>
+    unity-cli 커넥터 패키지도 포함되어 있어, 에디터를 열어 두면 터미널(Claude)이
+    씬 작업을 보조할 수 있다. 그 외에는 <strong>빈 프로젝트</strong>다 —
+    씬도 머티리얼도 아직 없고, 전부 이 실습에서 처음 만든다.
+  </p>
+  <p>
+    Unity Hub를 열고 <strong>Add → <code>C:\work\dt1\FabSim</code></strong>을
+    등록해 프로젝트를 열거나, 아래 버튼으로 바로 연다.
+  </p>
+  <p>
+    <button class="btn-launch" type="button" data-open="fabsim">
+      <span class="glyph">▶</span><span class="btn-label">실습 프로젝트 열기 — FabSim</span>
+    </button>
+    <button class="btn-launch alt" type="button" data-open="p3-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P3-Complete</span>
+    </button>
+  </p>
+  <p class="launch-note">
+    버튼은 어떤 방식으로 사이트를 열었든 동작한다 — 파일로 직접 열었다면 브라우저가
+    처음 한 번 "열기 허용" 확인창을 띄우니 허용하면 된다. 첫 정리로 폴더 구조를
+    잡아 두면 이후가 편하다.
+  </p>
+  <p>
+    <strong>완성본</strong>(<code>C:\work\dt1\FabSim-P3-Complete</code>)은 이 실습의
+    결과를 미리 만들어 둔 <strong>모범 답안 프로젝트</strong>다. 막히거나 결과가
+    궁금할 때 열어서 비교하되, 실습은 반드시 FabSim에서 직접 할 것 —
+    보고 베끼는 것과 손으로 만드는 것은 다른 학습이다.
+  </p>
+  <ul>
+    <li><code>Assets/Scenes</code> — 이번에 만들 팹 베이 씬</li>
+    <li><code>Assets/Materials</code> — 아래 레시피의 머티리얼 6종</li>
+    <li><code>Assets/Settings</code> — URP 에셋 (이미 있음)</li>
+    <li><code>Assets/Prefabs</code> — 장비·FOUP처럼 반복 배치할 것들</li>
+  </ul>
+  <p>
+    여기서 만드는 씬은 1회용 연습이 아니다. <strong>Phase 4</strong>에서는 이 씬의
+    장비를 수백 대로 늘려 병목을 잡는 <strong>최적화 실험장</strong>이 되고,
+    <strong>Phase 5</strong>에서는 DES 코어와 연결되는
+    <strong>미니 팹 시뮬레이터의 무대</strong>가 된다. 지금 놓는 바닥과 레일 위에서
+    앞으로 두 개의 Phase가 진행된다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      이 씬이 그대로 Phase 5의 무대다. 천장 레일을 대충이라도
+      <strong>실제 동선처럼</strong> — 장비 열 위를 지나 순환하는 모양으로 —
+      깔아 두면, 나중에 웨이포인트 그래프를 얹고 OHT를 달리게 하는 작업이
+      자연스럽게 이어진다. 그리고 unity-cli 커넥터가 있으므로 "큐브 8개를 2열로
+      정렬 배치" 같은 반복 작업은 Claude에게 시키면 된다 — 손으로 다 할 필요 없다.
+    </p>
+  </div>
+
+  <h2>목표: 프리미티브로 팹 베이 한 칸</h2>
+  <p>
+    에셋을 사지 않는다. 큐브·플레인만으로 <strong>화이트박싱</strong><i class="en">(whiteboxing)</i>
+    — 형태는 최소한으로, 공간의 비례만 잡는 방식으로 베이 한 칸을 만든다. 구성은 다음이 전부다.
+  </p>
+  <ul>
+    <li><strong>바닥</strong> — Plane 1장. Unity 기본 Plane은 10&nbsp;m × 10&nbsp;m라 베이 한 칸에 알맞다.</li>
+    <li><strong>벽 3면 + 천장</strong> — 얇게 스케일한 큐브. 한 면은 뚫어 두면 카메라 넣기 편하다.</li>
+    <li><strong>장비 박스 2열</strong> — 큐브 6~8개. Phase 1에서 본 베이 구조 그대로, 통로 양쪽에 장비가 마주 보는 배치.</li>
+    <li><strong>천장 레일</strong> — 길고 얇은 큐브 2줄. 천장 아래 ~4&nbsp;m 높이에 매단다.</li>
+    <li><strong>FOUP</strong> — 작은 큐브 몇 개. 레일 옆과 장비 위에 놓는다. 이 중 하나가 나중에 프로브 테스트용 "움직이는 물체"가 된다.</li>
+  </ul>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="화이트박스 베이 단면 개략도: 바닥 플레인 위에 장비 박스 2열, 천장 아래 4미터 높이에 레일 2줄, 레일 옆과 장비 위에 FOUP 큐브">
+      <!-- 천장 / 벽 / 바닥 -->
+      <line class="d-soft" x1="60" y1="30" x2="740" y2="30" stroke-width="2"/>
+      <text class="d-label" x="64" y="22">천장 (얇은 큐브)</text>
+      <line class="d-soft" x1="60" y1="30" x2="60" y2="290" stroke-width="2"/>
+      <line class="d-soft" x1="740" y1="30" x2="740" y2="290" stroke-width="2"/>
+      <line class="d-rail" x1="60" y1="290" x2="740" y2="290" stroke-width="2"/>
+      <text class="d-label" x="64" y="308">바닥 (Plane)</text>
+
+      <!-- 레일 2줄 (단면) -->
+      <line class="d-soft" x1="340" y1="30" x2="340" y2="72" stroke-width="2"/>
+      <line class="d-soft" x1="460" y1="30" x2="460" y2="72" stroke-width="2"/>
+      <rect class="d-fill-rail" x="322" y="72" width="36" height="12" rx="2"/>
+      <rect class="d-fill-rail" x="442" y="72" width="36" height="12" rx="2"/>
+      <text class="d-label-strong" x="400" y="104" text-anchor="middle">천장 레일 ×2 (길고 얇은 큐브)</text>
+
+      <!-- FOUP: 레일 옆 -->
+      <rect class="d-fill-accent" x="388" y="120" width="24" height="20" rx="2"/>
+      <text class="d-label" x="400" y="158" text-anchor="middle">FOUP (동적 테스트용)</text>
+
+      <!-- 장비 박스 2열 + FOUP -->
+      <g stroke-width="2">
+        <rect class="d-node" x="80" y="186" width="170" height="104" rx="4"/>
+        <rect class="d-fill-accent" x="150" y="164" width="24" height="20" rx="2"/>
+        <text class="d-title" x="165" y="245" text-anchor="middle">장비 박스 열</text>
+
+        <rect class="d-node" x="550" y="186" width="170" height="104" rx="4"/>
+        <rect class="d-fill-accent" x="620" y="164" width="24" height="20" rx="2"/>
+        <text class="d-title" x="635" y="245" text-anchor="middle">장비 박스 열</text>
+      </g>
+
+      <!-- 치수 -->
+      <line class="d-accent" x1="42" y1="30" x2="42" y2="290" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text class="d-label" transform="rotate(-90 32 160)" x="32" y="160" text-anchor="middle">천장고 ~5 m</text>
+      <line class="d-accent" x1="492" y1="84" x2="492" y2="290" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text class="d-label" x="500" y="196">레일 높이 ~4 m</text>
+      <line class="d-accent" x1="60" y1="318" x2="740" y2="318" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text class="d-label" x="400" y="336" text-anchor="middle">베이 폭 ~8 m</text>
+    </svg>
+    <figcaption>
+      화이트박스 베이의 단면 개략도 (비율은 개략적). 통로 양쪽 장비 열,
+      천장 아래 레일 2줄, 레일 옆의 FOUP — Phase 1에서 본 팹 베이 단면을
+      프리미티브로 옮긴 것이다.
+    </figcaption>
+  </figure>
+
+  <h3>왜 에셋부터 사지 않는가</h3>
+  <p>
+    이 실습의 학습 변수는 형태가 아니라 <strong>표면과 빛</strong>이다.
+    PBR 머티리얼이 어떻게 보이는지, 구운 조명이 공간을 어떻게 채우는지,
+    포스트 프로세싱이 무엇을 바꾸는지는 큐브 위에서도 전부 관찰할 수 있다 —
+    오히려 형태가 단순해야 표면과 빛의 효과가 순수하게 보인다.
+    그리고 경험칙 하나: <strong>화이트박스에서 좋아 보이는 라이팅은 에셋을
+    씌워도 좋다. 역은 성립하지 않는다.</strong> 조명이 엉망인 씬은 아무리 좋은
+    에셋을 부어도 살아나지 않는다. 나중에 형태를 채우고 싶으면 Asset Store에서
+    <code>warehouse</code>, <code>factory</code>, <code>industrial</code>로
+    검색하면 무료 에셋이 넉넉히 나온다 — 그건 이 실습이 끝난 다음의 일이다.
+  </p>
+
+  <h2>실습 체크리스트 — 7단계</h2>
+  <p>
+    순서대로 진행한다. 각 단계는 앞 단계의 결과 위에서만 의미가 있다 —
+    재질이 엉망이면 조명 판단이 불가능하고, 조명이 엉망이면 포스트 판단이 불가능하다.
+  </p>
+  <ol>
+    <li>
+      <strong>씬 화이트박싱</strong> — 위 구성을 배치한다. 스케일 감각이 핵심이다:
+      베이 폭 ~8&nbsp;m, 천장고 ~5&nbsp;m, 레일 높이 ~4&nbsp;m, FOUP은 한 변 ~0.4&nbsp;m.
+      1&nbsp;유닛&nbsp;=&nbsp;1&nbsp;m로 두고 큐브 스케일 값으로 치수를 직접 입력한다.
+      <strong>완료 기준</strong>: Scene 뷰에서 위 단면도와 같은 구도가 보인다.
+    </li>
+    <li>
+      <strong>머티리얼 6종 제작·적용</strong> (Station 01) — 아래 레시피 표대로
+      <code>Assets/Materials</code>에 만들고 각 대상에 입힌다.
+      <strong>완료 기준</strong>: 씬에 기본 회백색 Lit 머티리얼이 하나도 남아 있지 않다.
+    </li>
+    <li>
+      <strong>조명 배치</strong> (Station 02) — 천장 등기구 역할의 광원을 베이를 따라
+      배치한다. 광원 Mode는 전부 <strong>Baked</strong>, 움직이지 않을 지오메트리는
+      전부 <strong>Static</strong>으로 지정한다. 움직여 볼 FOUP 하나만 Static을 푼다.
+      <strong>완료 기준</strong>: Hierarchy를 훑었을 때 Realtime/Mixed 광원이 없다.
+    </li>
+    <li>
+      <strong>라이트맵 베이크</strong> — Lighting 창에서 먼저
+      <strong>낮은 해상도로 빠르게 굽고</strong> 결과를 확인한 뒤, 해상도를 올려
+      최종 베이크한다. 처음부터 고해상도로 구우면 시행착오 한 번에 수십 분을 잃는다.
+      <strong>완료 기준</strong>: 장비 박스가 바닥에 드리우는 그림자와 벽의 간접광이
+      라이트맵에 나타난다.
+    </li>
+    <li>
+      <strong>라이트 프로브 + 리플렉션 프로브</strong> (Station 02) —
+      Light Probe Group을 <strong>레일 경로를 따라</strong> 배치하고,
+      Reflection Probe를 <strong>베이 중앙</strong>에 놓은 뒤 재베이크한다.
+      <strong>완료 기준</strong>: FOUP을 드래그하면 조명이 따라오고,
+      금속 레일과 에폭시 바닥에 천장 조명이 비친다.
+    </li>
+    <li>
+      <strong>포스트 프로세싱</strong> (Station 03) — Global Volume을 만들고
+      Station 03의 순서 그대로 쌓는다:
+      Tonemapping(ACES) → 노출 → Bloom → SSAO → Vignette.
+      <strong>완료 기준</strong>: 상태등 주위로 Bloom이 은은하게 피고,
+      장비 사이 접지면이 SSAO로 무게를 얻는다.
+    </li>
+    <li>
+      <strong>전/후 비교 스크린샷 2장</strong> — Volume을 끈 상태와 켠 상태로
+      Game 뷰를 각각 캡처해 저장한다.
+      <strong>완료 기준</strong>: 두 장을 나란히 놓고 어떤 효과가 어떤 차이를
+      만들었는지 설명할 수 있다.
+    </li>
+  </ol>
+
+  <div class="callout warn">
+    <span class="label">막히면 순서를 의심하라</span>
+    <p>
+      포스트가 이상하면 <strong>조명</strong>을, 조명이 이상하면
+      <strong>재질(특히 알베도 밝기)</strong>을 먼저 본다. 벽 알베도가 너무 밝으면
+      베이크된 간접광이 폭주해 씬 전체가 뿌옇게 뜨고, 그걸 노출과 Bloom으로
+      수습하려 들면 끝없이 꼬인다. 이 파이프라인은 층으로 쌓여 있다 —
+      <strong>아랫층이 좋아야 윗층이 산다.</strong> 윗층에서 문제를 고치려 하지 말 것.
+    </p>
+  </div>
+
+  <h2>머티리얼 레시피</h2>
+  <p>
+    이름은 전부 <code>MAT_</code> 접두사로 시작한다 — 에셋이 수백 개로 늘어나는
+    Phase 4~5에서 접두사 정렬이 위력을 발휘한다. 색 힌트는 출발점일 뿐이며,
+    베이크 결과를 보면서 눈으로 조정한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>머티리얼</th>
+          <th>대상</th>
+          <th>Base 색 힌트</th>
+          <th>Metallic</th>
+          <th>Smoothness</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">MAT_Floor_Epoxy</td>
+          <td>바닥 Plane</td>
+          <td>밝은 회녹색</td>
+          <td>0</td>
+          <td>0.7</td>
+          <td>에폭시 코팅 바닥. 매끈한 바닥 반사가 팹 씬의 인상을 좌우한다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAT_Wall_Paint</td>
+          <td>벽 3면 + 천장</td>
+          <td>밝은 회백</td>
+          <td>0</td>
+          <td>0.3</td>
+          <td>무광 도장. 알베도를 순백(1.0)으로 두지 말 것 — 간접광이 폭주한다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAT_Panel_Painted</td>
+          <td>장비 박스</td>
+          <td>밝은 회색</td>
+          <td>0.1</td>
+          <td>0.45</td>
+          <td>도장 강판 — 실제 팹 장비 외장. 순수 금속(Metallic 1)은 닫힌 어두운 실내에서 맞은편의 어둠만 비춰 검게 보인다 (직접 실험해 볼 것).</td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAT_Rail_Alu</td>
+          <td>천장 레일</td>
+          <td>중간 회색</td>
+          <td>0.6~1</td>
+          <td>0.45</td>
+          <td>금속 재질 — 리플렉션 프로브 효과를 확인하는 기준. 반사가 검게 나오면 프로브를 의심할 것.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAT_FOUP_Poly</td>
+          <td>FOUP 큐브</td>
+          <td>반투명 느낌의 회청</td>
+          <td>0</td>
+          <td>0.6</td>
+          <td>실물은 반투명 폴리카보네이트 — 여기서는 불투명으로 근사한다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAT_StatusLight</td>
+          <td>장비 상태등 (작은 큐브)</td>
+          <td>검정에 가깝게</td>
+          <td>0</td>
+          <td>—</td>
+          <td>Emission을 켜고 HDR 강도 2~4 — Bloom과 궁합이 좋다 (Station 03).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>완료 기준 (Definition of Done)</h2>
+  <p>다음을 전부 만족하면 Phase 3 실습은 끝난 것이다.</p>
+  <ul>
+    <li>라이트맵이 구워져 있고, 씬의 <strong>Realtime 광원이 0개</strong>다.</li>
+    <li>레일 위 FOUP 큐브를 에디터에서 드래그해 보면 <strong>프로브 조명이 자연스럽게 따라온다</strong> — 밝은 곳에서 밝고, 그늘에서 어두워진다.</li>
+    <li>금속 레일과 에폭시 바닥에 <strong>천장 조명이 비친다</strong> — 리플렉션 프로브가 일하고 있다는 증거.</li>
+    <li>포스트 <strong>전/후 스크린샷 2장</strong>이 저장되어 있다.</li>
+    <li>상태등이 <strong>Bloom으로 은은하게</strong> 피어난다 — 화면이 온통 번지면 과한 것이다.</li>
+  </ul>
+  <p>
+    전부 통과했으면 씬을 저장하고 <strong>커밋을 요청</strong>해 Phase 3의 결과를
+    스냅샷으로 남긴다. Phase 4는 이 커밋 위에서 시작한다.
+  </p>
+
+  <div class="callout field">
+    <span class="label">현장 감각</span>
+    <p>
+      전/후 스크린샷을 남기는 습관은 이 실습에서 끝나지 않는다. Phase 4에서는
+      같은 자리에 <strong>최적화 전/후 프로파일링 기록</strong>이 들어온다.
+      "좋아졌다"는 감각은 하루면 증발하지만 기록은 남는다 —
+      <strong>측정하고, 바꾸고, 다시 측정한다</strong>는 이 리듬이
+      렌더링에서도 성능에서도 실무의 기본 자세다. 지금이 그 습관의 시작점이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>왜 에셋이 아니라 화이트박스(프리미티브)부터 시작하는가?</summary>
+      <div class="answer">
+        <p>
+          이 단계의 학습 변수가 형태가 아니라 <strong>표면(머티리얼)과 빛</strong>이기
+          때문이다. 형태가 단순할수록 재질과 조명의 효과가 순수하게 관찰된다.
+          또 화이트박스에서 좋아 보이는 라이팅은 에셋을 씌워도 좋지만, 그 역은
+          성립하지 않는다 — 조명이 무너진 씬은 에셋으로 구제되지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>라이트 프로브가 없으면 레일 위를 움직이는 FOUP은 어떻게 보이는가?</summary>
+      <div class="answer">
+        <p>
+          라이트맵은 <strong>Static 오브젝트의 표면에만</strong> 구워진다. 움직이는
+          FOUP은 라이트맵을 받을 수 없으므로, 프로브가 없으면 주변 공간의 밝기와
+          무관하게 밋밋한 기본 조명으로만 그려져 씬에서 혼자 붕 뜬다. Light Probe
+          Group이 공간 곳곳의 빛을 미리 샘플링해 두면, 동적 오브젝트가 위치에 따라
+          그 빛을 보간받아 구운 조명 속에 자연스럽게 녹아든다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>"Realtime 광원 0개"는 무엇을 의미하고, 왜 목표인가?</summary>
+      <div class="answer">
+        <p>
+          모든 광원이 Baked로 지정되어 <strong>런타임 조명 계산이 없다</strong>는
+          뜻이다. 조명 비용을 베이크 시간에 미리 지불했으므로 실행 중 비용은 거의
+          0이고, 이것이 Phase 4에서 장비를 수백 대로 늘려도 조명이 병목이 되지 않는
+          기반이 된다. 대가는 광원을 움직일 수 없다는 것 — 조명이 고정된 팹 같은
+          공간에 정확히 들어맞는 트레이드오프다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>전/후 스크린샷을 굳이 파일로 남기는 이유는?</summary>
+      <div class="answer">
+        <p>
+          "좋아졌다"는 인상은 기억 속에서 빠르게 사라지고, 무엇이 얼마나 기여했는지
+          말할 수 없게 되기 때문이다. 전/후 기록은 각 처리의 기여를 객관화하고,
+          Phase 4의 최적화 전/후 프로파일링 기록으로 그대로 이어지는
+          <strong>측정 → 변경 → 재측정</strong> 습관의 첫 연습이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="03-post-processing.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">포스트 프로세싱 — URP Volume</span>
+    </a>
+    <a class="next" href="../index.html">
+      <span class="dir">NEXT — 노선도 →</span>
+      <span class="title">전체 로드맵 (Phase 4로 계속)</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>

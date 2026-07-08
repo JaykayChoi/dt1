@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 포스트 프로세싱 — URP Volume — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>03 포스트 프로세싱
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 이론">01</a></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 베이킹">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-fabsim-practice.html" title="실습 — FabSim 팹 씬 만들기">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 03</p>
+    <h1>포스트 프로세싱 — URP Volume</h1>
+    <p class="lede">
+      머티리얼과 라이팅이 씬의 "실체"를 만든다면, 포스트 프로세싱은 완성된
+      프레임 위에 거는 마지막 손질이다. 사진의 후보정, 영화의 컬러 그레이딩에
+      해당하는 이 공정을 URP에서는 Volume 시스템 하나로 다룬다.
+    </p>
+  </div>
+
+  <h2>렌더가 끝난 뒤의 마감 공정</h2>
+  <p>
+    <strong>포스트 프로세싱</strong><i class="en">(post-processing)</i>은 이름 그대로
+    "렌더링 이후"의 처리다. 지오메트리를 그리고, PBR 머티리얼과 라이팅을 계산해서
+    <strong>한 장의 완성된 프레임 이미지</strong>가 만들어진 다음, 그 이미지
+    위에 거는 효과들의 묶음이다. 3D 세계가 아니라 <strong>2D 화면 픽셀</strong>을
+    다루는 단계라는 점이 핵심이다.
+  </p>
+  <p>
+    그래서 포스트 프로세싱은 씬의 실체 — 지오메트리, 머티리얼, 조명 — 를
+    하나도 바꾸지 않는다. 바꾸는 것은 <strong>화면의 인상</strong>이다.
+    같은 씬이라도 톤매핑과 노출, 약간의 블룸이 들어가면 "게임 엔진 기본 화면"에서
+    "마감된 제품 화면"으로 체감이 달라진다. 사진가가 촬영(렌더)을 끝낸 뒤
+    보정(포스트)으로 사진을 완성하는 것과 같은 관계다.
+  </p>
+  <p>
+    한 가지 배경 지식이 필요하다. Station 01~02에서 만든 씬의 렌더 결과는
+    <strong>HDR</strong><i class="en">(High Dynamic Range)</i> 버퍼에 담긴다 —
+    밝기 값이 1.0을 넘는, 화면이 표현할 수 있는 범위보다 넓은 데이터다.
+    이 HDR 데이터를 모니터가 표시할 수 있는 <strong>LDR</strong><i class="en">(Low
+    Dynamic Range)</i> 범위로 옮겨 담는 것이 포스트 스택의 첫 번째 임무이고,
+    아래에서 볼 톤매핑과 블룸이 모두 이 사실 위에 서 있다.
+  </p>
+
+  <h2>URP Volume 시스템</h2>
+  <p>
+    URP에서 포스트 프로세싱은 <strong>Volume</strong> 시스템으로 관리한다.
+    구성 요소는 셋이고, 관계만 정확히 잡으면 나머지는 UI 조작이다.
+  </p>
+  <ul>
+    <li><strong>Volume 컴포넌트</strong> — 씬의 GameObject에 붙는 컴포넌트.
+      Mode가 <strong>Global</strong>이면 씬 전체에 항상 적용되고,
+      <strong>Local</strong>이면 콜라이더로 정의한 영역에 카메라가 들어갔을 때만
+      적용된다(예: 특정 베이에 들어가면 노출이 바뀌는 연출). 학습 단계에서는
+      Global 하나로 충분하다.</li>
+    <li><strong>Volume Profile</strong> — 효과 설정을 저장하는
+      <strong>에셋 파일</strong>. Volume 컴포넌트가 이 에셋을 참조한다.
+      설정이 씬이 아니라 에셋에 저장되므로 여러 씬이 같은 Profile을
+      공유할 수 있다.</li>
+    <li><strong>Override</strong> — Profile 안에 추가하는 효과 하나하나
+      (Bloom, Tonemapping, Vignette...). 각 속성 왼쪽의 체크박스를 켠
+      항목만 기본값을 "덮어쓴다"는 뜻에서 Override라 부른다.</li>
+  </ul>
+  <p>
+    마지막으로 <strong>카메라 쪽 스위치</strong>가 하나 있다. 카메라 Inspector의
+    Rendering 섹션에서 <strong>Post Processing 체크박스</strong>를 켜야
+    Volume의 효과가 실제로 화면에 반영된다. "Override를 다 넣었는데 화면이
+    그대로"라면 십중팔구 이 체크를 빠뜨린 것이다.
+  </p>
+  <h3>셋업 절차</h3>
+  <ol>
+    <li>빈 GameObject를 만들고 <strong>Volume</strong> 컴포넌트를 추가한다 (Mode: Global).</li>
+    <li>Profile 항목의 <strong>New</strong> 버튼으로 Volume Profile 에셋을 생성한다.</li>
+    <li><strong>Add Override</strong>로 원하는 효과(Tonemapping, Bloom...)를 추가하고 속성 체크박스를 켜서 값을 조정한다.</li>
+    <li>메인 카메라의 Rendering 섹션에서 <strong>Post Processing</strong>을 활성화한다.</li>
+  </ol>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/SeXdXvtunNY" title="Unity URP 포스트 프로세싱 가이드 — Volume 셋업 실연" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      URP 포스트 프로세싱 셋업 실연. <strong>Volume 오브젝트 생성 → Profile 생성 →
+      Add Override로 효과 추가 → 카메라 Post Processing 활성화</strong>로 이어지는
+      위의 절차가 에디터 화면에서 그대로 재현되고, Bloom·Tonemapping 등 개별 효과를
+      켜고 끌 때 화면이 어떻게 변하는지 확인할 수 있다.
+      <a href="https://www.youtube.com/watch?v=SeXdXvtunNY">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>효과 사전 — 다섯 가지만 제대로</h2>
+  <p>
+    Add Override 목록에는 효과가 수십 개 있지만, 팹 씬의 마감에 필요한 것은
+    다섯 개다. 이 다섯 개의 <strong>역할과 부작용</strong>을 정확히 아는 것이
+    목록 전체를 얕게 아는 것보다 낫다.
+  </p>
+
+  <h3>Tonemapping (ACES) — 기준 룩</h3>
+  <p>
+    <strong>톤매핑</strong><i class="en">(tonemapping)</i>은 HDR 밝기를 화면이
+    표시할 수 있는 범위로 눌러 담는 변환이다. 톤매핑 없이 HDR을 그냥 자르면
+    밝은 부분이 <strong>하얗게 날아가고</strong>(클리핑) 색이 탁해진다.
+    <strong>ACES</strong><i class="en">(Academy Color Encoding System)</i>는
+    영화 산업 표준의 톤매핑 커브로, 하이라이트를 부드럽게 말아 넣어
+    밝은 영역에서도 디테일과 색감이 살아 있는 "필름 같은" 룩을 만든다.
+    다섯 효과 중 <strong>제일 먼저 켜는 것</strong>이다 — 이후의 모든 색·밝기
+    판단이 이 커브 위에서 이루어지기 때문이다.
+  </p>
+
+  <h3>Color Adjustments — 밝기·대비의 기준 잡기</h3>
+  <p>
+    가장 기본적인 색 보정 도구다. 핵심 속성은 셋:
+    <strong>Post Exposure</strong>(노출 — 화면 전체 밝기를 스톱 단위로),
+    <strong>Contrast</strong>(대비), <strong>Saturation</strong>(채도).
+    톤매핑으로 기준 커브를 정한 <strong>다음에</strong> 이 값들로 씬의 밝기와
+    대비를 잡는다. 순서가 바뀌면 — 노출을 먼저 맞추고 나중에 ACES를 켜면 —
+    화면 인상이 통째로 변해 처음부터 다시 잡아야 한다.
+  </p>
+
+  <h3>Bloom — 밝은 것이 피어난다</h3>
+  <p>
+    <strong>블룸</strong><i class="en">(bloom)</i>은 밝은 픽셀의 빛이 주변으로
+    번지는 효과다. 현실에서 강한 광원을 볼 때 렌즈와 눈에서 생기는 산란을
+    흉내 내며, "이 픽셀은 진짜 광원이다"라는 인상을 만든다. 전제는
+    <strong>HDR</strong>이다 — <strong>Threshold</strong>를 1.0 근처 이상으로
+    두면 밝기가 1을 넘는 픽셀, 즉 이미시브 머티리얼(장비 상태등, 신호등)과
+    광원만 피어나고 흰 벽 같은 일반 표면은 번지지 않는다. Threshold를 1 아래로
+    내리거나 Intensity를 올려 화면 전체가 뿌옇게 빛나기 시작하면 이미 과용이다.
+  </p>
+
+  <h3>SSAO — 구석의 어둠, 접지감</h3>
+  <p>
+    <strong>SSAO</strong><i class="en">(Screen Space Ambient Occlusion)</i>는
+    구석·틈새·물체가 맞닿는 접합부처럼 주변광이 도달하기 어려운 곳을 어둡게
+    만들어 입체감을 살리는 효과다. 특히 장비가 바닥에 "붙어 있다"는
+    <strong>접지감</strong>을 만들어 준다 — SSAO가 없으면 물체가 바닥 위에
+    떠 있는 것처럼 보이기 쉽다.
+  </p>
+  <p>
+    주의할 점: URP에서 SSAO는 <strong>Volume의 Add Override 목록에 없다</strong>.
+    완성된 프레임이 아니라 렌더링 도중의 깊이·노멀 정보가 필요한 효과라서,
+    <strong>Renderer 에셋(Universal Renderer Data)의 Add Renderer Feature</strong>로
+    추가한다. Volume에서 아무리 찾아도 안 나오는 것이 정상이다.
+  </p>
+
+  <h3>Vignette — 가장자리를 살짝 어둡게</h3>
+  <p>
+    <strong>비네트</strong><i class="en">(vignette)</i>는 화면 가장자리를 어둡게
+    해 시선을 중앙으로 모으는 고전적인 사진 기법이다. Intensity
+    <strong>0.2~0.3</strong> 수준으로, "켜져 있는지 모를 정도"로만 쓴다.
+    다섯 효과 중 가장 싸고 가장 과용하기 쉬운 효과다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">비용 주의</span>
+    <p>
+      포스트 효과는 공짜가 아니다 — 하나하나가 <strong>매 프레임의 GPU 비용</strong>이고,
+      특히 Bloom(여러 해상도로 블러를 반복)과 SSAO(픽셀마다 주변 깊이를 샘플링)가
+      비싸다. Phase 4에서 Profiler와 Frame Debugger로 이 비용을 프레임 시간으로
+      직접 측정하게 된다. 지금부터 효과를 켤 때마다
+      <strong>"이 효과가 프레임 몇 ms를 쓰는가"</strong>를 묻는 습관을 들이면
+      그때 바로 연결된다.
+    </p>
+  </div>
+
+  <h2>팹 씬 시작값</h2>
+  <p>
+    다음 스테이션의 FabSim 팹 씬에 그대로 넣을 수 있는 출발점이다.
+    절대적인 정답이 아니라 <strong>"여기서 시작해서 눈으로 조정한다"</strong>는
+    기준값이며, 오른쪽 끝의 과용 신호가 보이면 즉시 되돌린다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>효과</th>
+          <th>역할</th>
+          <th>시작값 제안</th>
+          <th>과용 신호</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Tonemapping</td>
+          <td>모든 색 판단의 기준 룩</td>
+          <td>Mode: ACES</td>
+          <td>없음 — 항상 켠다</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Color Adjustments</td>
+          <td>밝기·대비의 기준 잡기</td>
+          <td>Post Exposure ±0.5 · Contrast +5~15</td>
+          <td>밝은 곳이 순백, 어두운 곳이 순흑으로 뭉갠다</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Bloom</td>
+          <td>장비 상태등·창의 발광 표현</td>
+          <td>Intensity 0.2~0.5 · Threshold 1.0~1.3</td>
+          <td>화면 전체가 뿌옇다</td>
+        </tr>
+        <tr>
+          <td class="rowhead">SSAO</td>
+          <td>구석 음영, 장비의 접지감</td>
+          <td>Intensity 0.5~1.0 · Radius 0.3~0.5m</td>
+          <td>구석이 때 낀 듯 검다</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Vignette</td>
+          <td>화면 중앙으로 시선 집중</td>
+          <td>Intensity 0.2~0.3</td>
+          <td>터널 속에서 보는 것 같다</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>적용 순서 전략</h2>
+  <p>
+    효과를 한꺼번에 다 켜고 뒤섞어 조정하면 무엇이 무엇을 바꿨는지 알 수 없게
+    된다. <strong>기준이 되는 것부터, 하나씩</strong> 쌓는 것이 원칙이다.
+  </p>
+  <ol>
+    <li><strong>Tonemapping: ACES</strong> — 제일 먼저. 이후 모든 색·밝기 판단의 기준이 된다.</li>
+    <li><strong>Color Adjustments</strong> — 노출과 대비로 씬의 기준 밝기를 잡는다.</li>
+    <li><strong>Bloom</strong> — 약하게. 이미시브 상태등만 피어나는지 확인한다.</li>
+    <li><strong>SSAO</strong> — 렌더러 피처로 추가하고, 구석 음영과 접지감을 확인한다.</li>
+    <li><strong>Vignette</strong> — 마지막에 아주 약하게.</li>
+  </ol>
+  <p>
+    그리고 두 가지 작업 습관. 첫째, <strong>하나 켤 때마다 켜기 전/후를
+    비교한다</strong> — Override의 체크박스를 토글하면 즉시 비교된다. 차이를
+    설명할 수 없는 효과는 필요 없는 효과다. 둘째, 전부 켠 뒤
+    <strong>모든 강도를 절반으로 줄여 본다</strong>. 줄인 쪽이 더 나아 보이는
+    경우가 놀랄 만큼 많다 — 포스트는 눈이 빨리 적응해서 과용을 스스로 알아채기
+    어렵기 때문이다.
+  </p>
+  <p>
+    마지막으로 순서의 대원칙: <strong>포스트로 조명을 고치려 하지 말 것.</strong>
+    씬이 어두우면 노출을 올리기 전에 Station 02의 라이팅으로 돌아가는 것이
+    맞다. 조명이 좋아야 포스트가 산다 — 포스트는 좋은 조명을 돋보이게 하는
+    마감이지, 나쁜 조명을 구제하는 수단이 아니다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="포스트 프로세싱 파이프라인: 씬 렌더가 만든 HDR 프레임이 Volume 포스트 스택(톤매핑, 컬러, 블룸, 비네트)을 거쳐 LDR 디스플레이로 출력된다. SSAO는 스택이 아니라 렌더 단계의 렌더러 피처로 계산된다">
+      <!-- 단계 라벨 -->
+      <text class="d-label" x="24" y="28">① 3D 렌더링</text>
+      <text class="d-label" x="196" y="28">② 완성된 프레임 위의 마감 공정</text>
+      <text class="d-label" x="676" y="28">③ 출력</text>
+
+      <!-- 씬 렌더 -->
+      <rect class="d-node" x="24" y="72" width="132" height="88" rx="6" stroke-width="2"/>
+      <text class="d-title" x="90" y="104" text-anchor="middle">씬 렌더</text>
+      <text class="d-label" x="90" y="124" text-anchor="middle">PBR + 라이팅</text>
+      <text class="d-label-strong" x="90" y="144" text-anchor="middle">HDR 버퍼</text>
+
+      <!-- SSAO: 렌더 단계에 속하는 렌더러 피처 -->
+      <line class="d-accent" x1="66" y1="160" x2="66" y2="198" stroke-width="2" stroke-dasharray="4 3"/>
+      <rect class="d-accent" x="36" y="198" width="96" height="34" rx="6" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="84" y="219" text-anchor="middle">SSAO</text>
+      <text class="d-label" x="148" y="219">렌더러 피처 — Volume 스택이 아니라 렌더 단계에서 계산</text>
+
+      <!-- 씬 렌더 → 포스트 스택 -->
+      <line class="d-rail" x1="156" y1="116" x2="188" y2="116" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="196,116 186,111 186,121"/>
+      <text class="d-label-strong" x="176" y="100" text-anchor="middle">HDR</text>
+
+      <!-- 포스트 스택 컨테이너 -->
+      <rect class="d-soft" x="196" y="48" width="446" height="136" rx="8" stroke-width="2"/>
+      <text class="d-label-strong" x="208" y="72">POST-PROCESSING — VOLUME 스택</text>
+
+      <!-- 스택 내부 효과 박스 -->
+      <rect class="d-node" x="212" y="92" width="94" height="64" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="259" y="120" text-anchor="middle">TONEMAP</text>
+      <text class="d-label" x="259" y="138" text-anchor="middle">(ACES)</text>
+
+      <line class="d-soft" x1="306" y1="124" x2="312" y2="124" stroke-width="2"/>
+      <polygon class="d-fill-soft" points="318,124 310,120 310,128"/>
+
+      <rect class="d-node" x="318" y="92" width="94" height="64" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="365" y="120" text-anchor="middle">COLOR</text>
+      <text class="d-label" x="365" y="138" text-anchor="middle">노출·대비</text>
+
+      <line class="d-soft" x1="412" y1="124" x2="418" y2="124" stroke-width="2"/>
+      <polygon class="d-fill-soft" points="424,124 416,120 416,128"/>
+
+      <rect class="d-node" x="424" y="92" width="94" height="64" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="471" y="120" text-anchor="middle">BLOOM</text>
+      <text class="d-label" x="471" y="138" text-anchor="middle">발광 번짐</text>
+
+      <line class="d-soft" x1="518" y1="124" x2="524" y2="124" stroke-width="2"/>
+      <polygon class="d-fill-soft" points="530,124 522,120 522,128"/>
+
+      <rect class="d-node" x="530" y="92" width="94" height="64" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="577" y="120" text-anchor="middle">VIGNETTE</text>
+      <text class="d-label" x="577" y="138" text-anchor="middle">가장자리</text>
+
+      <!-- 포스트 스택 → 디스플레이 -->
+      <line class="d-rail" x1="642" y1="116" x2="668" y2="116" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="676,116 666,111 666,121"/>
+      <text class="d-label-strong" x="659" y="100" text-anchor="middle">LDR</text>
+
+      <!-- 디스플레이 -->
+      <rect class="d-node" x="676" y="72" width="104" height="88" rx="6" stroke-width="2"/>
+      <text class="d-title" x="728" y="110" text-anchor="middle">디스플레이</text>
+      <text class="d-label" x="728" y="132" text-anchor="middle">화면 범위 밝기</text>
+    </svg>
+    <figcaption>
+      포스트 프로세싱의 위치. 씬 렌더가 만든 HDR 프레임 위에 Volume 스택의
+      효과들이 걸리고(박스 순서는 이 문서의 튜닝 순서 기준), 결과가 LDR로
+      디스플레이에 출력된다. SSAO만 예외로, 완성된 프레임이 아니라 렌더 단계의
+      정보가 필요해 렌더러 피처로 따로 계산된다.
+    </figcaption>
+  </figure>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      팀이 만드는 디지털 트윈 화면은 영화가 아니라 <strong>하루 종일 응시하는
+      관제 화면</strong>이다. 화려한 비네트와 강한 블룸은 시연에서는 멋있어도
+      8시간 근무자에게는 피로이고, 무엇보다 "저 장비 상태등이 켜졌는가"라는
+      <strong>정보의 가독성</strong>을 해치면 본말전도다. 영화적 과장보다 절제 —
+      블룸은 상태등만 살짝, 비네트는 있는 듯 없는 듯. 이것이 관제 화면을 만드는
+      실무 감각이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Volume, Volume Profile, Override의 관계를 설명할 수 있는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>Volume</strong>은 씬의 GameObject에 붙는 컴포넌트로 적용 범위
+          (Global/Local)를 정하고, <strong>Volume Profile</strong>은 효과 설정을
+          저장하는 에셋 파일로 Volume이 이를 참조하며,
+          <strong>Override</strong>는 Profile 안에 추가된 효과 하나하나다.
+          그리고 카메라의 Post Processing 체크가 켜져 있어야 최종 반영된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>왜 Tonemapping(ACES)을 가장 먼저 켜는가?</summary>
+      <div class="answer">
+        <p>
+          톤매핑은 HDR 밝기를 화면 범위로 옮기는 변환이라 <strong>화면의 모든
+          색과 밝기의 기준 커브</strong>가 된다. 노출·대비·블룸을 먼저 맞춘 뒤
+          ACES를 켜면 화면 인상이 통째로 바뀌어 조정을 처음부터 다시 해야 한다.
+          기준을 먼저 세우고 그 위에서 판단하는 것이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Bloom이 HDR을 전제로 하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          Bloom은 Threshold보다 밝은 픽셀만 번지게 한다. 밝기가 1.0을 넘는
+          HDR 값이 있어야 "일반 표면(1.0 이하)"과 "진짜 광원·이미시브(1.0
+          초과)"를 구분할 수 있고, Threshold를 1.0 근처로 두면 장비 상태등
+          같은 발광 요소만 선택적으로 피어난다. LDR뿐이라면 흰 벽과 광원을
+          구분할 수 없어 화면 전체가 번지게 된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>SSAO는 왜 Volume의 Add Override 목록에 없는가?</summary>
+      <div class="answer">
+        <p>
+          SSAO는 완성된 프레임 이미지만으로는 계산할 수 없고 렌더링 도중의
+          <strong>깊이·노멀 정보</strong>가 필요하기 때문이다. 그래서 URP에서는
+          Volume이 아니라 <strong>Renderer 에셋(Universal Renderer Data)의
+          Renderer Feature</strong>로 추가한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>효과를 과용했는지 판별하는 실용적인 방법은?</summary>
+      <div class="answer">
+        <p>
+          두 가지. 효과 하나를 켤 때마다 <strong>체크박스를 토글해 전/후를
+          비교</strong>하고, 차이를 설명할 수 없으면 끈다. 전부 켠 뒤에는
+          <strong>모든 강도를 절반으로 줄여</strong> 비교한다 — 눈이 과한 효과에
+          빨리 적응하므로, 줄인 쪽이 더 나아 보이면 과용이었다는 뜻이다.
+          표의 과용 신호(뿌연 화면, 때 낀 구석, 터널 시야)도 같은 목적의
+          점검 목록이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-lighting-baking.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">라이팅과 베이킹 — 빛을 미리 굽는다</span>
+    </a>
+    <a class="next" href="04-fabsim-practice.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">실습 — FabSim 팹 씬 만들기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>
