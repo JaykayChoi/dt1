@@ -117,6 +117,24 @@
     그래서 현장은 정교한 전역 최적화보다 빠르고 예측 가능한 규칙을 선호한다.
   </p>
 
+  <div class="callout dt">
+    <span class="label">직접 돌려보기 — examples/fleet-dispatch</span>
+    <p>
+      여기서 설명한 배차 규칙을 실제로 비교하는 실행 가능한 랩이 저장소에 있다.
+      Phase 2의 <code>DesCore</code> 엔진을 재사용해, 같은 반송 명령 스트림을
+      <strong>랜덤 · 최근접 차량 · 최근접 작업</strong> 세 정책에 똑같이 흘려보내고,
+      부하 3단계(여유·보통·혼잡)에서 처리량·평균대기·빈 주행·가동률을 표로 뽑는다.
+    </p>
+    <pre><code>dotnet run --project examples/fleet-dispatch -c Release</code></pre>
+    <p>
+      결과가 이 절의 직관을 숫자로 확인해 준다 — 여유 부하에선 "최근접 차량"이
+      빈 주행을 약 30 % 줄이고(47.6→33.3 m), 혼잡 부하에선 고를 유휴 차량이 없어
+      최근접 차량이 랜덤과 같아지는 대신, 큐를 재정렬하는 "최근접 작업"이 평균
+      대기를 4.6→1.2분으로 끌어내린다. 코드·해설은
+      <a href="https://github.com/JaykayChoi/dt1/tree/master/examples/fleet-dispatch">examples/fleet-dispatch</a>.
+    </p>
+  </div>
+
   <h2>문제 ② 경로 계획 — 어느 길로 보낼 것인가</h2>
   <p>
     차량이 정해졌으면 길을 정한다. 레일·경로망은 <strong>노드와 엣지의 그래프</strong>로
