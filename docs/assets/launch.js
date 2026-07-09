@@ -29,11 +29,20 @@
 
     var key = button.getAttribute('data-open') || 'fabsim';
 
+    var host = location.hostname;
+    var isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+
     if (location.protocol === 'file:') {
       // file:// 로 열었을 때는 dt1open:// 프로토콜 핸들러로 에디터를 연다.
       // 브라우저가 처음 한 번 "열기 허용" 확인창을 띄운다.
       setNote(button, '브라우저 확인창이 뜨면 "열기"를 허용하세요', 8000);
       location.href = 'dt1open://' + key;
+      return;
+    }
+    if (!isLocalHost) {
+      // GitHub Pages 등 원격 호스팅에서는 로컬 에디터를 열 수 없다.
+      // 이 사이트를 내려받아 open-docs.bat 으로 실행할 때만 동작한다.
+      setNote(button, '이 버튼은 내 PC에서 학습할 때만 동작합니다 (저장소를 clone 후 open-docs.bat 실행)', 10000);
       return;
     }
     button.classList.add('busy');
