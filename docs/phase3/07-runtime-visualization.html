@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 런타임 시각화 — 경로·라벨·데칼·카메라 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>07 런타임 시각화
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 이론">01</a></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 베이킹">02</a></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱">03</a></li>
+      <li><a href="04-fabsim-practice.html" title="실습 — FabSim 팹 씬 만들기">04</a></li>
+      <li><a href="05-urp-pipeline.html" title="URP 파이프라인 아키텍처">05</a></li>
+      <li><a href="06-shadergraph-viz.html" title="Shader Graph 상태 시각화">06</a></li>
+      <li class="current"><span class="st">07</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 07</p>
+    <h1>런타임 시각화 — 경로·라벨·데칼·카메라</h1>
+    <p class="lede">
+      셰이더가 개별 물체의 상태를 그린다면, 이 스테이션은 씬 위에 정보 레이어를
+      얹는다 — 반송 경로의 궤적, 바닥의 존 마킹, 장비 위의 ID·상태 라벨, 그리고
+      이 모두를 담는 카메라 구도. 3D 씬을 "보는 화면"에서 "읽는 관제 화면"으로
+      바꾸는 마지막 층이다.
+    </p>
+  </div>
+
+  <h2>경로와 궤적 — 선으로 그리는 흐름</h2>
+  <p>
+    지금까지의 스테이션은 <strong>물체 자체</strong>를 그리는 법을 다뤘다. 여기서부터는
+    물체 사이의 <strong>관계와 흐름</strong>을 그린다. 그 첫 번째 도구가 선이다. 팹의
+    물류는 결국 "무엇이 어디로 흐르는가"의 문제이고, 그 흐름은 3D 공간에 떠 있는
+    선으로 가장 직관적으로 읽힌다.
+  </p>
+  <p>
+    <strong>라인 렌더러</strong><i class="en">(LineRenderer)</i>는 정해진 점들의 배열을
+    이어서 두께가 있는 띠 형태의 선으로 그리는 컴포넌트다. OHT 레일이나 AGV 경로처럼
+    <strong>움직이지 않는 경로망</strong>을 시각화하는 데 쓴다. Phase 5에서 반송 경로를
+    웨이포인트 그래프로 구성하는데, 그 그래프의 정점 좌표를 그대로 라인 렌더러의 점
+    배열에 넣으면 <strong>데이터로만 존재하던 경로가 눈에 보이는 레일</strong>로 나타난다.
+    폭·색·머티리얼을 지정할 수 있고, 좌표는 로컬이 아니라 월드 공간으로 두는 것이
+    경로망 시각화에는 자연스럽다.
+  </p>
+  <p>
+    <strong>트레일 렌더러</strong><i class="en">(TrailRenderer)</i>는 반대로 움직이는
+    대상 뒤에 <strong>잔상 궤적</strong>을 남긴다. 반송차에 붙여 두면 최근 이동 경로가
+    꼬리처럼 따라오며, 시간이 지나면 서서히 사라진다. 라인 렌더러가 "정적인 경로망 전체"를
+    보여 준다면, 트레일 렌더러는 "지금 이 장비가 방금 어디를 지나왔는가"를 보여 준다 —
+    정적 지도와 동적 흔적의 차이다.
+  </p>
+  <p>
+    두 컴포넌트 모두 머티리얼로 그려지는 렌더링 요소다. 관제 화면의 선은 조명을 받을
+    필요가 없으므로 <strong>URP Unlit</strong> 또는 파티클 계열의 가벼운 머티리얼을
+    쓰는 것이 보통이고, 이렇게 하면 라이팅 계산을 건너뛰어 비용도 낮다. 색은 상태
+    코드(예: 정상 경로는 청록, 우회 경로는 주황)와 묶어 두면 선 자체가 정보가 된다.
+  </p>
+
+  <h2>바닥 마킹 — Decal</h2>
+  <p>
+    실제 팹과 물류 창고의 바닥에는 존 경계, 통로 방향, 정지선, 경고 구역을 나타내는
+    도색과 테이프가 빼곡하다. 이 마킹을 디지털 트윈에 재현하려 할 때, 바닥 메시에
+    직접 무늬를 그려 넣거나 별도 판을 겹쳐 놓는 방식은 번거롭고 유연하지 않다.
+    <strong>데칼</strong><i class="en">(decal)</i>이 이 문제를 정면으로 푼다.
+  </p>
+  <p>
+    데칼은 지오메트리를 전혀 수정하지 않고, 이미지를 <strong>표면 위에 투영</strong>하는
+    기법이다. 프로젝터가 슬라이드를 벽에 쏘듯, 데칼은 자신이 덮는 영역의 바닥 표면에
+    이미지를 얹는다. 바닥이 평평하든 약간 기울었든, 그 위를 덮기만 하면 마킹이 표면을
+    따라 붙는다. 마킹을 옮기고 싶으면 데칼을 옮기면 그만이라 반복 배치와 수정이 쉽다.
+  </p>
+  <p>
+    URP에서 데칼을 쓰려면 <strong>Decal Projector</strong> 컴포넌트를 배치하는데, 이것이
+    동작하려면 <strong>05에서 다룬 렌더러 피처</strong><i class="en">(Renderer Feature)</i>
+    목록에 Decal 피처가 추가되어 있어야 한다. 03의 SSAO가 Volume이 아니라 렌더러 피처로
+    켜졌던 것과 같은 구조다 — 데칼도 완성된 2D 프레임이 아니라 렌더 파이프라인 중간에
+    끼어드는 기능이라, 파이프라인 쪽에 스위치가 있다. Projector를 배치했는데 아무것도
+    보이지 않으면 십중팔구 이 피처를 켜지 않은 것이다.
+  </p>
+  <p>
+    투영이라는 성질 때문에 주의할 점도 생긴다. 데칼을 너무 기울여 쏘면 이미지가
+    <strong>늘어져</strong> 뭉개지고, 여러 데칼과 표면이 같은 깊이에서 다투면 어느 것이
+    위인지 흔들리는 정렬 문제가 생긴다. 가장자리는 갑자기 끊기지 않도록 페이드를 두어
+    부드럽게 처리한다. 바닥에 수직으로, 적당한 크기로, 겹침을 절제해서 쓰는 것이 요령이다.
+  </p>
+
+  <h2>장비 라벨 — 월드 스페이스 텍스트</h2>
+  <p>
+    관제 화면에서 가장 많이 요구되는 정보는 결국 글자다. "저 장비의 ID는 무엇이고,
+    지금 상태는 무엇이며, 처리량은 얼마인가." 이 수치를 장비 <strong>머리 위 공간</strong>에
+    띄우는 것이 월드 스페이스 라벨이다. 화면 한쪽에 고정된 UI가 아니라, 3D 공간의 특정
+    위치에 매달린 텍스트라는 점이 핵심이다.
+  </p>
+  <p>
+    구현 방식은 크게 둘이다. 첫째는 <strong>월드 스페이스 캔버스</strong>
+    <i class="en">(world-space canvas)</i>에 <strong>TextMeshPro</strong>
+    <i class="en">(TextMeshPro)</i> 텍스트를 얹는 방법이다. TextMeshPro는 글자를 외곽선
+    기반으로 렌더링해, 카메라가 가까이 다가가거나 멀어져도 계단 현상 없이 선명한 텍스트를
+    유지한다. 작은 상태 수치가 흐릿해지면 관제 화면으로서는 실격이므로, 라벨 텍스트에는
+    사실상 표준으로 쓰인다.
+  </p>
+  <p>
+    둘째 요소는 <strong>빌보드</strong><i class="en">(billboard)</i>다. 3D 공간에 놓인
+    텍스트 판은 카메라가 옆으로 돌면 종잇장처럼 얇아져 읽을 수 없게 된다. 빌보드는 매
+    프레임 라벨을 <strong>항상 카메라를 향하도록 회전</strong>시켜, 어느 각도에서 보든
+    글자가 정면으로 보이게 만드는 기법이다. 관제 뷰에서 카메라를 자유롭게 돌려도 모든
+    라벨이 계속 읽히는 것은 이 처리 덕분이다.
+  </p>
+  <p>
+    문제는 규모다. 라벨은 카메라와의 거리에 따라 크기를 조정하거나(멀면 작게), 일정
+    거리 밖에서는 아예 <strong>컬링</strong>해 그리지 않는 관리가 필요하다. 장비가 수백
+    대인 씬에서 모든 라벨을 항상 그리면, 텍스트마다 별도의 오버드로와 드로우콜이 쌓여
+    프레임을 잡아먹는다. "정보를 다 보여 주고 싶다"는 욕심과 "화면이 60fps로 돈다"는
+    현실이 부딪히는 지점이고, 이 균형을 재는 도구가 곧 Phase 4의 주제다.
+  </p>
+
+  <h2>카메라 구도 — 관제의 시점</h2>
+  <p>
+    같은 씬이라도 카메라를 어떻게 두느냐에 따라 "게임 화면"이 되기도 하고 "관제 화면"이
+    되기도 한다. 물류 관제에서 시점 선택은 취향이 아니라 <strong>판독성의 문제</strong>다.
+  </p>
+  <p>
+    <strong>직교 투영</strong><i class="en">(orthographic)</i>은 원근에 따른 크기 변화가
+    없는 투영이다. 멀리 있는 물체나 가까이 있는 물체나 화면에서 같은 크기로 그려진다.
+    이 성질 때문에 위에서 내려다보는 탑다운 직교 뷰는 <strong>지도처럼</strong> 읽힌다 —
+    두 지점 사이 거리, 장비들의 정렬, 경로의 평행 여부가 왜곡 없이 그대로 보인다.
+    물류 관제 대시보드가 대부분 탑다운 지도 형태인 이유가 여기 있다.
+  </p>
+  <p>
+    <strong>원근 투영</strong><i class="en">(perspective)</i>은 가까운 것이 크고 먼 것이
+    작게 보이는, 사람 눈과 같은 투영이다. 현장을 걸어 다니며 둘러보는 워크스루나, 특정
+    장비를 클로즈업해 살펴볼 때의 <strong>현장감</strong>은 원근이라야 산다. 실무 관제
+    화면은 흔히 이 둘을 전환한다 — 평소에는 직교 탑다운으로 전체 흐름을 감시하다가,
+    문제가 생긴 지점을 원근으로 당겨 들여다보는 식이다.
+  </p>
+  <p>
+    라벨과 오버레이를 씬 위에 겹칠 때 유용한 것이 <strong>카메라 스택</strong>
+    <i class="en">(Camera Stack)</i>이다. URP에서는 하나의 Base 카메라 위에 여러 Overlay
+    카메라를 쌓아 순서대로 겹쳐 그릴 수 있다. 3D 씬은 Base 카메라가 그리고, UI·라벨·
+    오버레이는 Overlay 카메라가 그 위에 얹는 식으로 <strong>렌더링을 분리</strong>하면,
+    각 레이어의 설정(예: 오버레이만 다른 컬링, 다른 포스트 처리)을 독립적으로 다룰 수
+    있어 관제 화면의 레이어 관리가 깔끔해진다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="왼쪽은 직교 투영과 원근 투영의 차이 — 직교는 화면상 크기가 거리와 무관하게 일정하고 원근은 먼 것이 작아진다. 오른쪽은 URP 카메라 스택 — Base 카메라가 3D 씬을 그리고 그 위에 Overlay 카메라가 라벨과 UI 오버레이를 겹쳐 최종 화면을 만든다">
+      <!-- 왼쪽 구획: 투영 비교 -->
+      <text class="d-label-strong" x="24" y="28">투영 방식 — 판독성의 선택</text>
+
+      <!-- 직교 -->
+      <text class="d-label" x="24" y="58">직교 (ORTHOGRAPHIC) — 지도처럼 읽힌다</text>
+      <rect class="d-node" x="40" y="70" width="34" height="34" rx="4" stroke-width="2"/>
+      <rect class="d-node" x="104" y="70" width="34" height="34" rx="4" stroke-width="2"/>
+      <rect class="d-node" x="168" y="70" width="34" height="34" rx="4" stroke-width="2"/>
+      <text class="d-label" x="228" y="91">동일 크기 — 거리·정렬 판독 유리</text>
+
+      <!-- 원근 -->
+      <text class="d-label" x="24" y="140">원근 (PERSPECTIVE) — 현장감</text>
+      <rect class="d-soft" x="40" y="152" width="40" height="40" rx="4" stroke-width="2"/>
+      <rect class="d-soft" x="110" y="158" width="28" height="28" rx="4" stroke-width="2"/>
+      <rect class="d-soft" x="168" y="163" width="18" height="18" rx="4" stroke-width="2"/>
+      <text class="d-label" x="212" y="177">먼 것이 작아짐 — 워크스루·클로즈업</text>
+
+      <!-- 구분선 -->
+      <line class="d-soft" x1="424" y1="44" x2="424" y2="216" stroke-width="2" stroke-dasharray="4 4"/>
+
+      <!-- 오른쪽 구획: 카메라 스택 -->
+      <text class="d-label-strong" x="452" y="28">URP 카메라 스택 — 레이어 분리 렌더</text>
+
+      <!-- Overlay 카메라 (라벨/UI) -->
+      <rect class="d-accent" x="452" y="52" width="300" height="52" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="468" y="76">OVERLAY 카메라</text>
+      <text class="d-label" x="468" y="94">라벨 · 데칼 오버레이 · UI HUD</text>
+
+      <text class="d-accent" x="596" y="128" text-anchor="middle" font-size="20">+</text>
+
+      <!-- Base 카메라 (3D 씬) -->
+      <rect class="d-node" x="452" y="140" width="300" height="52" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="468" y="164">BASE 카메라</text>
+      <text class="d-label" x="468" y="182">3D 씬 — PBR · 라이팅 · 셰이더 상태</text>
+
+      <!-- 합성 화살표 -->
+      <line class="d-rail" x1="602" y1="192" x2="602" y2="212" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="602,220 597,210 607,210"/>
+      <text class="d-label-strong" x="640" y="216">= 최종 관제 화면</text>
+    </svg>
+    <figcaption>
+      왼쪽 — 직교 투영은 거리와 무관하게 화면상 크기가 일정해 지도처럼 읽히고(물류
+      관제에 유리), 원근 투영은 먼 것이 작아져 현장감을 준다(워크스루·클로즈업).
+      오른쪽 — URP 카메라 스택은 Base 카메라가 그린 3D 씬 위에 Overlay 카메라가 라벨·
+      오버레이·UI를 겹쳐, 레이어별 설정을 독립적으로 다루며 하나의 관제 화면으로 합친다.
+    </figcaption>
+  </figure>
+
+  <h3>상호작용 훅 — 클릭에서 선택까지</h3>
+  <p>
+    관제 화면은 보기만 하는 것이 아니라 <strong>조작</strong>하는 화면이다. 운영자가
+    화면의 장비를 클릭했을 때 무슨 일이 일어나야 하는가. 그 연결 고리가
+    <strong>레이캐스트</strong><i class="en">(raycast)</i>다. 화면의 클릭 좌표에서
+    카메라 너머로 가상의 광선을 쏘고, 그 광선이 처음 부딪힌 3D 물체를 찾아
+    <strong>어느 장비가 선택되었는지</strong> 식별한다.
+  </p>
+  <p>
+    식별이 끝나면 나머지는 앞 스테이션들의 도구가 이어받는다. 선택된 장비를 06에서 만든
+    <strong>아웃라인·하이라이트 셰이더</strong>로 강조하고, 07의 라벨을 확장해 상세 정보를
+    띄운다. 클릭(07의 카메라·레이캐스트) → 강조(06의 셰이더) → 정보 표시(07의 라벨)로
+    이어지는 이 흐름이, 06과 07이 실제로 맞물리는 지점이다. 상태를 그리는 셰이더와 정보를
+    얹는 오버레이가 사용자 입력 하나로 하나의 반응을 이룬다.
+  </p>
+
+  <h2>레이어를 쌓는 법</h2>
+  <p>
+    지금까지의 모든 스테이션을 하나의 화면 위에 포개면, 관제 화면은 여러 <strong>정보
+    레이어의 합</strong>으로 정리된다. 각 레이어는 담당 기술이 다르고, 켜고 끄는 시점도
+    다르다. 이 구조를 명시적으로 이해하면, 화면이 복잡해질 때 무엇을 끄고 무엇을 남길지
+    판단할 수 있다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>레이어</th>
+          <th>담당 기술</th>
+          <th>예시</th>
+          <th>토글 시점</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">사실적 씬</td>
+          <td>PBR · 라이팅 · 포스트 (01~04)</td>
+          <td>장비·바닥·구조물의 실체</td>
+          <td>항상 켬 — 바탕</td>
+        </tr>
+        <tr>
+          <td class="rowhead">상태 시각화</td>
+          <td>Shader Graph (06)</td>
+          <td>장비 색·발광으로 가동/정지 표시</td>
+          <td>상태 감시 시</td>
+        </tr>
+        <tr>
+          <td class="rowhead">정보 오버레이</td>
+          <td>경로·라벨·데칼 (이 페이지)</td>
+          <td>레일 선, ID·처리량 라벨, 존 마킹</td>
+          <td>필요한 정보만 선택적으로</td>
+        </tr>
+        <tr>
+          <td class="rowhead">UI HUD</td>
+          <td>화면 고정 캔버스</td>
+          <td>처리량·가동률 통계 패널</td>
+          <td>대시보드 모드에서</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    레이어를 쌓는 능력만큼 중요한 것이 <strong>덜어 내는 절제</strong>다. 모든 레이어를
+    동시에 켜면 화면은 선과 글자로 뒤덮여, 정작 중요한 신호가 소음에 묻힌다. 관제 화면의
+    미덕은 "얼마나 많이 보여 주는가"가 아니라 "지금 필요한 것만 얼마나 선명하게 보여
+    주는가"다. 필요할 때 필요한 레이어만 켜는 것 — 이 판단이 정보 과부하와 판독성의
+    경계를 가른다.
+  </p>
+
+  <div class="callout warn">
+    <span class="label">성능 주의</span>
+    <p>
+      트레일·라벨·데칼이 각각 수백 개로 늘어나면 화면은 순식간에 <strong>오버드로와
+      드로우콜의 폭증</strong>에 빠진다. 반투명한 트레일이 서로 겹쳐 쌓이고, 라벨마다
+      개별 텍스트가 그려지며, 데칼이 바닥 위에 층층이 투영되면 GPU는 같은 픽셀을 몇 번씩
+      다시 칠하게 된다. 이를 관리하는 것이 <strong>배칭·컬링·오브젝트 풀링</strong>이고 —
+      멀리 있는 라벨은 그리지 않고(컬링), 같은 재질의 요소는 묶어 그리고(배칭), 생성·파괴
+      대신 재사용한다(풀링) — 이 기법들을 프레임 시간으로 직접 측정하며 다루는 것이
+      바로 다음 <strong>Phase 4(성능 분석·최적화)</strong>의 주제다.
+    </p>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      이 층이 "3D 그래픽스"를 비로소 "<strong>디지털 트윈</strong>"으로 완성한다. 아무리
+      사실적인 팹 씬이라도, 그 위에 실시간 데이터 레이어가 얹히지 않으면 그것은 잘 만든
+      구경거리에 지나지 않는다. 경로가 흐르고, 라벨이 상태를 말하고, 바닥 마킹이 구역을
+      나눌 때 비로소 화면은 "무슨 일이 벌어지고 있는가"를 읽고 "무엇을 할 것인가"를
+      결정하는 <strong>의사결정 도구</strong>가 된다. 그리고 그 완성을 좌우하는 것은
+      기술의 화려함이 아니라 <strong>절제된 레이어링과 판독성</strong>이다.
+    </p>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">완성본으로 확인 — FabSim-P3Viz-Complete</span>
+    <p>
+      이 페이지와 06에서 다룬 디지털 트윈 시각화 기법을 한 씬에 모은 참고 프로젝트가 있다.
+      상태 발광(정상/경고/정지)·선택 하이라이트·혼잡 히트맵·OHT 레일 라인과 트레일·바닥 존·
+      월드스페이스 라벨·직교↔원근 카메라가 함께 들어 있다. 씬을 열어 구성을 보고,
+      <strong>Play</strong>로 들어가면 장비 클릭 선택과 <strong>O</strong> 키 카메라 전환이 동작한다.
+    </p>
+    <p>
+      <button class="btn-launch alt" type="button" data-open="p3viz-complete">
+        <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P3Viz-Complete</span>
+      </button>
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>LineRenderer와 TrailRenderer는 각각 무엇을 시각화하는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>LineRenderer</strong>는 점 배열을 이어 그리는 <strong>정적인 경로망</strong>에
+          쓴다 — OHT 레일이나 AGV 경로 그래프처럼 움직이지 않는 선. Phase 5의 웨이포인트
+          그래프 좌표를 그대로 넣으면 데이터로만 있던 경로가 보이는 레일이 된다.
+          <strong>TrailRenderer</strong>는 움직이는 대상 뒤에 남는 <strong>잔상 궤적</strong>으로,
+          반송차가 방금 지나온 최근 경로를 꼬리처럼 보여 주고 시간이 지나면 사라진다.
+          전자는 정적 지도, 후자는 동적 흔적이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>데칼이 바닥 마킹에 적합한 이유는? 무엇을 켜야 동작하는가?</summary>
+      <div class="answer">
+        <p>
+          데칼은 지오메트리를 수정하지 않고 이미지를 표면에 <strong>투영</strong>하기 때문에,
+          존 경계·통로·정지선·경고 구역 같은 실제 팹 바닥 마킹을 메시 변경 없이 얹고, 옮기고,
+          수정할 수 있다. URP에서 Decal Projector가 동작하려면 <strong>05의 렌더러 피처
+          목록에 Decal 피처</strong>가 추가되어 있어야 한다 — 03의 SSAO처럼 파이프라인
+          중간에 끼어드는 기능이라 렌더러 쪽에 스위치가 있다. 배치했는데 안 보이면 대개 이
+          피처를 안 켠 것이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>월드 스페이스 라벨에 빌보드가 필요한 이유는?</summary>
+      <div class="answer">
+        <p>
+          3D 공간에 놓인 텍스트 판은 카메라가 옆으로 돌면 종잇장처럼 얇아져 읽을 수 없게
+          된다. <strong>빌보드</strong>는 매 프레임 라벨을 항상 카메라를 향하도록 회전시켜,
+          어느 각도에서 보든 글자가 정면으로 보이게 한다. 관제 뷰에서 카메라를 자유롭게
+          돌려도 모든 라벨이 계속 읽히는 것이 이 처리 덕분이다. 텍스트 자체의 선명함은
+          TextMeshPro가, 방향은 빌보드가 담당한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>직교 탑다운 뷰를 물류 관제에 쓰는 이유는?</summary>
+      <div class="answer">
+        <p>
+          <strong>직교 투영</strong>은 거리와 무관하게 화면상 크기가 일정해, 위에서
+          내려다보면 <strong>지도처럼</strong> 읽힌다. 두 지점 사이 거리, 장비들의 정렬,
+          경로의 평행 여부가 원근 왜곡 없이 그대로 보이므로, 전체 흐름을 판독하고 감시하는
+          물류 관제 대시보드에 유리하다. 반면 현장감이 필요한 워크스루·클로즈업에는 원근
+          투영이 맞고, 실무에서는 둘을 전환하며 쓴다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Camera Stack으로 UI·라벨을 분리 렌더하는 이점은?</summary>
+      <div class="answer">
+        <p>
+          URP 카메라 스택은 Base 카메라 위에 Overlay 카메라를 겹쳐 순서대로 그린다.
+          3D 씬은 Base가, 라벨·오버레이·UI는 Overlay가 그 위에 얹으면 <strong>레이어별
+          렌더링이 분리</strong>되어, 각 레이어의 설정(컬링·포스트 처리 등)을 독립적으로
+          다룰 수 있다. 관제 화면처럼 정보 레이어를 켜고 끄며 관리해야 하는 화면에서
+          구조가 깔끔해진다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>런타임 시각화는 Phase 4의 성능 문제와 어떻게 얽히는가?</summary>
+      <div class="answer">
+        <p>
+          트레일·라벨·데칼이 수백 개로 늘면 반투명 겹침으로 <strong>오버드로</strong>가,
+          개별 요소마다 <strong>드로우콜</strong>이 폭증한다. 이를 관리하는 배칭(묶어 그리기)·
+          컬링(멀면 안 그리기)·오브젝트 풀링(재사용)의 효과를 프레임 시간으로 직접 측정하고
+          병목을 제거하는 것이 <strong>Phase 4(성능 분석·최적화)</strong>의 주제다. "정보를 다
+          보여 주고 싶다"와 "60fps로 돈다"가 부딪히는 지점이 곧 최적화의 출발점이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="06-shadergraph-viz.html">
+      <span class="dir">← PREV — STATION 06</span>
+      <span class="title">Shader Graph — 상태·데이터를 그리는 셰이더</span>
+    </a>
+    <a class="next" href="../phase4/01-profiler.html">
+      <span class="dir">NEXT — PHASE 4 →</span>
+      <span class="title">Profiler 읽는 법 — CPU 타임라인 · GC</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>

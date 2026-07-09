@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 URP 파이프라인 아키텍처 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>05 URP 파이프라인
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 이론">01</a></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 베이킹">02</a></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱">03</a></li>
+      <li><a href="04-fabsim-practice.html" title="실습 — FabSim 팹 씬 만들기">04</a></li>
+      <li class="current"><span class="st">05</span></li>
+      <li><a href="06-shadergraph-viz.html" title="Shader Graph 상태 시각화">06</a></li>
+      <li><a href="07-runtime-visualization.html" title="런타임 시각화">07</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 05</p>
+    <h1>URP 파이프라인 아키텍처 &amp; 렌더링 품질</h1>
+    <p class="lede">
+      지금까지 우리는 URP를 "쓰기만" 했다. 이 스테이션에서는 그 파이프라인이
+      실제로 무엇인지, 어떤 선택지 위에 서 있는지를 들여다본다. 그리고 PBR이
+      옳게 보이기 위한 전제 — <strong>색 공간</strong> — 과, 얇은 엣지의
+      계단현상을 없애는 <strong>안티에일리어싱</strong>까지 다룬다. 지금까지 만든
+      화면이 왜 그렇게 나왔는지를 아래에서 밑바닥부터 설명한다.
+    </p>
+  </div>
+
+  <h2>렌더 파이프라인이란 무엇인가</h2>
+  <p>
+    <strong>렌더 파이프라인</strong>은 씬 — 지오메트리·머티리얼·라이트 — 에서
+    화면의 픽셀까지 이르는 <strong>정해진 절차</strong>다. 어떤 순서로 물체를
+    그리고, 그림자를 언제 계산하며, 라이트를 어떻게 처리하고, 포스트 효과를
+    어느 단계에 거는지 — 이 모든 순서의 총합이 파이프라인이다. Station 01~03에서
+    본 PBR 셰이딩, 베이크된 조명, Volume 포스트 스택은 전부 이 절차의
+    <strong>어느 한 칸</strong>에서 벌어지는 일이었다.
+  </p>
+  <p>
+    <strong>SRP</strong><i class="en">(Scriptable Render Pipeline)</i>는 그 절차를
+    <strong>C#으로 정의할 수 있게 열어 둔 구조</strong>다. 이름의 "Scriptable"이
+    핵심이다 — 렌더링의 순서와 방식을 코드로 조립할 수 있다는 뜻이다. 과거
+    Unity의 <strong>Built-in 파이프라인</strong>은 엔진 내부에 고정되어 있어
+    바깥에서 순서를 바꿀 수 없는 <strong>블랙박스</strong>였다. 반면
+    <strong>URP</strong>와 <strong>HDRP</strong>는 이 SRP 위에 미리 만들어 둔
+    두 개의 완성된 파이프라인이다. 즉 URP는 "SRP로 작성된, 범용 목적의 렌더
+    파이프라인 구현"이라고 이해하면 정확하다.
+  </p>
+  <p>
+    이 구분이 중요한 이유는 실용적이다. Built-in에서는 렌더 절차에 손댈 수
+    없었지만, SRP 기반인 URP에서는 절차 자체에 우리가 만든 단계를 끼워 넣을 수
+    있다. Station 03에서 SSAO를 Volume이 아니라 렌더러 쪽에 추가했던 것, 그리고
+    이 문서 뒤에서 볼 아웃라인·데칼이 모두 이 "열린 구조" 덕분에 가능하다.
+  </p>
+
+  <h2>세 파이프라인 — Built-in · URP · HDRP</h2>
+  <p>
+    Unity에는 지금 세 개의 렌더 파이프라인이 있다. 셋은 경쟁 관계라기보다
+    <strong>대상과 목적이 다른 세 도구</strong>다. 프로젝트를 시작할 때 어느 것을
+    고르느냐가 이후의 성능·품질·플랫폼 범위를 크게 좌우하므로, 차이를 먼저
+    정리한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>파이프라인</th>
+          <th>대상 플랫폼</th>
+          <th>성능 · 확장성</th>
+          <th>시각 충실도</th>
+          <th>커스터마이즈</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Built-in</td>
+          <td>전 플랫폼(레거시)</td>
+          <td>보통 — 대량 오브젝트에 최적화 부족</td>
+          <td>보통 — 기본기 위주</td>
+          <td>낮음 — 고정된 블랙박스</td>
+        </tr>
+        <tr>
+          <td class="rowhead">URP</td>
+          <td>모바일·웹·콘솔·PC 등 폭넓음</td>
+          <td>높음 — 다수 오브젝트 실시간에 유리</td>
+          <td>충분 — PBR·포스트 완비</td>
+          <td>높음 — Renderer Feature로 확장</td>
+        </tr>
+        <tr>
+          <td class="rowhead">HDRP</td>
+          <td>고사양 PC·콘솔 한정</td>
+          <td>무거움 — 하드웨어 요구가 큼</td>
+          <td>최고 — 포토리얼 지향</td>
+          <td>높음 — 대신 진입장벽도 높음</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>URP</strong><i class="en">(Universal Render Pipeline)</i>가 이 프로젝트의
+    선택인 이유는 세 축의 균형에 있다. 첫째, <strong>폭넓은 플랫폼</strong> —
+    관제 화면을 PC 워크스테이션에서 돌리든 태블릿·웹으로 확장하든 같은
+    파이프라인으로 커버된다. 둘째, <strong>좋은 성능</strong> — 팹 디지털 트윈은
+    수십~수백 대의 반송 장비가 동시에 움직이는 씬이고, URP는 이런 다수 오브젝트
+    실시간 렌더링에 유리하다. 셋째, <strong>충분한 품질</strong> — Station 01~03에서
+    본 PBR·베이크 조명·포스트 스택이 URP만으로 전부 성립한다.
+  </p>
+  <p>
+    <strong>HDRP</strong><i class="en">(High Definition Render Pipeline)</i>는 언제
+    쓰는가? 자동차 쇼룸이나 건축 시각화처럼 <strong>포토리얼 고충실도</strong>가
+    목표이고, 타깃이 <strong>고정된 고사양 PC</strong>일 때다. 볼류메트릭 안개,
+    물리 단위 조명, 고급 반사 같은 무거운 기능을 감당할 하드웨어가 보장될 때에만
+    HDRP의 값어치가 나온다. 팹 디지털 트윈은 "<strong>다수 장비 × 실시간 ×
+    다양한 타깃</strong>"이라는 조건이 앞서므로, 가장 예쁜 HDRP가 아니라 균형점인
+    URP가 정답이 된다.
+  </p>
+
+  <h2>URP의 구조 — Asset · Renderer · Renderer Feature</h2>
+  <p>
+    URP를 켜면 프로젝트에 세 겹의 구조가 생긴다. 이름이 비슷해 헷갈리기 쉬우니
+    <strong>포함 관계</strong>로 잡아 두면 명확하다 — 바깥에서 안으로,
+    Asset이 Renderer를 가리키고 Renderer에 Feature가 꽂힌다.
+  </p>
+  <ul>
+    <li><strong>URP Asset</strong> — 파이프라인의 <strong>품질 티어와 렌더 설정</strong>을
+      담는 에셋이다. 렌더 스케일, 그림자 거리·해상도, HDR 사용 여부, 그리고 뒤에서
+      다룰 <strong>MSAA 샘플 수</strong>가 여기에 있다. 품질 등급별(예: 저·중·고)로
+      여러 개를 두고 타깃 하드웨어에 맞춰 갈아 끼운다.</li>
+    <li><strong>Universal Renderer Data</strong> — URP Asset이 참조하는,
+      <strong>실제 렌더 절차</strong>를 정의한 에셋이다. 렌더링 경로(포워드/디퍼드),
+      깊이·노멀 텍스처 생성 여부 같은 "어떻게 그릴지"가 여기서 정해진다. Asset이
+      "얼마나 좋게"라면 Renderer Data는 "어떤 방식으로"다.</li>
+    <li><strong>Renderer Feature</strong><i class="en">(Renderer Feature)</i> — 그
+      렌더 절차에 <strong>패스를 추가하는 플러그인</strong>이다. Renderer Data의
+      <code>Add Renderer Feature</code> 버튼으로 꽂는다. 기본 렌더 순서를 건드리지
+      않고 "추가 단계"를 끼워 넣는 확장 지점이다.</li>
+  </ul>
+  <p>
+    이 세 번째 항목이 이 프로젝트의 뼈대다. Station 03에서 <strong>SSAO</strong>를
+    Volume이 아니라 Renderer의 <code>Add Renderer Feature</code>로 추가했던 것을
+    기억할 것이다 — SSAO가 완성된 프레임이 아니라 렌더 도중의 깊이·노멀 정보를
+    필요로 했기 때문이다. 앞으로도 마찬가지다. Station 06에서 장비 상태를 강조할
+    <strong>아웃라인</strong>, Station 07에서 바닥에 정보를 투영할
+    <strong>데칼</strong>이 전부 이 Renderer Feature 자리에 꽂힌다. 즉 이 문서의
+    구조를 이해하는 것은 앞으로 두 스테이션의 확장이 "어디에 어떻게 붙는지"를
+    미리 이해하는 것이다.
+  </p>
+  <p>
+    한 가지 용어를 정리하고 넘어가자. 렌더링 절차는 여러 개의
+    <strong>렌더 패스</strong><i class="en">(render pass)</i>로 쪼개져 있다. 하나의
+    패스는 "특정 목적을 위해 화면(또는 버퍼)을 한 번 그리는 단위"다 — 불투명
+    물체를 그리는 패스, 그림자 맵을 만드는 패스, 깊이를 기록하는 패스처럼.
+    Renderer Feature가 "패스를 추가한다"는 말은, 이 일련의 그리기 단위들 사이에
+    <strong>새로운 그리기 단계를 하나 끼워 넣는다</strong>는 뜻이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="URP 구조 흐름도: URP Asset이 품질·렌더 설정을 담고 Universal Renderer Data를 가리키며, Renderer Data에는 SSAO·Decal·Outline 같은 Renderer Feature가 패스로 꽂혀 최종적으로 화면 픽셀을 만든다">
+      <!-- 단계 라벨 -->
+      <text class="d-label" x="30" y="26">① 설정 에셋</text>
+      <text class="d-label" x="236" y="26">② 렌더 절차</text>
+      <text class="d-label" x="668" y="26">③ 출력</text>
+
+      <!-- URP Asset -->
+      <rect class="d-node" x="30" y="66" width="150" height="80" rx="6" stroke-width="2"/>
+      <text class="d-title" x="105" y="100" text-anchor="middle">URP Asset</text>
+      <text class="d-label" x="105" y="122" text-anchor="middle">품질 티어 · 렌더 설정</text>
+      <text class="d-label" x="105" y="138" text-anchor="middle">그림자 · HDR · MSAA</text>
+
+      <!-- Asset → Renderer Data -->
+      <line class="d-rail" x1="180" y1="106" x2="204" y2="106" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="212,106 202,101 202,111"/>
+      <text class="d-label-strong" x="196" y="94" text-anchor="middle">참조</text>
+
+      <!-- Universal Renderer Data -->
+      <rect class="d-node" x="212" y="66" width="176" height="80" rx="6" stroke-width="2"/>
+      <text class="d-title" x="300" y="98" text-anchor="middle">Universal</text>
+      <text class="d-title" x="300" y="118" text-anchor="middle">Renderer Data</text>
+      <text class="d-label" x="300" y="138" text-anchor="middle">실제 렌더 절차 · 패스</text>
+
+      <!-- Renderer Data → 화면 -->
+      <line class="d-rail" x1="388" y1="106" x2="628" y2="106" stroke-width="2"/>
+      <polygon class="d-fill-rail" points="636,106 626,101 626,111"/>
+      <text class="d-label-strong" x="512" y="94" text-anchor="middle">패스 실행 → 픽셀</text>
+
+      <!-- 화면 -->
+      <rect class="d-node" x="636" y="66" width="136" height="80" rx="6" stroke-width="2"/>
+      <text class="d-title" x="704" y="112" text-anchor="middle">화면</text>
+
+      <!-- Renderer Features: Renderer Data 아래로 꽂힘 -->
+      <line class="d-accent" x1="300" y1="146" x2="300" y2="174" stroke-width="2" stroke-dasharray="4 3"/>
+      <polygon class="d-fill-accent" points="300,182 295,172 305,172"/>
+      <rect class="d-soft" x="212" y="182" width="352" height="48" rx="8" stroke-width="2"/>
+      <text class="d-label-strong" x="586" y="200">RENDERER</text>
+      <text class="d-label-strong" x="586" y="216">FEATURES</text>
+
+      <rect class="d-accent" x="224" y="192" width="96" height="30" rx="5" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="272" y="211" text-anchor="middle">SSAO</text>
+      <rect class="d-accent" x="332" y="192" width="96" height="30" rx="5" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="380" y="211" text-anchor="middle">DECAL</text>
+      <rect class="d-accent" x="440" y="192" width="112" height="30" rx="5" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label-strong" x="496" y="211" text-anchor="middle">OUTLINE</text>
+    </svg>
+    <figcaption>
+      URP의 세 겹 구조. <strong>URP Asset</strong>(품질·렌더 설정)이
+      <strong>Universal Renderer Data</strong>(실제 렌더 절차)를 참조하고, 그
+      렌더 절차에 <strong>Renderer Feature</strong>들이 패스로 꽂혀 최종 화면을
+      만든다. Station 03의 SSAO, 그리고 뒤에서 쓸 데칼·아웃라인이 모두 이
+      Renderer Feature 자리에 붙는다.
+    </figcaption>
+  </figure>
+
+  <h3>Forward · Deferred · Forward+</h3>
+  <p>
+    Universal Renderer Data가 정하는 것 중 가장 근본적인 선택이
+    <strong>렌더링 경로</strong> — 라이트를 처리하는 방식이다. 세 갈래가 있다.
+  </p>
+  <p>
+    <strong>포워드</strong><i class="en">(forward)</i>는 물체를 그릴 때
+    <strong>오브젝트마다 그 자리에서 라이트를 계산</strong>하는 방식이다. 구조가
+    단순하고, 뒤에서 볼 <strong>MSAA</strong>를 쓸 수 있으며, 반투명 처리에
+    자연스럽다. 대신 한 물체에 영향을 주는 라이트가 많아지면 계산이 곱절로
+    늘어나, <strong>라이트 개수가 적을 때 유리</strong>하다.
+  </p>
+  <p>
+    <strong>디퍼드</strong><i class="en">(deferred)</i>는 순서를 뒤집는다. 먼저
+    각 픽셀의 위치·노멀·머티리얼 정보를 <strong>G-buffer</strong>라는 중간 버퍼에
+    모아 두고, 그 다음 <strong>화면 공간에서 한꺼번에 라이트를 계산</strong>한다.
+    라이트가 아무리 많아도 화면 픽셀 수만큼만 계산하므로
+    <strong>라이트가 많은 씬에서 유리</strong>하다. 대신 G-buffer 메모리 대역폭을
+    쓰고 MSAA와 궁합이 나쁘다. <strong>Forward+</strong>는 이 둘의 절충으로, 포워드의
+    장점을 유지하면서 다수 라이트를 더 효율적으로 다룬다.
+  </p>
+  <p>
+    팹 씬은 어느 쪽인가? Station 02에서 봤듯 팹 조명의 대부분은
+    <strong>베이크된 정적 조명</strong>이고, 실시간 광원은 경광등·일부 천장등
+    정도의 소수다. 즉 "런타임에 계산할 라이트가 적은" 전형적인 포워드 친화적
+    씬이다. 게다가 얇은 레일·장비 프레임이 많아 <strong>MSAA를 쓸 수 있다는 점이
+    큰 이점</strong>이 된다. 그래서 팹 디지털 트윈은 대개 포워드로 충분하고, 그게
+    유리하다.
+  </p>
+
+  <h2>색 공간 — Linear vs Gamma (PBR의 전제)</h2>
+  <p>
+    이 절은 화면 품질의 <strong>보이지 않는 토대</strong>다. 여기가 틀어지면
+    Station 01의 PBR도, Station 02의 조명도 미묘하게 어긋나는데, 정작 원인을
+    찾기가 어렵다. 그래서 반드시 짚고 넘어간다.
+  </p>
+  <p>
+    모니터와 대부분의 이미지 파일은 <strong>sRGB / 감마</strong><i class="en">(gamma)</i>
+    라는 방식으로 밝기를 인코딩한다. 사람 눈이 어두운 영역의 차이에 더 민감하기
+    때문에, 저장 공간을 어두운 쪽에 더 촘촘히 배분하는 비선형 인코딩이다. 즉
+    파일에 저장된 픽셀 값은 <strong>빛의 물리량이 아니라, 눈에 맞게 구부러진
+    값</strong>이다.
+  </p>
+  <p>
+    문제는 빛의 물리 계산이다. 조명을 더하고(여러 광원의 합) 곱하는(감쇠·반사)
+    연산은 <strong>선형</strong><i class="en">(linear)</i> 공간 — 밝기가 물리량에
+    비례하는 공간 — 에서만 올바른 결과를 낸다. 감마로 구부러진 값을 그대로 더하면
+    두 빛을 합친 밝기가 물리적으로 틀리게 나온다. 그래서 엔진은
+    <strong>텍스처를 읽을 때 선형으로 펴서 계산</strong>하고, 계산이 끝난 뒤
+    <strong>화면에 낼 때 다시 감마로 인코딩</strong>해야 한다.
+  </p>
+  <p>
+    Unity에서 이 스위치가 <strong>Project Settings의 Color Space</strong>다. 이
+    값을 반드시 <strong>Linear</strong>로 둬야, 위의 "선형에서 계산하고 마지막에
+    감마로 출력"이 자동으로 걸린다. Gamma로 두면 PBR 조명이 물리적으로 틀린
+    공간에서 계산되어, 밝기가 뭉치고 하이라이트가 어색해진다 — 아무리 머티리얼과
+    라이팅을 잘 만져도 근본이 어긋나 있는 상태다.
+  </p>
+  <p>
+    Color Space가 씬 전체의 스위치라면, 텍스처 하나하나에도 규율이 있다. 임포트
+    설정의 <strong>sRGB (Color Texture)</strong> 체크박스가 그것이다. 판단 기준은
+    간단하다 — <strong>그 텍스처가 "색"인가 "데이터"인가.</strong>
+  </p>
+  <ul>
+    <li><strong>알베도 / 베이스 맵은 sRGB 체크</strong> — 이것은 사람이 보는
+      <strong>색</strong>이므로 감마로 저장돼 있고, 엔진이 선형으로 펴서 읽어야
+      맞다.</li>
+    <li><strong>노멀 · 메탈릭 · 마스크 · 러프니스 맵은 sRGB 해제</strong> — 이것들은
+      색이 아니라 <strong>방향 벡터나 0~1 수치 데이터</strong>다. 감마 보정을
+      적용하면 값 자체가 왜곡된다. 데이터는 저장된 숫자를 <strong>있는 그대로</strong>
+      읽어야 한다.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="label">데이터 맵 주의</span>
+    <p>
+      메탈릭·러프니스·마스크 같은 <strong>데이터 맵을 sRGB 체크된 채로
+      임포트하면</strong>, 엔진이 그 숫자를 "색"으로 오해해 감마 보정을 적용한다.
+      그 결과 러프니스 0.5가 다른 값으로 읽히는 식으로 <strong>물성 값이 미묘하게
+      틀어지고</strong>, 조명이 어딘가 어긋나 보이는데 원인을 찾기 어려워진다.
+      노멀 맵은 Station 01에서 본 대로 <code>Normal map</code> 타입으로 임포트하면
+      이 처리가 자동으로 되고, 그 외 데이터 맵은 임포트 설정에서
+      <strong>sRGB 체크를 직접 해제</strong>해야 한다.
+    </p>
+  </div>
+
+  <h2>안티에일리어싱 — 계단현상 지우기</h2>
+  <p>
+    <strong>에일리어싱</strong><i class="en">(aliasing)</i>은 연속적인 형태를 유한한
+    픽셀 격자로 표현할 때, 비스듬한 엣지가 <strong>계단처럼 삐죽삐죽하게</strong>
+    보이는 현상이다. 픽셀은 사각형이라 대각선을 매끄럽게 표현할 수 없기 때문에
+    생긴다. 팹 씬에서는 이게 특히 눈에 띈다 — <strong>얇은 OHT 레일, 장비 프레임의
+    가느다란 엣지, 난간·파이프</strong>처럼 화면에서 한두 픽셀 폭인 선들이
+    계단현상을 가장 크게 드러낸다. 관제 화면의 완성도가 여기서 갈린다.
+  </p>
+  <p>
+    <strong>안티에일리어싱</strong>은 이 계단을 부드럽게 다듬는 기법이고, URP에서
+    쓸 수 있는 방식이 네 가지다. 하드웨어 방식 하나(MSAA)와 포스트 방식 셋(FXAA·
+    SMAA·TAA)으로 나뉜다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>방식</th>
+          <th>분류</th>
+          <th>대상</th>
+          <th>설정 위치</th>
+          <th>특징 · 트레이드오프</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">MSAA</td>
+          <td>하드웨어</td>
+          <td>지오메트리 엣지</td>
+          <td>URP Asset</td>
+          <td>엣지를 하드웨어로 여러 번 샘플링. 포워드에서 상대적으로 저렴하고 선명하다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FXAA</td>
+          <td>포스트</td>
+          <td>화면 전체</td>
+          <td>카메라</td>
+          <td>완성된 화면에서 엣지를 추정해 블러. 가장 싸지만 살짝 흐려진다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">SMAA</td>
+          <td>포스트</td>
+          <td>화면 전체</td>
+          <td>카메라</td>
+          <td>FXAA보다 엣지를 정교하게 찾아 더 선명하다. 비용은 조금 더 든다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">TAA</td>
+          <td>포스트(시간축)</td>
+          <td>화면 전체</td>
+          <td>카메라</td>
+          <td>여러 프레임을 누적해 최고 품질. 대신 빠른 모션에서 번짐·고스팅이 생긴다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>MSAA</strong><i class="en">(Multisample Anti-Aliasing)</i>는 렌더링
+    과정에서 각 픽셀의 엣지 부분을 <strong>여러 지점으로 샘플링</strong>해 평균낸다.
+    지오메트리 엣지에만 작동하고 완성된 화면을 다시 훑지 않아, 포워드 경로에서는
+    비교적 저렴하면서 결과가 선명하다. 앞서 포워드가 팹 씬에 유리하다고 한 이유의
+    큰 부분이 바로 "MSAA를 쓸 수 있다"는 점이다. 설정은
+    <strong>URP Asset의 MSAA 항목</strong>(2×·4×·8×)에 있다.
+  </p>
+  <p>
+    나머지 셋은 <strong>포스트 방식</strong>이라 완성된 화면 이미지를 후처리한다.
+    <strong>FXAA</strong><i class="en">(Fast Approximate AA)</i>는 엣지로 보이는
+    곳을 추정해 뭉개는 가장 값싼 방식으로, 대신 화면이 살짝 흐려진다.
+    <strong>SMAA</strong><i class="en">(Subpixel Morphological AA)</i>는 엣지 패턴을
+    더 정교하게 분석해 FXAA보다 선명한 결과를 낸다.
+    <strong>TAA</strong><i class="en">(Temporal AA)</i>는 <strong>여러 프레임을
+    시간축으로 누적</strong>해 가장 매끄러운 품질을 내지만, 카메라나 물체가 빠르게
+    움직이면 이전 프레임이 잔상으로 남아 <strong>번짐·고스팅</strong>이 생긴다 —
+    빠르게 도는 OHT가 흐릿한 꼬리를 남기는 식이다.
+  </p>
+  <p>
+    한 가지 혼동 지점을 정리한다. <strong>카메라의 Anti-aliasing 설정</strong>(FXAA·
+    SMAA·TAA 중 선택)과 <strong>URP Asset의 MSAA</strong>는
+    <strong>서로 별개의 스위치</strong>다. 카메라 쪽은 포스트 계열이고, MSAA는
+    하드웨어 계열이라 설정 위치도 다르다. 팹 씬의 기본 조합은 대개
+    <strong>포워드 + URP Asset의 MSAA</strong>이며, 필요하면 여기에 카메라 포스트
+    AA를 얹어 미세한 엣지까지 정리한다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      수십~수백 대의 장비가 실시간으로 도는 관제 트윈에서는, HDRP의 포토리얼보다
+      <strong>URP + 포워드 + MSAA</strong>의 균형과 확장성이 대개 정답이다.
+      파이프라인 선택은 "가장 예쁜 것"을 고르는 일이 아니라 —
+      <strong>장비 대수 · 타깃 하드웨어 · 실시간 요구</strong>를 먼저 보고 그 위에서
+      결정하는 일이다. 예쁘지만 무거운 파이프라인을 골라 놓으면 장비 수가 늘 때
+      프레임이 무너지고, 그때는 되돌리기 어렵다. 그리고 여기서 정한 렌더링 경로와
+      AA 방식은 곧장 <strong>Phase 4의 성능 분석·최적화</strong>로 이어진다 — 어떤
+      선택이 프레임 몇 ms를 쓰는지를 그곳에서 직접 측정하게 된다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>SRP란 무엇이며, Built-in 파이프라인과 무엇이 다른가?</summary>
+      <div class="answer">
+        <p>
+          <strong>SRP(Scriptable Render Pipeline)</strong>는 씬에서 화면 픽셀까지
+          가는 렌더 절차를 <strong>C#으로 정의할 수 있게 열어 둔 구조</strong>다.
+          Built-in 파이프라인은 엔진 내부에 절차가 고정된 <strong>블랙박스</strong>라
+          바깥에서 순서를 바꿀 수 없는 반면, URP·HDRP는 이 SRP 위에 만들어져
+          Renderer Feature 등으로 렌더 절차에 단계를 끼워 넣을 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 프로젝트가 URP를 쓰는 이유는? HDRP는 언제 쓰는가?</summary>
+      <div class="answer">
+        <p>
+          팹 디지털 트윈은 "<strong>다수 장비 × 실시간 × 다양한 타깃</strong>"이라는
+          조건이 앞선다. URP는 폭넓은 플랫폼, 다수 오브젝트 실시간에 유리한 성능,
+          충분한 품질이라는 세 축의 균형점이라 여기에 맞는다. HDRP는 포토리얼
+          고충실도가 목표이고 <strong>고정된 고사양 PC</strong>가 타깃일 때 —
+          자동차 쇼룸·건축 시각화 같은 경우에 값어치가 난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Renderer Feature는 어디에 꽂히며, SSAO·Decal·Outline과 무슨 관계인가?</summary>
+      <div class="answer">
+        <p>
+          Renderer Feature는 <strong>Universal Renderer Data</strong>의
+          <code>Add Renderer Feature</code>로 꽂는, 렌더 절차에
+          <strong>패스를 추가하는 플러그인</strong>이다. Station 03의 SSAO가 이미
+          이 자리에 붙어 있었고, Station 06의 아웃라인과 Station 07의 데칼도 전부
+          이 Renderer Feature로 렌더 절차에 끼워 넣는다. 즉 렌더링을 확장하는
+          공통의 확장 지점이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Color Space를 Linear로 둬야 하는 이유와, 노멀맵을 sRGB 해제로 임포트하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          빛의 더하기·곱하기 같은 물리 계산은 <strong>선형 공간</strong>에서만
+          올바른 결과를 낸다. 모니터·이미지는 감마로 인코딩돼 있으므로, Color
+          Space를 <strong>Linear</strong>로 둬야 엔진이 텍스처를 선형으로 펴서
+          계산하고 마지막에 다시 감마로 출력한다 — 그래야 PBR 조명이 물리적으로
+          맞는다. 노멀맵은 색이 아니라 <strong>방향 벡터 데이터</strong>라서, sRGB
+          감마 보정을 적용하면 값이 왜곡된다. 그래서 데이터 맵은 sRGB를 해제해
+          저장된 숫자를 그대로 읽어야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>MSAA와 TAA의 트레이드오프를 설명할 수 있는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>MSAA</strong>는 하드웨어가 지오메트리 엣지를 여러 번 샘플링하는
+          방식으로, 포워드에서 비교적 저렴하고 선명하지만 지오메트리 엣지에만
+          작동하고 URP Asset에서 설정한다. <strong>TAA</strong>는 여러 프레임을
+          시간축으로 누적해 화면 전체에서 <strong>최고 품질</strong>을 내지만, 빠른
+          모션에서 <strong>번짐·고스팅</strong>이 생기는 것이 대가다. 정적인 화면엔
+          TAA가 매끄럽고, 빠르게 움직이는 장비가 많은 씬엔 MSAA가 안전하다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="04-fabsim-practice.html">
+      <span class="dir">← PREV — STATION 04</span>
+      <span class="title">실습 — FabSim 팹 씬 만들기</span>
+    </a>
+    <a class="next" href="06-shadergraph-viz.html">
+      <span class="dir">NEXT — STATION 06 →</span>
+      <span class="title">Shader Graph — 상태·데이터를 그리는 셰이더</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 Shader Graph — 상태·데이터 시각화 — DT1 Phase 3</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 3 렌더링<span class="sep">/</span>06 Shader Graph 시각화
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 3 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-pbr-theory.html" title="PBR 이론">01</a></li>
+      <li><a href="02-lighting-baking.html" title="라이팅과 베이킹">02</a></li>
+      <li><a href="03-post-processing.html" title="포스트 프로세싱">03</a></li>
+      <li><a href="04-fabsim-practice.html" title="실습 — FabSim 팹 씬 만들기">04</a></li>
+      <li><a href="05-urp-pipeline.html" title="URP 파이프라인 아키텍처">05</a></li>
+      <li class="current"><span class="st">06</span></li>
+      <li><a href="07-runtime-visualization.html" title="런타임 시각화">07</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 3 — UNITY PBR 렌더링 &amp; 라이팅</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 3 · Station 06</p>
+    <h1>Shader Graph — 상태·데이터를 그리는 셰이더</h1>
+    <p class="lede">
+      PBR 머티리얼이 "이 물체가 무엇으로 만들어졌나"를 그린다면, 디지털 트윈에는
+      "이 물체가 지금 어떤 상태인가"를 그리는 셰이더가 필요하다. Shader Graph로
+      상태·데이터를 색과 빛으로 만든다 — 정지한 장비를 붉게, 선택한 반송차를
+      빛나게, 혼잡을 히트맵으로.
+    </p>
+  </div>
+
+  <h2>왜 커스텀 셰이더인가 — 상태의 시각화</h2>
+  <p>
+    Station 01에서 만든 URP Lit 머티리얼은 <strong>재질</strong>을 그린다 —
+    스테인리스는 스테인리스로, 에폭시 바닥은 에폭시 바닥으로. 하지만 관제 화면이
+    실제로 답해야 하는 질문은 재질이 아니라 <strong>상태</strong>다. 저 장비는
+    정상인가 경고인가 정지인가, 저 반송차는 적재 상태인가 공차인가, 지금 내가
+    클릭해서 선택한 장비는 어느 것인가. 표준 Lit 셰이더에는 이 질문에 답할
+    입력이 없다.
+  </p>
+  <p>
+    상태가 <strong>색 하나</strong>로 끝난다면 굳이 셰이더까지 갈 필요는 없다.
+    스크립트에서 머티리얼 색을 바꾸면 그만이다. 커스텀 셰이더가 필요해지는
+    지점은 그 위다 — <strong>발광 펄스</strong>(경고등이 숨 쉬듯 깜빡이기),
+    <strong>외곽선</strong>(선택한 장비 테두리 강조), <strong>시스루</strong>(케이스
+    안이나 벽 뒤를 비추기), <strong>히트맵</strong>(혼잡도를 색 그라디언트로). 이런
+    효과는 "색을 바꾸는" 것이 아니라 픽셀이 <strong>어떻게 그려지는지</strong>를
+    바꾸는 일이고, 그것이 곧 셰이더의 영역이다.
+  </p>
+  <p>
+    이 스테이션의 관점을 한 문장으로 요약하면 이렇다 — 디지털 트윈에서 셰이더는
+    <strong>실시간 상태를 빛과 색으로 번역하는 장치</strong>다. 재질을 그리는
+    셰이더 위에, 데이터를 그리는 셰이더를 한 겹 더 얹는 것이 이번 학습의 목표다.
+  </p>
+
+  <h2>Shader Graph 기초</h2>
+  <p>
+    <strong>셰이더 그래프</strong><i class="en">(Shader Graph)</i>는 코드를 직접
+    쓰는 대신 <strong>노드를 선으로 연결</strong>해 셰이더를 만드는 비주얼 에디터다.
+    입력(색, 숫자, 텍스처, 시간)을 왼쪽에서 받아, 중간의 연산 노드들(더하기, 곱하기,
+    Lerp, Fresnel 등)을 거쳐, 오른쪽 출력으로 흘려보낸다. 결과가 화면에 즉시
+    미리보기되므로, 값 하나를 바꿀 때 픽셀이 어떻게 반응하는지를 눈으로 보며
+    반복할 수 있다.
+  </p>
+  <p>
+    구조를 잡는 데 필요한 개념은 둘이다.
+  </p>
+  <ul>
+    <li><strong>마스터 스택</strong><i class="en">(Master Stack)</i> — 그래프의
+      최종 출력부다. Station 05에서 본 URP의 <strong>Lit / Unlit 타깃</strong>을
+      여기서 고르고, Vertex 블록(정점 위치·법선)과 Fragment 블록(Base Color,
+      Emission, Alpha, Metallic, Smoothness…)에 그래프의 결과를 연결한다. 상태
+      시각화에서 우리가 주로 건드리는 출력은 <strong>Base Color</strong>(기본색),
+      <strong>Emission</strong>(발광), <strong>Alpha</strong>(투명도) 셋이다.</li>
+    <li><strong>블랙보드 프로퍼티</strong><i class="en">(Blackboard)</i> — 그래프
+      바깥으로 노출되는 입력들이다. Blackboard에 Color·Float 프로퍼티를 만들어
+      두면, 그것이 머티리얼 인스펙터에 슬라이더·색상 칸으로 뜨고 스크립트에서
+      <strong>material.SetColor()</strong> / <strong>material.SetFloat()</strong>로
+      런타임에 제어할 수 있다. 즉 Blackboard가 <strong>시뮬레이션 데이터가
+      셰이더로 들어오는 입구</strong>다 — Phase 5에서 DES 코어가 계산한 장비 상태가
+      이 입구를 통해 픽셀에 도달한다.</li>
+  </ul>
+  <p>
+    코드 셰이더(HLSL)와 비교하면 장단이 뚜렷하다. Shader Graph는
+    <strong>반복이 빠르고 시각적</strong>이어서 런타임 시각화처럼 "보면서 맞추는"
+    작업에 강하다. 대신 조건 분기가 많거나 루프가 필요한 <strong>복잡한 로직</strong>은
+    노드로 표현하면 그래프가 금세 스파게티가 된다. 이 스테이션에서 다루는 상태
+    시각화는 대부분 단순 산술(곱·보간·프레넬)이라 Shader Graph의 강점 구간에
+    정확히 들어온다.
+  </p>
+
+  <h3>첫 그래프 — 상태색 하나</h3>
+  <p>
+    가장 단순한 상태 시각화부터 만들어 보자. <strong>Unlit 그래프</strong>를
+    새로 만들고, Blackboard에 <strong>Color 프로퍼티</strong>(이름: StateColor)를
+    추가한 뒤, 그 프로퍼티 노드를 Master Stack의 <strong>Base Color</strong>에
+    바로 연결한다. 그래프는 이걸로 끝이다 — 들어온 색을 그대로 표면색으로 내보낸다.
+  </p>
+  <p>
+    이제 스크립트에서 장비 상태에 따라 <strong>renderer.material.SetColor("_StateColor", c)</strong>를
+    호출하면, 정상일 때 청록, 경고일 때 황, 정지일 때 적으로 표면이 바뀐다.
+    셰이더 로직은 하나도 없지만, <strong>데이터 → 색</strong>이라는 이 파이프라인의
+    골격이 앞으로 만들 모든 효과의 공통 뼈대다. 아래 다이어그램이 그 뼈대를
+    세 갈래로 편 모습이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Shader Graph 데이터 흐름: 왼쪽 Blackboard 프로퍼티(상태색·강도·혼잡도)가 중간의 노드들(Fresnel, Time×Sine, Lerp)을 거쳐 오른쪽 Master Stack의 출력(Emission, Base Color, Alpha)으로 연결된다">
+      <defs>
+        <marker id="sg-rail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-rail" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+        <marker id="sg-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path class="d-fill-accent" d="M0 0 L10 5 L0 10 Z"/>
+        </marker>
+      </defs>
+
+      <!-- 단계 라벨 -->
+      <text class="d-label-strong" x="24" y="34">① BLACKBOARD 프로퍼티</text>
+      <text class="d-label-strong" x="312" y="34">② 노드 그래프</text>
+      <text class="d-label-strong" x="600" y="34">③ MASTER STACK</text>
+      <text class="d-label" x="24" y="50">스크립트가 넣는 값</text>
+      <text class="d-label" x="312" y="50">색·빛으로 번역</text>
+      <text class="d-label" x="600" y="50">Fragment 출력</text>
+
+      <!-- 왼쪽: 프로퍼티 박스 -->
+      <rect class="d-node" x="24" y="76" width="148" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="98" y="100" text-anchor="middle">상태색 (Color)</text>
+
+      <rect class="d-node" x="24" y="124" width="148" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="98" y="148" text-anchor="middle">강도 (Float)</text>
+
+      <rect class="d-node" x="24" y="168" width="148" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="98" y="192" text-anchor="middle">혼잡도 (0–1)</text>
+
+      <!-- 가운데: 노드 박스 -->
+      <rect class="d-node" x="312" y="76" width="168" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="396" y="100" text-anchor="middle">Fresnel · rim</text>
+
+      <rect class="d-node" x="312" y="124" width="168" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="396" y="148" text-anchor="middle">Time × Sine</text>
+
+      <rect class="d-node" x="312" y="168" width="168" height="40" rx="6" stroke-width="2"/>
+      <text class="d-label-strong" x="396" y="192" text-anchor="middle">Lerp 파랑→빨강</text>
+
+      <!-- 오른쪽: Master Stack 컨테이너 -->
+      <rect class="d-soft" x="600" y="66" width="176" height="150" rx="8" stroke-width="2"/>
+      <rect class="d-node" x="614" y="95" width="148" height="30" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="688" y="114" text-anchor="middle">Emission (HDR)</text>
+      <rect class="d-node" x="614" y="141" width="148" height="30" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="688" y="160" text-anchor="middle">Base Color</text>
+      <rect class="d-node" x="614" y="177" width="148" height="30" rx="5" stroke-width="2"/>
+      <text class="d-label-strong" x="688" y="196" text-anchor="middle">Alpha</text>
+
+      <!-- 왼쪽 → 가운데 -->
+      <line class="d-rail" x1="172" y1="96"  x2="304" y2="96"  stroke-width="2" marker-end="url(#sg-rail)"/>
+      <line class="d-rail" x1="172" y1="144" x2="304" y2="144" stroke-width="2" marker-end="url(#sg-rail)"/>
+      <line class="d-rail" x1="172" y1="188" x2="304" y2="188" stroke-width="2" marker-end="url(#sg-rail)"/>
+
+      <!-- 가운데 → 오른쪽 (발광 계열은 accent) -->
+      <line class="d-accent" x1="480" y1="96"  x2="606" y2="110" stroke-width="2" marker-end="url(#sg-accent)"/>
+      <line class="d-accent" x1="480" y1="144" x2="606" y2="110" stroke-width="2" marker-end="url(#sg-accent)"/>
+      <line class="d-rail"   x1="480" y1="188" x2="606" y2="156" stroke-width="2" marker-end="url(#sg-rail)"/>
+      <line class="d-rail"   x1="480" y1="188" x2="606" y2="192" stroke-width="2" marker-end="url(#sg-rail)"/>
+    </svg>
+    <figcaption>
+      Shader Graph의 데이터 흐름. 왼쪽 <strong>Blackboard 프로퍼티</strong>는
+      스크립트(Phase 5의 DES 코어)가 값을 넣는 입구고, 가운데
+      <strong>노드</strong>가 그 값을 색·빛으로 번역해, 오른쪽 <strong>Master
+      Stack</strong>의 출력으로 내보낸다. 선택 하이라이트(Fresnel)와 경고
+      펄스(Time×Sine)는 <strong>Emission</strong>으로, 혼잡 히트맵(Lerp)은
+      <strong>Base Color·Alpha</strong>로 흐른다. 실제 그래프에서는 노드가 서로
+      더 얽히지만, 여기서는 대표 흐름을 세 갈래로 폈다.
+    </figcaption>
+  </figure>
+
+  <h2>발광 상태 표시 — Emission</h2>
+  <p>
+    상태등은 색보다 <strong>빛</strong>으로 말할 때 훨씬 잘 읽힌다. Master Stack의
+    <strong>이미시브</strong><i class="en">(emissive)</i> 출력은 조명과 무관하게
+    표면이 스스로 내보내는 빛이고(Station 01의 Emission을 셰이더 안에서 직접
+    제어하는 셈이다), 여기에 <strong>색 × 강도</strong>를 연결하면 상태등이 된다.
+    강도를 1보다 크게 주면 <strong>HDR 이미시브</strong>가 되고, 이때 Station 03의
+    <strong>블룸</strong><i class="en">(bloom)</i>이 Threshold를 넘긴 이 픽셀만
+    골라 피어나게 만든다 — 그 결과 상태등이 단순히 밝은 색이 아니라 실제로
+    <strong>발광</strong>하는 것처럼 번진다. 03에서 "이미시브 머티리얼만 피어난다"고
+    한 그 이미시브를, 이번엔 셰이더가 상태에 따라 직접 켜고 끈다.
+  </p>
+  <p>
+    정적인 발광 위에 <strong>움직임</strong>을 얹으면 경고의 긴박함이 생긴다.
+    <strong>타임</strong><i class="en">(time)</i> 노드는 씬이 시작된 뒤 흐른 시간을
+    계속 흘려보내는 입력이고, 이것을 <strong>Sine</strong> 노드에 넣으면 −1~1을
+    오가는 파형이 된다. 이 파형을 0~1로 다시 매핑해 이미시브 강도에 곱하면,
+    상태등이 <strong>숨 쉬듯 밝아졌다 어두워지는 펄스</strong>가 된다. 깜빡임의
+    속도는 Time에 곱하는 계수로 조절한다 — 경고는 느리게, 정지·긴급은 빠르게.
+  </p>
+  <p>
+    색은 팀 표준의 <strong>상태 코드</strong>로 고정한다. 아래 도식은 이 스테이션
+    전체가 따르는 매핑이다 — 정상은 상시 점등, 경고는 느린 펄스, 정지는 빠른
+    펄스에 형태 신호를 더한다. 색을 셰이더 안에 하드코딩하지 말고 Blackboard
+    Color 프로퍼티로 빼 두면, 표준이 바뀌어도 한곳만 고치면 된다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="상태색 코드 매핑: 정상은 청록으로 상시 점등, 경고는 앰버로 느린 깜빡임, 정지는 적색으로 빠른 깜빡임과 아이콘 병행">
+      <!-- 정상 -->
+      <circle cx="120" cy="52" r="22" style="fill:var(--ok); stroke:var(--rail-soft); stroke-width:1.5"/>
+      <text class="d-title" x="120" y="102" text-anchor="middle">정상</text>
+      <text class="d-label" x="120" y="122" text-anchor="middle">청록 · 상시 점등</text>
+      <!-- 경고 -->
+      <circle cx="360" cy="52" r="22" style="fill:var(--accent); stroke:var(--rail-soft); stroke-width:1.5"/>
+      <text class="d-title" x="360" y="102" text-anchor="middle">경고</text>
+      <text class="d-label" x="360" y="122" text-anchor="middle">앰버 · 느린 깜빡임</text>
+      <!-- 정지 -->
+      <circle cx="600" cy="52" r="22" style="fill:var(--warn-edge); stroke:var(--rail-soft); stroke-width:1.5"/>
+      <text class="d-title" x="600" y="102" text-anchor="middle">정지</text>
+      <text class="d-label" x="600" y="122" text-anchor="middle">적 · 빠른 깜빡임 + 아이콘</text>
+    </svg>
+    <figcaption>
+      팀 표준 상태색 매핑. 색(Blackboard Color)은 <strong>무엇을</strong>,
+      깜빡임 속도(Time×Sine 계수)는 <strong>얼마나 급한지를</strong> 전달한다.
+      색만으로 구분하지 않고 점멸 패턴과 형태를 함께 쓰는 이유는 아래 DIGITAL
+      TWIN 관점에서 다룬다.
+    </figcaption>
+  </figure>
+
+  <h2>선택 하이라이트와 아웃라인</h2>
+  <p>
+    사용자가 장비를 클릭해 선택하면, 그 장비만 눈에 띄게 강조해야 한다(Station
+    07의 상호작용에서 실제로 쓰인다). 접근은 크게 둘이고, 둘은 성격이 다르다.
+  </p>
+  <p>
+    <strong>(a) 프레넬 기반 rim glow.</strong>
+    <strong>프레넬</strong><i class="en">(Fresnel)</i>은 Station 01에서 본 그
+    현상 — 시선이 표면을 스치는 각도에 가까울수록 반사가 강해진다 — 을 셰이더
+    안에서 직접 값으로 뽑는 노드다. 이 값은 물체의 <strong>실루엣 가장자리에서
+    1에 가깝고 정면에서 0에 가까우므로</strong>, 그대로 이미시브 강도에 곱하면
+    테두리만 발광하는 <strong>rim glow</strong>가 된다. 선택된 장비의 Blackboard
+    플래그를 켜서 이 발광을 켜면, 장비 윤곽이 은은하게 빛나며 선택 상태를
+    알린다. 별도 렌더 패스가 필요 없어 가볍다는 것이 장점이다.
+  </p>
+  <p>
+    <strong>(b) Renderer Feature 기반 외곽선.</strong> 물체 뒤에 조금 부풀린
+    복제본을 그리거나(inverted hull), 화면 공간에서 깊이·노멀의 급변을 찾아
+    선을 긋는 방식이다. 이건 머티리얼 하나로 끝나지 않고 <strong>렌더 패스를
+    하나 더</strong> 얹어야 하므로, Station 05에서 배운 <strong>렌더러
+    피처</strong><i class="en">(Renderer Feature)</i>(예: Render Objects)로
+    파이프라인에 추가한다. rim glow와 달리 <strong>또렷한 실선 윤곽</strong>을
+    만들 수 있어, 여러 장비 중 하나를 확실히 집어내야 할 때 강하다. 대신 화면
+    전체를 한 번 더 처리하므로 비용은 rim glow보다 크다.
+  </p>
+  <p>
+    정리하면 — <strong>가볍고 은은한 발광이면 프레넬 rim, 또렷하고 확실한
+    윤곽선이면 Renderer Feature</strong>다. 관제 화면에서 "마우스가 올라간 것"은
+    rim으로, "지금 선택되어 조작 대상인 것"은 외곽선으로 나누는 식의 조합도 흔하다.
+  </p>
+
+  <h2>반투명 오버레이와 존</h2>
+  <p>
+    안전구역, 장비 영향권, 통제존처럼 <strong>바닥 위에 덮는 영역</strong>은
+    반투명 색면으로 그린다. 그래프에서는 Master Stack의
+    <strong>Surface Type을 Transparent</strong>로 바꾸고, Base Color에 존
+    색을, Alpha에 투명도를 연결한다. 가장자리를 앞서의 프레넬로 밝히면
+    <strong>홀로그램/필드 룩</strong>이 나와, 단조로운 색면보다 "여기가 특별한
+    구역"이라는 인상이 강해진다.
+  </p>
+  <p>
+    반투명에는 함정이 하나 있다 — <strong>그리는 순서</strong>다. 불투명 물체는
+    깊이 버퍼로 앞뒤가 자동 정리되지만, 반투명은 <strong>뒤에서 앞으로</strong>
+    순서대로 덧칠해야 색이 올바르게 섞인다. 이 순서를 결정하는 것이
+    <strong>렌더 큐</strong><i class="en">(render queue)</i>다. 불투명(Geometry,
+    2000)이 다 그려진 <strong>다음에</strong> 반투명(Transparent, 3000)이 그려지고,
+    그 안에서도 카메라와의 거리로 정렬된다. 존 오버레이가 엉뚱하게 다른 존을
+    가리거나, 뒤 물체가 비쳐야 하는데 안 비친다면 십중팔구 이 큐와 정렬의
+    문제다. Transparent 머티리얼은 이렇게 순서에 민감하다는 것을 전제로 다뤄야 한다.
+  </p>
+
+  <h2>히트맵 — 스칼라를 색으로</h2>
+  <p>
+    혼잡도, 온도, 가동률처럼 <strong>0~1 사이의 스칼라 값</strong>은 색으로
+    바꿔야 한눈에 읽힌다. 핵심 노드는 <strong>색 램프</strong><i class="en">(color
+    ramp)</i>다 — 스칼라 값을 색 그라디언트 위의 위치로 해석해 색을 뽑는다.
+    가장 단순하게는 <strong>Lerp</strong> 노드로 파랑(0)과 빨강(1)을 보간하고,
+    더 정교하게는 <strong>Sample Gradient</strong> 노드에 파랑→청록→노랑→빨강
+    같은 다단 그라디언트를 정의해 값을 통과시킨다.
+  </p>
+  <p>
+    노드 흐름은 짧다 — <strong>스칼라 입력 → (색 램프) → Base Color</strong>.
+    스칼라 값은 Blackboard의 Float 프로퍼티로 받아 구역별 머티리얼마다 다르게
+    넣거나, 메시의 <strong>정점 색</strong>에 구워 넣어 한 메시 안에서 위치마다
+    다른 값을 표현할 수도 있다. 이 히트맵을 바닥 타일에 깔면 "지금 어느 베이가
+    막혔나", 장비에 입히면 "어느 설비가 과부하인가"가 색의 뜨거움만으로 즉시
+    드러난다.
+  </p>
+
+  <h2>시스루 / X-ray</h2>
+  <p>
+    관제에서는 <strong>가려진 것을 봐야</strong> 할 때가 있다 — 장비 케이스
+    안쪽의 상태, 벽이나 다른 설비 뒤에 가린 반송차. 이를 위한
+    <strong>엑스레이</strong><i class="en">(X-ray)</i> 룩은 두 갈래로 만든다.
+    하나는 <strong>프레넬 + Transparent</strong> — 정면은 비치고 가장자리만
+    윤곽으로 남겨 내부가 들여다보이는 유리 같은 표면을 만든다. 다른 하나는
+    <strong>깊이 기반</strong> — 이 물체 앞에 다른 물체가 있는지를 깊이 비교로
+    판정해, 가려진 부분만 다른 색·투명도로 그린다(가려졌을 때만 윤곽이 뜨는
+    "벽 투시" 효과가 이쪽이다).
+  </p>
+  <p>
+    시스루는 강력하지만 남용하면 화면이 유령들로 가득 차 오히려 판독을
+    해친다. <strong>필요할 때만</strong> — 특정 반송차를 추적하거나 특정 설비
+    내부를 점검할 때 토글로 켜는 도구로 두는 것이 실무의 균형이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      이 효과들은 미적 장식이 아니라 <strong>정보 채널</strong>이다. 발광 펄스,
+      외곽선, 히트맵, 시스루는 각각 "상태가 급하다 / 이게 선택됐다 / 여기가
+      뜨겁다 / 이건 가려져 있다"는 <strong>데이터를 실어 나르는 색과 빛</strong>이다.
+      그래서 두 가지 규율이 미감보다 앞선다. 첫째, 색은 팀 표준
+      <strong>상태 코드로 일관되게</strong> — 정상·경고·정지 색을 한번 정하면
+      모든 화면에서 같아야 하고, 셰이더 안이 아니라 Blackboard로 빼 관리한다.
+      둘째, <strong>색만으로 구분하지 않는다</strong> — 색각 이상 사용자를 위해
+      깜빡임 속도, 형태, 아이콘을 함께 쓴다(위 상태색 도식이 색과 점멸 패턴을
+      묶어 둔 이유다). 8시간을 응시하는 관제 화면에서 기준은 "예쁨"이 아니라
+      <strong>즉시 판독</strong>이다.
+    </p>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">완성본으로 확인 — FabSim-P3Viz-Complete</span>
+    <p>
+      06·07에서 다룬 디지털 트윈 시각화 기법을 한 씬에 모은 참고 프로젝트가 저장소에 있다.
+      상태 발광(정상/경고/정지)·선택 하이라이트·혼잡 히트맵·OHT 레일 라인과 트레일·바닥 존·
+      월드스페이스 라벨·직교↔원근 카메라가 함께 들어 있다. 씬을 열어 구성을 보고,
+      <strong>Play</strong>로 들어가면 장비 클릭 선택과 <strong>O</strong> 키 카메라 전환이 동작한다.
+    </p>
+    <p>
+      <button class="btn-launch alt" type="button" data-open="p3viz-complete">
+        <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P3Viz-Complete</span>
+      </button>
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>표준 URP Lit 대신 커스텀 셰이더가 필요해지는 상황은?</summary>
+      <div class="answer">
+        <p>
+          상태가 <strong>단순한 색 교체</strong>로 끝난다면 스크립트에서 머티리얼
+          색만 바꿔도 되므로 커스텀 셰이더는 필요 없다. 커스텀 셰이더가 필요한
+          것은 <strong>발광 펄스, 외곽선, 반투명 오버레이, 히트맵, 시스루</strong>처럼
+          픽셀이 그려지는 방식 자체를 바꿔야 할 때다 — 이것들은 색을 바꾸는 게
+          아니라 셰이더 로직으로만 만들 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Emission이 Station 03의 Bloom과 어떻게 연동되는가?</summary>
+      <div class="answer">
+        <p>
+          이미시브 강도를 1보다 크게 주면 <strong>HDR 이미시브</strong>가 되고,
+          Bloom은 Threshold(대개 1.0 근처)를 넘는 픽셀만 골라 번지게 한다. 따라서
+          상태등처럼 HDR로 발광하는 픽셀만 선택적으로 <strong>피어나고</strong>,
+          일반 표면은 번지지 않는다. 셰이더가 상태에 따라 이미시브를 HDR로 켜면,
+          03의 포스트 스택이 그 빛을 실제 발광처럼 마감해 주는 협업 관계다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>선택 아웃라인의 두 접근 — 프레넬 rim과 Renderer Feature의 차이는?</summary>
+      <div class="answer">
+        <p>
+          <strong>프레넬 rim</strong>은 머티리얼 하나 안에서 실루엣 가장자리를
+          발광시키는 방식으로, 추가 렌더 패스가 없어 <strong>가볍고 은은하다</strong>.
+          <strong>Renderer Feature 외곽선</strong>은 렌더 패스를 하나 더 얹어
+          또렷한 <strong>실선 윤곽</strong>을 그리는 방식으로, 확실하지만 화면을
+          한 번 더 처리하므로 <strong>비용이 크다</strong>. 은은한 강조는 rim,
+          확실한 선택 표시는 Renderer Feature가 적합하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>반투명 오버레이에서 렌더 큐가 왜 문제가 되는가?</summary>
+      <div class="answer">
+        <p>
+          불투명은 깊이 버퍼로 앞뒤가 자동 정리되지만, 반투명은
+          <strong>뒤에서 앞으로 순서대로 덧칠</strong>해야 색이 올바르게 섞인다.
+          이 순서를 정하는 것이 <strong>렌더 큐</strong>다 — 불투명(Geometry)이
+          다 그려진 뒤 반투명(Transparent)이 카메라 거리순으로 그려진다. 큐나
+          정렬이 어긋나면 존 오버레이가 엉뚱하게 다른 것을 가리거나, 비쳐야 할
+          뒤 물체가 안 비치는 오류가 난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>히트맵에서 스칼라 값을 색으로 바꾸는 노드 흐름은?</summary>
+      <div class="answer">
+        <p>
+          <strong>스칼라 입력(0~1) → 색 램프 → Base Color</strong>다. 색 램프는
+          가장 단순하게 <strong>Lerp</strong>(파랑↔빨강 보간), 정교하게는
+          <strong>Sample Gradient</strong>(다단 그라디언트)로 만든다. 스칼라는
+          Blackboard의 Float 프로퍼티로 받거나 메시의 정점 색에 실어 넣고,
+          결과 색을 바닥 타일이나 장비 표면에 매핑해 "어디가 뜨거운가"를 보여준다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="05-urp-pipeline.html">
+      <span class="dir">← PREV — STATION 05</span>
+      <span class="title">URP 파이프라인 아키텍처 &amp; 렌더링 품질</span>
+    </a>
+    <a class="next" href="07-runtime-visualization.html">
+      <span class="dir">NEXT — STATION 07 →</span>
+      <span class="title">런타임 시각화 — 경로·라벨·데칼·카메라</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 3 — RENDERING &amp; LIGHTING</div>
+</footer>
+
+</body>
+</html>
