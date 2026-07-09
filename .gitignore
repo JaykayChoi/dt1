@@ -21,5 +21,6 @@ FabSim*/[Bb]uild/
 FabSim*/[Bb]uilds/
 FabSim*/[Ll]ogs/
 FabSim*/[Uu]serSettings/
+FabSim*/build.log
 *.csproj.user
 *.sln.DotSettings.user
