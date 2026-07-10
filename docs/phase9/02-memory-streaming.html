@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 메모리 프로파일링과 씬 스트리밍 — DT1 Phase 9</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 9 대규모 성능 심화<span class="sep">/</span>02 메모리·스트리밍
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 9 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-jobs-burst.html" title="Jobs &amp; Burst — 수천 대의 이동">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-gpu-driven.html" title="GPU-driven 렌더링 맛보기">03</a></li>
+      <li><a href="04-practice.html" title="실습 — 수천 대 최적화 직접 측정">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 9 — 대규모 성능 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 9 · Station 02</p>
+    <h1>메모리 프로파일링과 씬 스트리밍</h1>
+    <p class="lede">
+      CPU를 Jobs로 풀어도, 수만 대의 메시·텍스처·씬을 전부 메모리에 올리면 다른 벽에 부딪힌다.
+      이번에는 <strong>메모리의 윤곽을 읽고</strong>, "화면에 없는 것은 메모리에도 없게" 만든다.
+    </p>
+  </div>
+
+  <h2>Memory Profiler — 스냅샷을 찍는다</h2>
+  <p>
+    <strong>Memory Profiler</strong> 패키지는 실행 중 메모리 <strong>스냅샷</strong>을 찍어
+    managed(C# 힙)와 native(엔진), 텍스처·메시별 점유를 뜯어본다. 핵심 기능은 <strong>두 스냅샷
+    diff</strong> — "무엇이 늘고 무엇이 안 줄었나"를 본다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/Uuzd39AjFWQ" title="Memory Profiler Walkthrough & Tutorial | Unity" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity 공식 <strong>Memory Profiler</strong> 워크스루 — 스냅샷 촬영, managed vs native 구분,
+      스냅샷 비교로 누수를 찾는 과정을 보여 준다.
+      <a href="https://www.youtube.com/watch?v=Uuzd39AjFWQ">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>누수 사냥 절차 — 안 줄어든 것이 누수</h2>
+  <p>
+    누수는 "로드 → 언로드 → 다시 스냅샷"에서 <strong>안 줄어든 것</strong>이다. 대표 원인은
+    <strong>static 참조</strong>(등록 후 미삭제), <strong>이벤트 구독 해제 누락</strong>
+    (<code>+=</code>만 하고 <code>-=</code> 빠짐), 살아 있는 핸들. diff에서 retained 객체의 참조
+    경로를 따라가면 누가 붙잡고 있는지 나온다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="스냅샷 3장(로드 전/후/언로드 후)을 세로 막대로. 언로드 후 텍스처는 줄지만 static 참조로 붙잡힌 메시는 안 줄어든 채 빨간 하이라이트.">
+      <line class="d-rail" x1="60" y1="220" x2="690" y2="220" stroke-width="2"/>
+      <text class="d-label" x="140" y="245" text-anchor="middle">로드 전</text>
+      <text class="d-label" x="370" y="245" text-anchor="middle">로드 후</text>
+      <text class="d-label" x="600" y="245" text-anchor="middle">언로드 후</text>
+      <!-- 로드 전 -->
+      <rect class="d-fill-soft" x="110" y="180" width="60" height="40" rx="2"/>
+      <!-- 로드 후 -->
+      <rect class="d-fill-soft" x="340" y="90" width="60" height="130" rx="2"/>
+      <rect class="d-fill-rail" x="340" y="60" width="60" height="30" rx="2"/>
+      <text class="d-text" x="415" y="80">텍스처</text>
+      <text class="d-text" x="415" y="150">메시</text>
+      <!-- 언로드 후 -->
+      <rect class="d-fill-soft" x="570" y="150" width="60" height="70" rx="2"/>
+      <rect class="d-fill-accent" x="570" y="120" width="60" height="30" rx="2" opacity="0.75"/>
+      <text class="d-text" x="645" y="140">안 줄어든 메시 = 누수</text>
+    </svg>
+    <figcaption>
+      "로드 후 → 언로드 후"에서 텍스처는 줄지만 <code>static</code> 참조로 붙잡힌 메시(빨강)는
+      안 줄어든다. 안 줄어든 것이 누수 — 참조 경로를 따라가 붙잡은 범인을 찾는다.
+    </figcaption>
+  </figure>
+
+  <h2>Additive 씬 스트리밍</h2>
+  <p>
+    <strong>애디티브 씬</strong>은 기존 씬을 유지한 채 위에 겹쳐 로드한다
+    (<code>SceneManager.LoadSceneAsync(name, LoadSceneMode.Additive)</code> /
+    <code>UnloadSceneAsync</code>). 큰 맵을 구역으로 나눠 카메라 근처만 올린다.
+    <strong>라이팅 주의</strong>: additive 씬은 각자의 라이트맵·라이팅 설정을 들고 오므로, 베이크한
+    씬을 올릴 때 라이트맵 참조가 유지되는지, 언로드 시 함께 내려가는지 확인해야 한다.
+  </p>
+
+  <h2>Addressables 기본</h2>
+  <p>
+    <strong>Addressables</strong>는 자산에 주소(키)를 붙여 빌드에서 분리하고, 비동기로
+    <code>LoadAssetAsync</code>/<code>Release</code>하며 <strong>참조 카운트</strong>로 수명을
+    관리한다(0이 되면 해제). 여기서는 "지도"까지 — 랩은 씬 단위 스트리밍을 주로 실습한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>방식</th><th>단위</th><th>로드/해제</th><th>수명 관리</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">씬에 직접 배치</td><td>씬 통째</td><td>씬 로드 시 전부</td><td>씬 언로드까지 상주</td></tr>
+        <tr><td class="rowhead">Additive 씬</td><td>구역(씬)</td><td>Load/UnloadSceneAsync</td><td>구역 단위 로드/언로드</td></tr>
+        <tr><td class="rowhead">Addressables</td><td>자산 하나</td><td>LoadAssetAsync/Release</td><td>참조 카운트(0→해제)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TODO(editor-session): FabSim-P9-Complete에서 Memory Profiler 스냅샷 diff(phase9-02-memory-snapshot-diff.png)와
+       의도적 static 누수 retained(phase9-02-leak-retained.png)를 캡처해 <figure class="photo">로 수록. -->
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Memory Profiler에서 "누수"는 어떤 절차로 판별하는가?</summary>
+      <div class="answer">
+        <p>
+          "로드 전 → 로드 후 → 언로드 후" 세 스냅샷을 찍고, "로드 후 → 언로드 후" diff에서
+          <strong>안 줄어든 것</strong>을 찾는다. 언로드했는데 여전히 retained면 누군가 붙잡고 있는
+          것 — 그 객체의 참조 경로를 따라가 범인을 특정한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>managed 메모리와 native 메모리의 차이, 텍스처는 어느 쪽인가?</summary>
+      <div class="answer">
+        <p>
+          managed는 C# GC가 관리하는 힙(객체·배열), native는 엔진이 직접 잡는 메모리다.
+          <strong>텍스처·메시·오디오 같은 자산은 native</strong> 쪽에 있다 — GC로는 안 줄어들고
+          자산을 언로드해야 내려간다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Additive 씬을 언로드했는데 메모리가 안 줄었다 — 흔한 원인 두 가지는?</summary>
+      <div class="answer">
+        <p>
+          ① <code>static</code> 컬렉션·필드에 그 씬의 객체를 등록해 두고 삭제하지 않음.
+          ② 이벤트를 <code>+=</code>로 구독만 하고 <code>-=</code>로 해제하지 않아 참조가 남음.
+          둘 다 GC가 회수하지 못하게 붙잡는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Addressables의 참조 카운트가 하는 일과, <code>Release</code>를 빼먹으면?</summary>
+      <div class="answer">
+        <p>
+          <code>LoadAssetAsync</code> 때 카운트가 오르고 <code>Release</code> 때 내려가, 0이 되면
+          자산을 메모리에서 내린다. <code>Release</code>를 빼먹으면 카운트가 0이 안 돼 자산이 영영
+          상주한다 — 전형적인 누수다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>베이크한 씬을 additive로 올릴 때 라이팅에서 주의할 점은?</summary>
+      <div class="answer">
+        <p>
+          additive 씬은 자기 라이트맵·라이팅 설정을 들고 오므로, 라이트맵 참조가 로드 시 제대로
+          연결되는지, 언로드 시 함께 내려가는지 확인해야 한다. 안 그러면 조명이 어긋나거나 라이트맵
+          메모리가 남는다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-jobs-burst.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">Jobs &amp; Burst — 수천 대의 이동</span>
+    </a>
+    <a class="next" href="03-gpu-driven.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">GPU-driven 렌더링 맛보기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 9 — LARGE-SCALE PERFORMANCE</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 Jobs &amp; Burst — 수천 대의 이동 — DT1 Phase 9</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 9 대규모 성능 심화<span class="sep">/</span>01 Jobs &amp; Burst
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 9 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-memory-streaming.html" title="메모리 프로파일링과 씬 스트리밍">02</a></li>
+      <li><a href="03-gpu-driven.html" title="GPU-driven 렌더링 맛보기">03</a></li>
+      <li><a href="04-practice.html" title="실습 — 수천 대 최적화 직접 측정">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 9 — 대규모 성능 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 9 · Station 01</p>
+    <h1>Jobs &amp; Burst — 수천 대의 이동</h1>
+    <p class="lede">
+      Phase 4의 매니저 통합은 호출을 96번에서 1번으로 줄였지만, 그 1번은 여전히 <strong>메인 스레드
+      한 개</strong>가 전부 처리한다. 비히클이 수천 대가 되면 그 한 스레드가 프레임 예산을 넘긴다.
+      처방은 둘 — 일을 <strong>여러 코어</strong>에 나누고(Jobs), 그 코드를 <strong>기계어</strong>까지
+      끌어내린다(Burst).
+    </p>
+  </div>
+
+  <h2>왜 매니저 통합 다음이 Jobs인가</h2>
+  <p>
+    Phase 4 교재 끝의 티저 — "매니저 통합 다음 단계가 있다" — 가 바로 이것이다. 매니저 루프는
+    호출 오버헤드를 없앴지만 계산은 <strong>코어 1개</strong>가 다 한다. 요즘 CPU는 코어가 8개,
+    16개다. 노는 코어에 일을 나눠 주는 것이 <strong>C# Job System</strong>이다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/1VZaW4_quzI" title="How to use the Job System + Burst with Game Objects in Unity" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      <strong>GameObject를 유지한 채</strong> Job System + Burst로 대량 Transform을 움직이는 법 —
+      <code>IJobParallelForTransform</code> + <code>TransformAccessArray</code>의 실제 사용을 보여 준다.
+      우리 <code>JobifiedVehicleFleet</code>가 정확히 이 패턴이다.
+      <a href="https://www.youtube.com/watch?v=1VZaW4_quzI">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>NativeArray와 Allocator — GC 밖의 메모리</h2>
+  <p>
+    관리 힙(GC)의 배열(<code>float[]</code>)은 잡에 넘길 수 없다 — GC가 언제든 옮길 수 있기
+    때문이다. 그래서 <strong>NativeArray</strong>가 필요하다: GC 밖 네이티브 메모리에 값 타입을
+    연속 배치한다. 얼마나 오래 살지는 <strong>Allocator</strong>가 정하고, <strong>할당한 쪽이
+    Dispose 책임</strong>을 진다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Allocator</th><th>수명</th><th>해제</th><th>쓰는 곳</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead"><code>Temp</code></td><td>한 함수/한 프레임</td><td>자동</td><td>잡 밖의 짧은 임시 버퍼</td></tr>
+        <tr><td class="rowhead"><code>TempJob</code></td><td>잡 하나(≤4프레임)</td><td>잡 후 Dispose</td><td>매 프레임 Schedule/Complete하는 입력</td></tr>
+        <tr><td class="rowhead"><code>Persistent</code></td><td>명시적 해제까지</td><td><code>OnDestroy</code>에서 Dispose</td><td>컴포넌트 내내 유지(<code>offsets</code> 등)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>안전성 시스템 — 레이스를 컴파일이 잡는다</h2>
+  <p>
+    멀티스레딩의 악몽은 데이터 레이스다. Job System은 <code>[ReadOnly]</code>/<code>[WriteOnly]</code>
+    표시와 의존 추적으로, <strong>같은 데이터를 두 잡이 동시에 쓰면 스케줄 시점에 예외</strong>를
+    던진다. "안전한 멀티스레딩"이 가능한 이유다 — 사람이 락을 걸지 않아도 엔진이 충돌을 막는다.
+  </p>
+
+  <h2>IJobParallelForTransform + TransformAccessArray</h2>
+  <p>
+    순수 데이터 병렬은 <code>IJobParallelFor</code>지만, <strong>GameObject의 Transform을 유지한 채</strong>
+    대량 이동하려면 <code>IJobParallelForTransform</code> + <strong>TransformAccessArray</strong>다.
+    이 프로젝트는 후자가 정답 — 오브젝트 선택·물리·기존 씬을 버리지 않기 때문이다.
+    <code>Time.time</code>은 잡 안에서 못 읽으니 <strong>메인 스레드에서 계산해 잡 필드로 전달</strong>하고,
+    <code>Vector3</code>/<code>Mathf</code> 대신 <code>float3</code>/<code>math</code>를 써야 <strong>Burst</strong>가
+    SIMD로 벡터화한다.
+  </p>
+  <pre><code>[BurstCompile]
+private struct MoveJob : IJobParallelForTransform
+{
+    [ReadOnly] public NativeArray&lt;float&gt; Offsets;
+    public float Travel;      // 메인 스레드에서 Time.time * speed로 채워 전달
+    public float Perimeter;
+    public float HalfWidth;
+    public float HalfLength;
+
+    public void Execute(int index, TransformAccess transform)
+    {
+        float distance = Repeat(Travel + Offsets[index], Perimeter);
+        transform.localPosition = EvaluateTrack(distance, transform.localPosition.y);
+    }
+    // Repeat: math.floor 기반, EvaluateTrack: 4구간 순환 트랙을 float3로 이식
+}</code></pre>
+
+  <h2>측정 — Profiler Timeline에서 워커 분산 읽기</h2>
+  <p>
+    <code>ProfilerMarker</code>로 구간을 이름표 찍어 재고, Profiler 타임라인에서 <strong>메인 스레드
+    한 줄에 몰려 있던 이동이 워커 스레드 여러 줄로 퍼지는</strong> 것을 확인한다. 화면 FPS는 참고용 —
+    신뢰 측정은 마커의 ms다(실습 스테이션에서 상술).
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>방식</th><th>스레드</th><th>대량에서의 한계</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">오브젝트별 Update</td><td>메인 1</td><td>호출 오버헤드 N배(P4에서 기각)</td></tr>
+        <tr><td class="rowhead">매니저 통합 루프</td><td>메인 1</td><td>코어 1개가 전부 — 수천 대에서 예산 초과</td></tr>
+        <tr><td class="rowhead">Jobs</td><td>워커 N</td><td>스케줄 오버헤드, 작은 N에선 손해</td></tr>
+        <tr><td class="rowhead">Jobs + Burst</td><td>워커 N + SIMD</td><td>현재 최적. 다음은 GPU-driven</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="위: 메인 스레드 한 줄의 긴 막대가 16.6ms 예산선을 넘는다. 아래: 같은 총량을 워커 4개 레인에 나눠 예산선 안에 든다.">
+      <line x1="360" y1="20" x2="360" y2="240" class="d-accent" stroke-width="2" stroke-dasharray="6 4"/>
+      <text class="d-label-strong" x="366" y="34">16.6 ms 예산(60fps)</text>
+
+      <text class="d-label" x="20" y="70">메인 1</text>
+      <rect class="d-fill-rail" x="110" y="56" width="480" height="24" rx="3"/>
+      <text class="d-text" x="600" y="74">예산 초과</text>
+
+      <text class="d-label" x="20" y="150">워커 4</text>
+      <rect class="d-fill-accent" x="110" y="120" width="120" height="18" rx="3" opacity="0.6"/>
+      <rect class="d-fill-accent" x="110" y="144" width="120" height="18" rx="3" opacity="0.6"/>
+      <rect class="d-fill-accent" x="110" y="168" width="120" height="18" rx="3" opacity="0.6"/>
+      <rect class="d-fill-accent" x="110" y="192" width="120" height="18" rx="3" opacity="0.6"/>
+      <text class="d-text" x="250" y="200">예산 안</text>
+    </svg>
+    <figcaption>같은 일이라도 코어 수만큼 나누면 각 워커의 막대가 짧아져 프레임 예산 안에 든다.</figcaption>
+  </figure>
+
+  <figure class="photo">
+    <img src="../assets/img/phase9-stress.png" alt="FabSim-P9-Complete의 스트레스 씬 — 장비 열과 발광 상태등, 천장 레일 위 대량 비히클">
+    <figcaption>
+      <code>FabSim-P9-Complete</code>의 스트레스 씬 — 이 수많은 비히클(천장 레일)과 장비(발광
+      상태등)를 <code>JobifiedVehicleFleet</code>가 워커 스레드로 움직인다. 잡 경로(useJobs)와 매니저
+      루프가 <strong>정확히 같은 궤도</strong>를 내는지는 순수 <code>TrackMath</code>의 좌표 계산을
+      헤드리스 테스트로 검증했다(모서리·연속성). Burst 잡·NativeArray·TransformAccessArray가 컴파일
+      경고 0으로 돈다. 잡화 전/후 Profiler 워커 분산은 실습(Station 04)에서 직접 측정한다.
+    </figcaption>
+  </figure>
+
+  <h2>지도만 — ECS/DOTS</h2>
+  <p>
+    한 걸음 더 가면 <strong>DOTS</strong>(ECS)가 있다 — 데이터를 캐시 친화적으로 재배치하고
+    GameObject를 아예 제거해 더 큰 규모를 소화한다. 하지만 기존 씬·컴포넌트·에디터 워크플로를
+    유지하며 최대 이득을 얻는 <strong>지금의 최적 투자는 Jobs+Burst까지</strong>다. 수만 대 + 구조
+    데이터 전환 여력이 될 때 넘어간다.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>왜 관리 힙 배열(<code>float[]</code>)은 잡에 넘길 수 없고 NativeArray가 필요한가?</summary>
+      <div class="answer">
+        <p>
+          GC가 관리 힙의 객체를 언제든 이동·회수할 수 있어, 워커 스레드가 그 메모리를 안전하게
+          참조할 수 없다. NativeArray는 GC 밖 네이티브 메모리에 고정 배치돼, 잡이 여러 스레드에서
+          안전하게 읽고 쓸 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>offsets</code>는 왜 <code>Persistent</code>인가?</summary>
+      <div class="answer">
+        <p>
+          <code>offsets</code>는 컴포넌트가 사는 내내 매 프레임 잡 입력으로 쓰인다. <code>Temp</code>·
+          <code>TempJob</code>은 수명이 짧아(한 프레임/잡 하나) 매번 재할당해야 한다. 컴포넌트
+          수명 내내 유지되는 데이터는 <code>Persistent</code>로 한 번 할당하고 <code>OnDestroy</code>에서
+          Dispose한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>Time.time</code>을 잡 <code>Execute</code> 안에서 직접 읽으면 안 되는 이유와 대안은?</summary>
+      <div class="answer">
+        <p>
+          <code>Time.time</code>은 메인 스레드 전용 엔진 API라 워커 스레드에서 접근 불가다. 메인
+          스레드에서 <code>Travel = Time.time * speed</code>를 계산해 잡의 필드로 넘긴 뒤, 잡은 그
+          값을 읽어 쓴다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>순수 데이터 병렬이 아니라 <code>IJobParallelForTransform</code>을 쓰는 이유는?</summary>
+      <div class="answer">
+        <p>
+          <strong>GameObject의 Transform을 유지</strong>하려고다. 오브젝트 선택·물리·기존 씬 워크플로를
+          버리지 않으면서 대량 Transform을 워커 스레드로 옮기려면 <code>TransformAccessArray</code>와
+          짝을 이루는 이 잡 타입이 필요하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Burst가 살려면 무엇을 써야 하며, 확인은 어떤 도구로 하는가?</summary>
+      <div class="answer">
+        <p>
+          <code>Vector3</code>/<code>Mathf</code> 대신 <code>float3</code>/<code>math.*</code>
+          (Unity.Mathematics)를 써야 Burst가 SIMD로 벡터화한다. 실제 생성된 SIMD 명령은
+          <strong>Burst Inspector</strong>에서 어셈블리로 확인한다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase8/05-practice.html">
+      <span class="dir">← PREV — PHASE 8</span>
+      <span class="title">실습 — 내 시뮬레이터를 트윈으로</span>
+    </a>
+    <a class="next" href="02-memory-streaming.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">메모리 프로파일링과 씬 스트리밍</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 9 — LARGE-SCALE PERFORMANCE</div>
+</footer>
+
+</body>
+</html>

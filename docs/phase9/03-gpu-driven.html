@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 GPU-driven 렌더링 맛보기 — DT1 Phase 9</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 9 대규모 성능 심화<span class="sep">/</span>03 GPU-driven
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 9 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-jobs-burst.html" title="Jobs &amp; Burst — 수천 대의 이동">01</a></li>
+      <li><a href="02-memory-streaming.html" title="메모리 프로파일링과 씬 스트리밍">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-practice.html" title="실습 — 수천 대 최적화 직접 측정">04</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 9 — 대규모 성능 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 9 · Station 03</p>
+    <h1>GPU-driven 렌더링 맛보기</h1>
+    <p class="lede">
+      Jobs로 CPU를 풀고 메모리를 스트리밍으로 잡아도, GameObject 하나하나에는 Transform·컬링·드로우
+      준비의 고정 비용이 붙는다. 수만 대에서는 그 고정 비용조차 벽이 된다. 마지막 답사 —
+      <strong>GameObject를 아예 버리고</strong>, 위치 계산은 GPU가, 그리기도 GPU가 스스로 반복하게 한다.
+    </p>
+  </div>
+
+  <h2>왜 GPU-driven인가</h2>
+  <p>
+    GameObject N개 = Transform N개 + 컬링 N번 + 드로우 준비 N번이다. 이걸 없애면 CPU는
+    <strong>드로우콜 1번</strong>만 낸다. 대신 오브젝트 선택·물리·개별 컴포넌트를 포기한다 —
+    개체가 "그냥 움직이는 점"에 가까울 때만 남는 장사다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/bny9f4zw5JE" title="Render 1 Million Objects with Shader Graph and Unity" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      <strong>100만 개</strong> 오브젝트를 indirect 드로우로 그리는 예 — GameObject 없이 GPU 버퍼로
+      인스턴스를 밀어 넣어 CPU를 손 떼게 하는 GPU-driven의 위력을 보여 준다.
+      <a href="https://www.youtube.com/watch?v=bny9f4zw5JE">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>GraphicsBuffer와 컴퓨트 셰이더</h2>
+  <p>
+    <strong>GraphicsBuffer</strong>(ComputeBuffer)는 CPU와 GPU가 함께 읽고 쓰는 구조화 버퍼 —
+    인스턴스별 위치를 담는 그릇이다. <strong>컴퓨트 셰이더</strong>의 커널이 트랙 수식(스테이션 1의
+    <code>EvaluateTrack</code>과 같은 로직)을 GPU에서 병렬 실행해 결과를 <code>RWStructuredBuffer</code>에
+    기록한다(<code>Dispatch(threadGroups)</code>).
+  </p>
+
+  <h2>RenderMeshIndirect — 드로우콜 하나로 수만 개</h2>
+  <p>
+    <strong>인다이렉트 드로우</strong>는 그릴 인스턴스 수·오프셋을 CPU가 아니라 <strong>args
+    버퍼</strong>에서 읽는다(<code>Graphics.RenderMeshIndirect(renderParams, mesh, argsBuffer)</code>).
+    CPU는 손을 떼고 GPU가 반복한다. 버텍스 셰이더가 <code>StructuredBuffer&lt;float3&gt;</code>에서
+    인스턴스 인덱스로 자기 위치를 읽어 배치한다(URP 호환 HLSL).
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="컴퓨트 셰이더가 위치 버퍼를 채우고, args 버퍼와 함께 RenderMeshIndirect로 넘어가 GPU가 N개 인스턴스를 그린다. CPU는 드로우콜 1번만 낸다.">
+      <defs>
+        <marker id="ah9g" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <rect class="d-node-2" x="20" y="80" width="130" height="56" rx="6"/>
+      <text class="d-label" x="85" y="104" text-anchor="middle">Compute</text>
+      <text class="d-text" x="85" y="122" text-anchor="middle">위치 계산</text>
+      <rect class="d-fill-soft" x="200" y="50" width="120" height="40" rx="4"/>
+      <text class="d-text" x="260" y="74" text-anchor="middle">위치 버퍼</text>
+      <rect class="d-fill-rail" x="200" y="120" width="120" height="40" rx="4"/>
+      <text class="d-text" x="260" y="144" text-anchor="middle" fill="#fff">args 버퍼</text>
+      <rect class="d-node" x="370" y="80" width="160" height="56" rx="6"/>
+      <text class="d-label" x="450" y="104" text-anchor="middle">RenderMeshIndirect</text>
+      <text class="d-text" x="450" y="122" text-anchor="middle">드로우콜 1번</text>
+      <g class="d-fill-accent" opacity="0.6">
+        <rect x="580" y="60" width="14" height="14"/><rect x="600" y="60" width="14" height="14"/><rect x="620" y="60" width="14" height="14"/>
+        <rect x="580" y="80" width="14" height="14"/><rect x="600" y="80" width="14" height="14"/><rect x="620" y="80" width="14" height="14"/>
+        <rect x="580" y="100" width="14" height="14"/><rect x="600" y="100" width="14" height="14"/><rect x="620" y="100" width="14" height="14"/>
+      </g>
+      <text class="d-label-strong" x="640" y="140">GPU가 N번 반복</text>
+      <line x1="150" y1="100" x2="198" y2="72" class="d-rail" stroke-width="2" marker-end="url(#ah9g)"/>
+      <line x1="150" y1="116" x2="198" y2="140" class="d-rail" stroke-width="2" marker-end="url(#ah9g)"/>
+      <line x1="320" y1="90" x2="368" y2="104" class="d-rail" stroke-width="2" marker-end="url(#ah9g)"/>
+      <line x1="320" y1="140" x2="368" y2="116" class="d-rail" stroke-width="2" marker-end="url(#ah9g)"/>
+      <line x1="530" y1="100" x2="575" y2="90" class="d-rail" stroke-width="2" marker-end="url(#ah9g)"/>
+    </svg>
+    <figcaption>그릴 개수는 CPU가 아니라 <strong>버퍼가 안다</strong>. CPU는 드로우콜 1번, GPU가 N번 반복한다.</figcaption>
+  </figure>
+
+  <h2>기술 사다리 — 언제 여기로 오는가</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>단계</th><th>위치 계산</th><th>드로우콜</th><th>유지되는 것</th><th>이 트랙에서</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">매니저 통합(P4)</td><td>메인 스레드</td><td>인스턴싱/배칭</td><td>GameObject 전부</td><td>기본</td></tr>
+        <tr><td class="rowhead">Jobs + Burst(P9 St.1)</td><td>워커 스레드 + SIMD</td><td>인스턴싱/배칭</td><td>GameObject 전부</td><td>주력</td></tr>
+        <tr><td class="rowhead">GPU-driven(St.3)</td><td>GPU(컴퓨트)</td><td>indirect 1회</td><td>없음(점만)</td><td>천장 답사</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    GameObject의 이점(선택·물리·에디터 워크플로)을 포기해도 될 만큼 수가 많고 개체가 "그냥 움직이는
+    점"에 가까울 때 여기로 온다. Phase 9는 지형만 파악하고, 프로젝트 본편은 Jobs+Burst 주력이다.
+  </p>
+
+  <!-- TODO(editor-session): FabSim-P9-Complete에서 5만 인스턴스 게임뷰(phase9-03-50k-gameview.png)와
+       Frame Debugger의 단일 indirect 드로우콜(phase9-03-framedebugger-onecall.png)을 캡처해 수록. -->
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>GPU-driven이 없애는 CPU 비용은 구체적으로 무엇 N개인가?</summary>
+      <div class="answer">
+        <p>
+          GameObject N개당 붙던 <strong>Transform 갱신 N번, 컬링 N번, 드로우 준비 N번</strong>이다.
+          GameObject를 버리면 이 고정 비용이 사라지고 CPU는 드로우콜 1번만 낸다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>RenderMeshIndirect</code>가 일반 드로우와 다른 점은?</summary>
+      <div class="answer">
+        <p>
+          그릴 <strong>인스턴스 수·오프셋을 CPU가 넘기지 않고 args 버퍼(GPU 메모리)에서 읽는다</strong>.
+          그래서 CPU는 개수를 몰라도 되고, GPU가 버퍼의 값만큼 스스로 반복한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>GameObject를 버리면 무엇을 포기하는가(최소 두 가지)?</summary>
+      <div class="answer">
+        <p>
+          레이캐스트 <strong>오브젝트 선택</strong>, <strong>물리(충돌)</strong>, 개별 컴포넌트·에디터
+          워크플로(Inspector에서 개체 조작) 등을 포기한다. 개체가 "그냥 그려지는 점"일 때만 감수할 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>컴퓨트 셰이더가 계산한 위치가 렌더 셰이더로 어떻게 전달되는가?</summary>
+      <div class="answer">
+        <p>
+          공용 <strong>GraphicsBuffer(StructuredBuffer)</strong>를 통해서다. 컴퓨트 커널이 위치를
+          버퍼에 쓰고, 버텍스 셰이더가 인스턴스 인덱스로 같은 버퍼에서 자기 위치를 읽는다. CPU를
+          거치지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Jobs+Burst로 충분한데 굳이 GPU-driven으로 넘어가는 판단 기준은?</summary>
+      <div class="answer">
+        <p>
+          개체 수가 수만~수십만으로 커져 GameObject의 고정 비용(Transform·컬링·드로우 준비)이 벽이
+          되고, 그 개체들이 선택·물리 없이 "그냥 움직이는 점"으로 충분할 때다. 그 전까지는 씬·에디터
+          워크플로를 유지하는 Jobs+Burst가 더 나은 투자다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-memory-streaming.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">메모리 프로파일링과 씬 스트리밍</span>
+    </a>
+    <a class="next" href="04-practice.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">실습 — 수천 대 최적화 직접 측정</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 9 — LARGE-SCALE PERFORMANCE</div>
+</footer>
+
+</body>
+</html>

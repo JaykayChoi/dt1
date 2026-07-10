@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 실습 — 수천 대 최적화 직접 측정 — DT1 Phase 9</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 9 대규모 성능 심화<span class="sep">/</span>04 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 9 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-jobs-burst.html" title="Jobs &amp; Burst — 수천 대의 이동">01</a></li>
+      <li><a href="02-memory-streaming.html" title="메모리 프로파일링과 씬 스트리밍">02</a></li>
+      <li><a href="03-gpu-driven.html" title="GPU-driven 렌더링 맛보기">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 9 — 대규모 성능 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 9 · Station 04 · 실습</p>
+    <h1>실습 — 수천 대 최적화 직접 측정</h1>
+    <p class="lede">
+      스테이션 1~3에서 읽은 기법을 이제 자기 손으로 붙이고 <strong>직접 측정</strong>한다. 읽어서
+      이해한 최적화가 내가 <strong>수치로 증명</strong>한 최적화가 된다.
+    </p>
+  </div>
+
+  <h2>시작 상태 — 어디서 출발하나</h2>
+  <ul>
+    <li><strong>무대</strong>: 사용자의 <code>FabSim</code>의 Phase 4 스트레스 씬(팹 베이 + 순환 비히클).
+      <strong>폴백</strong>: <code>FabSim-P9-Complete</code>의 <code>StressSceneBuilder</code>
+      (<code>FABSIM_VEHICLE_COUNT</code>로 대수 지정)로 씬을 생성하거나, 완성본 씬 구조를 보고 직접 구성.</li>
+  </ul>
+  <p>
+    <button class="btn-launch" type="button" data-open="fabsim">
+      <span class="glyph">▶</span><span class="btn-label">실습 프로젝트 열기 — FabSim</span>
+    </button>
+    <button class="btn-launch alt" type="button" data-open="p9-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P9-Complete</span>
+    </button>
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="실습 5단계 노선도: Baseline 측정 → 잡화 → Burst → 측정표 → (선택) 스트리밍.">
+      <line class="d-rail" x1="50" y1="60" x2="800" y2="60" stroke-width="3"/>
+      <g>
+        <circle cx="90" cy="60" r="11" class="d-node"/><text class="d-label" x="90" y="95" text-anchor="middle">M1 Baseline</text>
+        <circle cx="260" cy="60" r="11" class="d-node"/><text class="d-label" x="260" y="95" text-anchor="middle">M2 잡화</text>
+        <circle cx="430" cy="60" r="11" class="d-node"/><text class="d-label" x="430" y="95" text-anchor="middle">M3 Burst</text>
+        <circle cx="600" cy="60" r="11" class="d-node"/><text class="d-label" x="600" y="95" text-anchor="middle">M4 측정표</text>
+        <circle cx="770" cy="60" r="11" class="d-fill-accent"/><text class="d-label" x="770" y="95" text-anchor="middle">M5 스트리밍</text>
+      </g>
+      <text class="d-text" x="90" y="38" text-anchor="middle">현재 대수 기록</text>
+      <text class="d-text" x="260" y="38" text-anchor="middle">같은 궤도·워커 분산</text>
+      <text class="d-text" x="430" y="38" text-anchor="middle">ms 급감</text>
+      <text class="d-text" x="600" y="38" text-anchor="middle">12칸 완성</text>
+      <text class="d-text" x="770" y="38" text-anchor="middle">(선택)</text>
+    </svg>
+    <figcaption>각 단계는 실행해 눈으로 확인 가능한 "돌아가는 상태"로 끝난다.</figcaption>
+  </figure>
+
+  <h2>교재가 주는 스켈레톤 (그대로 붙이면 컴파일, 본문은 TODO)</h2>
+  <pre><code>[BurstCompile]
+private struct MoveJob : IJobParallelForTransform
+{
+    [ReadOnly] public NativeArray&lt;float&gt; Offsets;
+    public float Travel;
+    public float Perimeter;
+    public float HalfWidth;
+    public float HalfLength;
+
+    public void Execute(int index, TransformAccess transform)
+    {
+        // TODO(실습): d = Repeat(Travel + Offsets[index], Perimeter)를 구한다.
+        // TODO(실습): EvaluateTrack의 직사각 순환 트랙 4구간 수식을 float3로 옮겨
+        //             transform.localPosition을 채운다.
+    }
+}
+
+private void Update()
+{
+    if (!useJobs) { return; }
+    // TODO(실습): MoveJob을 구성해 job.Schedule(transformAccess).Complete();
+}</code></pre>
+
+  <h2>마일스톤 — 목표 · 할 일 · 완료 기준</h2>
+  <ol>
+    <li>
+      <strong>M1 Baseline 측정</strong> — 스트레스 씬 Play, <strong>VSync 끄고</strong> Profiler로 기존
+      매니저 경로의 Move ms와 FPS 기록.
+      <br><strong>완료 기준</strong>: 측정표의 "매니저 루프" 열 한 줄(현재 대수)이 채워진다.
+    </li>
+    <li>
+      <strong>M2 잡화</strong> — <code>JobifiedVehicleFleet</code>의 <code>Execute</code>/<code>Repeat</code>/
+      <code>EvaluateTrack</code>/스케줄 TODO를 채우고 <code>useJobs</code>를 켠다.
+      <br><strong>완료 기준</strong>: 차량이 <strong>기존과 동일한 궤도</strong>로 주행하고(위치 검증),
+      Profiler에 워커 스레드 분산이 보인다.
+      <br><strong>막히면</strong>: 완성본 <code>JobifiedVehicleFleet.cs</code>의 잡 본문.
+    </li>
+    <li>
+      <strong>M3 Burst</strong> — <code>Jobs &gt; Burst &gt; Enable Compilation</code>을 껐다 켜 비교,
+      Burst Inspector로 <code>MoveJob</code>의 SIMD 명령 확인.
+      <br><strong>완료 기준</strong>: Burst on일 때 Move ms가 눈에 띄게 줄어든다.
+    </li>
+    <li>
+      <strong>M4 측정표 채우기</strong> — <code>FABSIM_VEHICLE_COUNT</code>로 500/2,000/5,000/10,000대에서
+      매니저/Job/Job+Burst를 각각 측정한다.
+      <br><strong>완료 기준</strong>: 12칸 측정표 완성 + "어느 대수에서 매니저 루프가 예산을 넘는가" 서술.
+    </li>
+    <li>
+      <strong>(선택) M5 스트리밍</strong> — <code>ZoneStreamer</code> TODO를 채워 구역 additive
+      로드/언로드, Memory Profiler 스냅샷 3장으로 해제 확인.
+      <br><strong>완료 기준</strong>: 언로드 후 메모리 감소를 diff로 확인.
+    </li>
+  </ol>
+
+  <h2>측정 기록 템플릿 (직접 채움)</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>차량 수</th><th>매니저 루프 (ms)</th><th>Job (ms)</th><th>Job+Burst (ms)</th><th>60fps 유지?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">500</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td class="rowhead">2,000</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td class="rowhead">5,000</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td class="rowhead">10,000</td><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="label">측정 함정 회피</span>
+    <p>
+      <strong>VSync를 끈다</strong>(안 그러면 프레임이 주사율에 캡되어 CPU 개선이 안 보인다). Burst는
+      첫 실행에 컴파일 스톨이 있으니 워밍업 프레임을 버린다. <strong>FPS가 아니라 Profiler의
+      <code>Move</code> 마커 ms</strong>로 읽는다. 가능하면 Development Build로, 에디터 값이면 "에디터"라
+      명시하고 방식 간 <strong>상대 비율</strong>로 결론낸다.
+    </p>
+  </div>
+
+  <!-- TODO(editor-session): FabSim-P9-Complete에서 측정 예시(phase9-04-measure-example.png)를 캡처해 수록.
+       스테이션 01의 워커 분산 스크린샷을 재사용해도 된다. -->
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Baseline을 먼저 측정하지 않고 잡화부터 하면 무엇을 말할 수 없게 되는가?</summary>
+      <div class="answer">
+        <p>
+          "얼마나 좋아졌는가"를 말할 수 없다. 개선은 항상 기준 대비다 — Baseline이 없으면 잡화 후
+          수치가 좋은지 나쁜지 판단할 기준이 없다. Phase 4의 "측정 → 병목 → 처방"에서 측정이 먼저인
+          이유다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>잡화 후 차량 궤도가 기존과 같은지 확인해야 하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          <strong>정확성 회귀</strong>를 막기 위해서다. 빨라졌어도 궤도가 틀리면 최적화가 아니라 버그다.
+          <code>float3</code>로 옮긴 <code>EvaluateTrack</code>이 원본과 같은 위치를 내야 공정한 비교이자
+          올바른 구현이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>500대에서 Job이 매니저 루프보다 느릴 수 있는 이유는?</summary>
+      <div class="answer">
+        <p>
+          잡의 <strong>스케줄·동기화 오버헤드</strong> 때문이다. 일이 적으면 워커에 나눠 주고 모으는
+          비용이 계산 절감보다 커서 역전된다. 이 역전 지점을 표로 드러내는 것이 실습의 핵심 관찰이다 —
+          최적화는 규모에 따라 다르다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>VSync를 켠 채 측정하면 왜 CPU 개선이 안 보이는가?</summary>
+      <div class="answer">
+        <p>
+          VSync는 프레임을 모니터 주사율(예: 60Hz)에 맞춰 캡한다. CPU가 더 빨라져도 프레임레이트는
+          60에 묶여 "여유"가 화면에 안 드러난다. Profiler의 실제 <code>Move</code> ms는 줄지만 FPS는
+          그대로라 착시가 생긴다 — 측정 시 VSync를 끈다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>NativeArray</code>/<code>TransformAccessArray</code>를 Dispose하지 않으면?</summary>
+      <div class="answer">
+        <p>
+          네이티브 메모리가 해제되지 않아 <strong>누수</strong>가 나고, 에디터가 미해제 경고를 띄운다.
+          할당한 쪽(컴포넌트)이 <code>OnDestroy</code>에서 <code>Dispose()</code> 책임을 진다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="03-gpu-driven.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">GPU-driven 렌더링 맛보기</span>
+    </a>
+    <a class="next" href="../phase10/01-cad-fbx-import.html">
+      <span class="dir">NEXT — PHASE 10 →</span>
+      <span class="title">실자산 파이프라인 — CAD/FBX 임포트</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 9 — LARGE-SCALE PERFORMANCE</div>
+</footer>
+
+</body>
+</html>
