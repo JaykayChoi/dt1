@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 테스트 — Unity Test Framework &amp; asmdef — DT1 Phase 6</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 6 신뢰성<span class="sep">/</span>01 테스트 &amp; asmdef
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 6 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-output-analysis.html" title="시뮬레이션 출력 분석 — 반복·신뢰구간·V&amp;V">02</a></li>
+      <li><a href="03-practice.html" title="실습 — 테스트와 신뢰구간 직접 붙이기">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 6 — 신뢰성·검증</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 6 · Station 01</p>
+    <h1>테스트: Unity Test Framework &amp; asmdef</h1>
+    <p class="lede">
+      Phase 2에서 DesCore를 <strong>UnityEngine 없이 콘솔에서 몇 초 만에 돌려 검증</strong>하려고
+      만들었다. 그 검증을 사람 눈이 아니라 코드가 <strong>자동으로, 매번</strong> 하게 만드는 것이
+      테스트다. 그리고 여러 명이 공유하는 대형 Unity 프로젝트에서 테스트를 돌리려면, 먼저 코드를
+      <strong>어셈블리</strong>로 나눠야 한다 — 이번 스테이션은 그 둘을 함께 세운다.
+    </p>
+  </div>
+
+  <h2>왜 자동화 테스트인가 — 회귀와 재현성</h2>
+  <p>
+    신입이 대형 코드베이스에 처음 코드를 얹을 때 가장 무서운 것은 "내가 고친 것이 <strong>다른
+    무언가를 몰래 망가뜨렸을까</strong>"라는 불안이다. <strong>회귀 테스트</strong>는 그 불안에
+    답하는 그물이다 — 한 번 고친 결함이 되살아나지 않는지, 잘 돌던 기능이 조용히 깨지지 않았는지
+    코드가 매번 자동으로 확인한다. 사람이 손으로 재확인하는 것과 다른 점은 딱 하나, <strong>지치지도
+    잊지도 않는다</strong>는 것이다.
+  </p>
+  <p>
+    Phase 2에서 "재현 안 되는 시뮬레이터는 디버깅이 불가능하다"며 <strong>결정성</strong>을 설계에
+    못 박았다 — 같은 시드면 같은 결과, 동시각 사건은 일련번호(<code>SimEvent.Sequence</code>)로
+    순서를 고정한다. 그 결정성 덕에 시뮬레이션 코드도 테스트할 수 있다. 결과가 실행마다 흔들린다면
+    "기대값 == 실제값"이라는 단언 자체가 성립하지 않기 때문이다. 재현성은 디버깅의 전제일 뿐 아니라
+    <strong>테스트의 전제</strong>이기도 하다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/HYqOSkHI674" title="Assembly Definitions in Unity — Infallible Code" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity의 <strong>Assembly Definition(asmdef)</strong>이 무엇이고 왜 필요한지 —
+      스크립트를 어셈블리로 나눠 재컴파일 범위를 줄이고 의존 방향을 강제하는 그림을
+      실제 프로젝트에서 보여 준다.
+      <a href="https://www.youtube.com/watch?v=HYqOSkHI674">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>NUnit 기초</h2>
+  <p>
+    Unity Test Framework는 <strong>NUnit</strong>을 그대로 쓴다. 그래서 콘솔에서
+    <code>dotnet test</code>로 익힌 문법이 Unity 에디터로 고스란히 이어진다 — 앞의
+    <code>examples/phase2-descore/DesCore.Tests</code>에서 쓴 코드가 정확히 그 예다.
+    핵심 어휘는 넷뿐이다.
+  </p>
+  <pre><code>[Test]                                  // 이 메서드는 하나의 테스트다
+public void UtilizationMatchesHandComputedValue()
+{
+    var sim = new Simulation();
+    var resource = new SimResource(sim, "M", 1);
+    sim.Schedule(0.0, () =&gt; resource.Request(() =&gt; { }));  // t=0 점유
+    sim.Schedule(10.0, () =&gt; resource.Release());          // t=10 해제
+    sim.Run(20.0);
+
+    // busy 10 / (Now 20 * cap 1) = 0.5 — 손으로 계산한 값과 대조한다.
+    Assert.That(resource.GetUtilization(), Is.EqualTo(0.5).Within(1e-9));
+}
+
+[Test]
+public void ReleaseWithoutRequestThrows()
+{
+    var sim = new Simulation();
+    var resource = new SimResource(sim, "M", 1);
+    // 예외가 나야 정상 — 안 나면 그것이 실패다.
+    Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; resource.Release());
+}</code></pre>
+  <ul>
+    <li><code>[Test]</code> — 이 메서드가 테스트임을 표시한다. <code>[TestCase(a, b)]</code>를 붙이면 같은 로직을 여러 입력으로 파라미터화할 수 있다.</li>
+    <li><code>Assert.That(actual, Is.EqualTo(expected).Within(delta))</code> — 부동소수는 정확히 같을 수 없으므로 허용오차 <code>Within</code>으로 비교한다.</li>
+    <li><code>Assert.Throws&lt;T&gt;(...)</code> — "이 호출은 반드시 이 예외를 던져야 한다"를 단언한다. 경계·오용의 검증이다.</li>
+    <li><strong>픽스처</strong> — <code>[SetUp]</code>/<code>[TearDown]</code>은 각 테스트 직전·직후에 공통 준비·정리를 돌려, 모든 테스트가 늘 같은 초기 상태에서 출발하게 한다.</li>
+  </ul>
+
+  <h2>EditMode vs PlayMode</h2>
+  <p>
+    Unity 테스트는 <strong>EditMode</strong>와 <strong>PlayMode</strong> 두 갈래다. 둘을 가르는
+    기준은 하나 — <strong>프레임(시간)이 흘러야 하는가</strong>다. 순수 로직(그래프 탐색, 배차 선택,
+    통계 계산)은 프레임이 필요 없으니 EditMode에서 즉시 돌리고, 배속 브리지처럼 "프레임이 흘러야"
+    관측되는 것은 PlayMode에서 <code>yield return null</code>로 프레임 경계를 넘으며 검증한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>실행 컨텍스트</th>
+          <th>프레임·시간</th>
+          <th>MonoBehaviour 생명주기</th>
+          <th>속도</th>
+          <th>이 페이즈의 예</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">EditMode</td>
+          <td>에디터 도메인에서 즉시</td>
+          <td>프레임 없음(<code>Update</code> 안 돎)</td>
+          <td>수동(직접 호출)</td>
+          <td>빠름</td>
+          <td>RailGraph 다익스트라 · 최근접 배차 선택</td>
+        </tr>
+        <tr>
+          <td class="rowhead">PlayMode</td>
+          <td>실제 재생 루프</td>
+          <td>프레임 진행(<code>yield</code>)</td>
+          <td><code>Awake</code>/<code>Update</code> 실제 호출</td>
+          <td>느림</td>
+          <td>배속 브리지 시간 전진(<code>[UnityTest]</code>)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>asmdef — 어셈블리 분리</h2>
+  <p>
+    Unity는 <strong>asmdef</strong>가 없으면 프로젝트의 모든 스크립트를 <code>Assembly-CSharp</code>
+    하나로 컴파일한다. 그러면 세 가지가 무너진다 — 한 줄만 고쳐도 <strong>전부 재컴파일</strong>되고,
+    "코어는 UI에 의존하면 안 된다" 같은 <strong>의존 방향을 강제할 수 없으며</strong>, 테스트 코드가
+    프로덕션 빌드에 섞인다. asmdef는 폴더 서브트리를 하나의 DLL로 선언하는 파일이고, 핵심 규칙은
+    이것이다: <strong>하위 폴더에 asmdef가 있으면 그 서브트리는 부모 asmdef에서 떨어져 나온다</strong>
+    (중첩 override). 이 규칙이 Runtime/Editor/Tests 분리의 메커니즘이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="asmdef 의존 방향 도식: Editor·Tests.EditMode·Tests.PlayMode 세 어셈블리가 가운데 Runtime 어셈블리로 화살표를 향하고, Runtime 안에는 DesCore와 Scripts가 함께 들어 있다. Runtime에서 나가는 화살표는 없다.">
+      <!-- Runtime (중앙) -->
+      <rect class="d-node" x="280" y="130" width="240" height="120" rx="8"/>
+      <text class="d-label-strong" x="400" y="152" text-anchor="middle">FabSim.Runtime</text>
+      <rect class="d-soft" x="298" y="166" width="96" height="66" rx="5" fill="none" stroke-width="1.5"/>
+      <text class="d-label" x="346" y="192" text-anchor="middle">DesCore/</text>
+      <text class="d-text" x="346" y="210" text-anchor="middle">UnityEngine</text>
+      <text class="d-text" x="346" y="224" text-anchor="middle">무의존</text>
+      <rect class="d-fill-accent" x="406" y="166" width="98" height="66" rx="5" opacity="0.18"/>
+      <rect x="406" y="166" width="98" height="66" rx="5" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label" x="455" y="192" text-anchor="middle">Scripts/</text>
+      <text class="d-text" x="455" y="210" text-anchor="middle">FabSim.Sim +</text>
+      <text class="d-text" x="455" y="224" text-anchor="middle">MonoBehaviour</text>
+
+      <!-- Editor (왼쪽) -->
+      <rect class="d-node" x="40" y="160" width="150" height="60" rx="8"/>
+      <text class="d-label" x="115" y="188" text-anchor="middle">FabSim.Editor</text>
+      <text class="d-text" x="115" y="206" text-anchor="middle">P5SceneBuilder</text>
+      <line class="d-rail" x1="190" y1="190" x2="278" y2="190" stroke-width="2" marker-end="url(#ah)"/>
+
+      <!-- Tests.EditMode (오른쪽 위) -->
+      <rect class="d-node" x="610" y="60" width="160" height="60" rx="8"/>
+      <text class="d-label" x="690" y="86" text-anchor="middle">Tests.EditMode</text>
+      <text class="d-text" x="690" y="104" text-anchor="middle">순수 로직 검증</text>
+      <line class="d-rail" x1="608" y1="108" x2="522" y2="150" stroke-width="2" marker-end="url(#ah)"/>
+
+      <!-- Tests.PlayMode (오른쪽 아래) -->
+      <rect class="d-node" x="610" y="260" width="160" height="60" rx="8"/>
+      <text class="d-label" x="690" y="286" text-anchor="middle">Tests.PlayMode</text>
+      <text class="d-text" x="690" y="304" text-anchor="middle">런타임 검증</text>
+      <line class="d-rail" x1="608" y1="272" x2="522" y2="230" stroke-width="2" marker-end="url(#ah)"/>
+
+      <text class="d-label" x="400" y="300" text-anchor="middle">화살표는 의존 방향 (dependant → dependency)</text>
+      <text class="d-text" x="400" y="322" text-anchor="middle">Runtime에서 나가는 화살표는 없다 — 코어는 아무에게도 의존하지 않는다</text>
+
+      <defs>
+        <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+    </svg>
+    <figcaption>
+      화살표가 전부 Runtime으로 <strong>한 방향</strong>이다 = 순환 의존 없음 = 코어(Runtime)만
+      따로 컴파일·테스트할 수 있다. DesCore와 Scripts는 형제 폴더라 <strong>한 Runtime 어셈블리에
+      함께</strong> 담긴다.
+    </figcaption>
+  </figure>
+
+  <p>
+    실무의 "3분할"은 사실 <strong>네 개</strong>의 어셈블리로 갈린다. PlayMode 테스트는 Editor 전용
+    어셈블리에서 실행할 수 없으므로(플랫폼 설정이 EditMode/PlayMode를 가른다), Tests가
+    EditMode용과 PlayMode용 두 어셈블리로 물리적으로 나뉜다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>어셈블리</th>
+          <th>폴더</th>
+          <th>참조하는 것</th>
+          <th>플랫폼</th>
+          <th>담기는 코드</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">FabSim.Runtime</td>
+          <td><code>Assets/</code>(루트)</td>
+          <td>(없음)</td>
+          <td>전체</td>
+          <td>DesCore + FabSim.Sim + MonoBehaviour</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FabSim.Editor</td>
+          <td><code>Assets/Editor/</code></td>
+          <td>FabSim.Runtime</td>
+          <td>Editor 전용</td>
+          <td>P5SceneBuilder · FabSimSetup</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FabSim.Tests.EditMode</td>
+          <td><code>Assets/Tests/EditMode/</code></td>
+          <td>Runtime + TestRunner</td>
+          <td>Editor 전용</td>
+          <td>EditMode 테스트</td>
+        </tr>
+        <tr>
+          <td class="rowhead">FabSim.Tests.PlayMode</td>
+          <td><code>Assets/Tests/PlayMode/</code></td>
+          <td>Runtime + TestRunner</td>
+          <td>전체 플랫폼</td>
+          <td>PlayMode 테스트</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="photo">
+    <img src="../assets/img/phase6-fabsim-scene.png" alt="FabSim-P6-Complete의 MiniFab 씬 — 구운 조명 아래 일방통행 레일 루프와 장비들이 놓인 미니 팹 내부">
+    <figcaption>
+      이 스테이션의 asmdef·테스트가 지키는 실물 — <code>FabSim-P6-Complete</code>의 MiniFab 씬이다.
+      이 프로젝트에서 <code>unity-cli test</code>로 EditMode 4개(RailGraph·배차 선택)와 PlayMode 1개
+      (배속 브리지)가 모두 <strong>green</strong>임을 확인했다. asmdef 4분할(Runtime/Editor/
+      Tests.EditMode/Tests.PlayMode)로 컴파일해도 console는 에러·경고 0이다.
+    </figcaption>
+  </figure>
+
+  <h2>테스트 가능한 설계의 역학습</h2>
+  <p>
+    여기서 Phase 2의 한 결정이 다른 이름으로 되돌아온다. DesCore를 <code>UnityEngine</code>에
+    의존시켰다면, EditMode에서도 헤드리스 <code>dotnet</code>에서도 돌릴 수 없었을 것이다 —
+    <code>UnityEngine</code>은 에디터/플레이어 없이는 로드되지 않기 때문이다. "코어를 프레임워크에서
+    떼어 놓는다"는 그때의 제약이 곧 <strong>테스트 용이성</strong>이었다. 좋은 테스트는 대개 좋은
+    설계의 결과지, 나중에 덧붙이는 겉옷이 아니다.
+  </p>
+  <div class="callout">
+    <span class="label">의존을 끊으면 테스트가 열린다</span>
+    <p>
+      코어가 무거운 프레임워크(UnityEngine, 네트워크, 파일 시스템)에 직접 매이면, 그것을 검증하려
+      매번 프레임워크 전체를 띄워야 한다. 반대로 코어를 순수 로직으로 떼어 놓으면 몇 밀리초 만에
+      수백 개의 단언을 돌릴 수 있다 — DesCore 12개 테스트가 콘솔에서 <strong>0.3초</strong>에 끝나는
+      것이 그 증거다.
+    </p>
+  </div>
+
+  <h2>헤드리스 실행 — 사람 없이 도는 그물</h2>
+  <p>
+    같은 로직을 두 무대에서 돌린다. 콘솔 코어(DesCore)는 <code>dotnet test</code>로, Unity 코어는
+    <code>unity-cli test</code>(EditMode) / <code>unity-cli test --mode PlayMode</code>로. 둘 다
+    사람이 클릭하지 않아도 <strong>CI 파이프라인</strong>에서 자동으로 돌 수 있다 — 커밋이 올라올
+    때마다 그물이 회귀를 잡는다. 코어가 프레임워크 무의존이라 콘솔에서도 도는 것, 그것이
+    "이식 가능한 코어"의 실용적 배당금이다.
+  </p>
+  <pre><code># 콘솔 코어 — DesCore 단위·통계 테스트
+dotnet test examples/phase2-descore/DesCore.Tests
+
+# Unity 코어 — 에디터 커넥터로 헤드리스 실행
+unity-cli test                 # EditMode: RailGraph · 배차 선택
+unity-cli test --mode PlayMode # PlayMode: 배속 브리지 시간 전진</code></pre>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      트윈은 "시뮬 KPI ≈ 실측 KPI"를 증명해야 신뢰받는 시스템이다. 그 증명의 첫 계단이
+      <strong>"엔진이 설계대로 맞게 도는가"</strong>(Verification)이고, 그것을 코드로 못 박는 것이
+      이번 스테이션이다. 다음 스테이션은 한 층 위 질문 — "그 엔진이 뱉는 <strong>숫자</strong>를
+      어떻게 믿을 것인가"로 넘어간다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>asmdef가 하나도 없어 전부 Assembly-CSharp로 컴파일되면 무엇이 문제인가?</summary>
+      <div class="answer">
+        <p>
+          세 가지가 무너진다. ① 한 줄만 고쳐도 프로젝트 전체가 재컴파일된다(재컴파일 범위 통제 불가).
+          ② "코어는 UI에 의존하면 안 된다" 같은 의존 방향을 강제할 수 없다. ③ 테스트 코드가
+          프로덕션 어셈블리에 섞여 빌드로 딸려 나간다. asmdef로 나눠야 이 셋이 해결된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>EditMode와 PlayMode 테스트를 가르는 기준은 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          <strong>프레임(시간)이 흘러야 검증되는가</strong>다. 순수 로직은 프레임이 필요 없으니
+          EditMode에서 즉시 돌리고, 프레임이 흘러야 관측되는 런타임 동작(배속 브리지의 시간 전진 등)은
+          PlayMode에서 <code>[UnityTest]</code> + <code>yield</code>로 검증한다. 이 구분은 곧
+          어셈블리의 플랫폼 설정으로 나타난다 — PlayMode 테스트는 Editor 전용 어셈블리에서 못 돈다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>DesCore를 UnityEngine 무의존으로 만든 것이 테스트에 어떻게 이득이 되는가?</summary>
+      <div class="answer">
+        <p>
+          UnityEngine에 의존하면 검증할 때마다 에디터/플레이어를 띄워야 한다. 무의존이면 헤드리스
+          <code>dotnet test</code>로 몇 밀리초 만에 수백 개 단언을 돌릴 수 있고, 같은 코드가
+          EditMode에서도 그대로 검증된다. "코어를 프레임워크에서 떼어 놓는다"는 설계가 곧
+          테스트 용이성이었다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>Assets/Editor/</code>에 asmdef를 두면 그 안 스크립트는 어느 어셈블리에 속하는가?</summary>
+      <div class="answer">
+        <p>
+          그 <code>Assets/Editor/</code> 서브트리의 asmdef(FabSim.Editor) 어셈블리에 속한다.
+          하위 폴더에 asmdef가 있으면 그 서브트리는 부모(Runtime)에서 <strong>떨어져 나온다</strong>
+          (중첩 override). 이 규칙 덕에 Assets 루트에 Runtime asmdef 하나만 두고도 Editor·Tests가
+          자동으로 분리된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>같은 로직을 <code>dotnet test</code>와 <code>unity-cli test</code>로 각각 돌리는 의미는?</summary>
+      <div class="answer">
+        <p>
+          코어가 프레임워크 무의존이라 <strong>이식 가능</strong>함을 확인하는 동시에, 두 무대 모두에서
+          회귀 그물을 친다는 뜻이다. 콘솔 테스트는 빠르고 CI에서 가볍게 돌고, Unity 테스트는 실제
+          에디터 환경에서의 통합을 잡는다. 둘 다 사람 없이 자동으로 돌 수 있다는 점이 핵심이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase5/03-milestones.html">
+      <span class="dir">← PREV — PHASE 5</span>
+      <span class="title">마일스톤 — 직접 만드는 순서</span>
+    </a>
+    <a class="next" href="02-output-analysis.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">시뮬레이션 출력 분석 — 반복·신뢰구간·V&amp;V</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 6 — RELIABILITY: TESTING &amp; V&amp;V</div>
+</footer>
+
+</body>
+</html>

@@ -14,6 +14,8 @@ DesCore/                 클래스 라이브러리 (엔진 본체)
 ├── SimResource.cs       용량 제한 자원 — 콜백 기반 Request/Release, 가동률 측정
 └── RandomExtensions.cs  지수분포 샘플링
 DesCore.Demo/            콘솔 데모 — 미니 반송 라인 (SimPy 예제 02와 동일 시나리오)
+DesCore.Tests/           NUnit 단위·통계 테스트 (완성본, Phase 6)
+DesCore.Tests.Practice/  같은 테스트의 실습 스켈레톤 — TODO 스텁을 직접 채운다
 ```
 
 ## 실행
@@ -21,6 +23,27 @@ DesCore.Demo/            콘솔 데모 — 미니 반송 라인 (SimPy 예제 02
 ```
 dotnet run --project DesCore.Demo
 ```
+
+## 테스트 (Phase 6)
+
+DesCore 엔진의 정렬 불변식·클록 정확성·가동률 적분을 자동화 테스트로 못 박고,
+M/M/1 대기행렬을 시뮬레이션해 이론값을 95% 신뢰구간으로 재현하는지 검정한다.
+
+```
+dotnet test DesCore.Tests             # 완성본 — 전체 통과
+dotnet test DesCore.Tests.Practice    # 실습 스켈레톤 — 처음엔 5 실패 / 1 통과
+```
+
+`DesCore.Tests`는 12개 테스트로, `EventQueue`가 (시각, 일련번호) 오름차순을 지키는지,
+`Simulation` 클록이 예약 시각에 정확히 사건을 실행하는지, `SimResource` 가동률이
+손계산 값과 일치하는지, 그리고 `MM1CrossValidationTests`가 λ=0.5·μ=1.0 M/M/1의
+이론 대기시간 Wq=1.0을 40회 반복의 95% CI로 감싸는지를 검증한다(시드 1..40 고정으로
+결정적). 통계 테스트지만 시드를 고정해 플레이키하지 않다.
+
+`DesCore.Tests.Practice`는 같은 테스트의 뼈대다 — `EventQueueTests.PopOnEmptyThrows`
+하나만 완성 예시로 green이고, 나머지 5개는 `// TODO(실습 N)` 스텁이라 처음 실행하면
+"5 실패 / 1 통과"로 미완성이 드러난다. 채워 나가며 완성본과 대조하는 것이 실습이다.
+해설·실습 안내는 `docs/phase6/`에 있다.
 
 ## 설계 노트
 

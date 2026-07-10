@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 시뮬레이션 출력 분석 — 반복·신뢰구간·V&amp;V — DT1 Phase 6</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 6 신뢰성<span class="sep">/</span>02 출력 분석
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 6 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-testing-asmdef.html" title="테스트 — Unity Test Framework &amp; asmdef">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-practice.html" title="실습 — 테스트와 신뢰구간 직접 붙이기">03</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 6 — 신뢰성·검증</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 6 · Station 02</p>
+    <h1>시뮬레이션 출력 분석: 반복·신뢰구간·V&amp;V</h1>
+    <p class="lede">
+      Station 01이 "엔진이 <strong>맞게 돌아가는가</strong>"를 코드로 못 박았다면, 이번엔 그 엔진이
+      뱉는 <strong>숫자</strong>를 어떻게 믿을 것인가다. 배차 랩의 "혼잡에서 최근접작업이 앞선다"는
+      표 하나 — 그건 정말 정책의 차이인가, 아니면 <strong>시드 한 번의 우연</strong>인가?
+      신뢰구간이 그 질문에 답한다.
+    </p>
+  </div>
+
+  <h2>Verification vs Validation — 두 층위의 검증</h2>
+  <p>
+    검증에는 두 질문이 있고, 층위가 다르다. <strong>V&amp;V</strong>라는 한 쌍의 이름이 그 차이를
+    담는다. Verification은 "모델을 <strong>맞게(right) 만들었나</strong>" — 코드가 설계대로인가를
+    묻는다(Station 01의 테스트가 여기 속한다). Validation은 "<strong>맞는(right) 모델을</strong>
+    만들었나" — 그 모델이 현실을 반영하나를 묻는다. 어원까지 갈린다: verify는 라틴어
+    <i class="en">verus</i>(참), validate는 <i class="en">validus</i>(튼튼한)에서 왔다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>축</th>
+          <th>질문</th>
+          <th>대상</th>
+          <th>방법</th>
+          <th>이 트랙의 예</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Verification</td>
+          <td>"엔진을 맞게 만들었나"</td>
+          <td>코드 ↔ 설계</td>
+          <td>단위 테스트 · 이론값 대조</td>
+          <td>Station 01 · M/M/1 이론값 재현</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Validation</td>
+          <td>"맞는 모델인가"</td>
+          <td>모델 ↔ 현실</td>
+          <td>실측 로그와 KPI 비교(MAPE)</td>
+          <td>트윈 검증(Phase 8 연결)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>종료형 vs 정상 상태 — 무엇을 재는가</h2>
+  <p>
+    통계 처리 방식을 가르는 첫 갈림길은 "이 시스템에 <strong>끝이 있는가</strong>"다.
+    <strong>종료형</strong> 시뮬레이션은 명확한 끝이 있다(배차 랩의 8시간 교대). <strong>정상
+    상태</strong>형은 끝없이 도는 시스템의 장기 평균이 관심이다(M/M/1의 대기시간 Wq). 무엇을
+    재느냐가 다음 절의 warm-up 처리를 좌우한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>끝</th>
+          <th>관심 통계</th>
+          <th>warm-up 처리</th>
+          <th>예</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">종료형(terminating)</td>
+          <td>명확(교대 종료)</td>
+          <td>구간 전체 요약</td>
+          <td>대개 불필요(구간 자체가 관심)</td>
+          <td>배차 랩 8시간 교대</td>
+        </tr>
+        <tr>
+          <td class="rowhead">정상 상태(steady-state)</td>
+          <td>없음(장기)</td>
+          <td>장기 평균</td>
+          <td>초기 과도 제거 필수</td>
+          <td>M/M/1 대기시간 Wq</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>warm-up 제거 — 초기 과도를 버린다</h2>
+  <p>
+    시뮬레이션은 <strong>빈 상태</strong>에서 시작한다. 큐가 비어 있고 자원이 놀고 있으므로, 초기
+    구간의 대기시간은 정상 부하보다 낮게 나온다 — 이 초기 과도 구간을 <strong>warm-up</strong>이라
+    한다. 정상 상태 KPI를 재려면 이 구간을 <strong>버려야</strong> 편향이 안 생긴다. Welch 기법은
+    여러 반복의 KPI 시계열을 시각별로 평균해, 이동평균이 평평해지는 지점을 절단점으로 잡는다.
+    실습 랩은 개념을 간이판(고정 절단 — 예: 첫 30분/첫 5,000명 제외)으로 적용한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="warm-up 구간 그래프: KPI 이동평균이 낮게 시작해 상승한 뒤 평평해진다. 왼쪽 상승부는 warm-up으로 버리고, 절단점 오른쪽 평평부를 정상 상태로 사용한다.">
+      <!-- 축 -->
+      <line class="d-rail" x1="70" y1="240" x2="760" y2="240" stroke-width="2"/>
+      <line class="d-rail" x1="70" y1="40" x2="70" y2="240" stroke-width="2"/>
+      <text class="d-label" x="415" y="272" text-anchor="middle">시뮬레이션 시간 →</text>
+      <text class="d-label" x="24" y="140" transform="rotate(-90 24 140)" text-anchor="middle">KPI 이동평균</text>
+
+      <!-- warm-up 음영 -->
+      <rect class="d-fill-accent" x="70" y="40" width="230" height="200" opacity="0.14"/>
+      <!-- 곡선: 낮게 시작 → 상승 → 평평 -->
+      <path d="M70,220 C160,215 240,150 300,120 C380,90 520,86 760,84" fill="none" class="d-accent" stroke-width="3"/>
+      <!-- 절단점 -->
+      <line x1="300" y1="40" x2="300" y2="240" class="d-soft" stroke-width="2" stroke-dasharray="6 5"/>
+      <text class="d-label" x="185" y="70" text-anchor="middle">warm-up — 버림</text>
+      <text class="d-label" x="530" y="70" text-anchor="middle">정상 상태 — 사용</text>
+      <text class="d-text" x="300" y="256" text-anchor="middle">절단점</text>
+    </svg>
+    <figcaption>
+      곡선이 낮게 출발하는 것은 빈 큐 때문이다. 이 상승부(음영)를 평균에 넣으면 정상 상태 KPI가
+      <strong>낮게 편향</strong>된다. 절단점 이후만 써야 대표성이 생긴다.
+    </figcaption>
+  </figure>
+
+  <h2>독립 반복 — 한 번의 실행은 표본 하나</h2>
+  <p>
+    핵심 전환은 여기다. 단일 실행의 숫자 하나는 <strong>난수 시드가 만든 우연</strong>일 수 있다.
+    그래서 시드만 바꿔 같은 시나리오를 여러 번 돌리고, 각 실행의 KPI를 하나의 <strong>표본</strong>으로
+    본다 — 이것이 <strong>독립 반복</strong>이다. 한 번의 실행 = 표본 하나, 반복 수 <i class="en">n</i>이
+    통계의 자유도를 준다. 배차 랩은 이제 정책×부하 조합을 20회 반복해 20개의 표본을 모은다.
+  </p>
+
+  <h2>t-분포 95% 신뢰구간 — 점이 아니라 구간으로</h2>
+  <p>
+    반복으로 모은 표본에서 <strong>신뢰구간</strong>을 만든다. 표본평균 x̄, 표본표준편차 s, 반복
+    n에 대해:
+  </p>
+  <pre><code>95% CI = x̄ ± t(0.975, n−1) · s / √n</code></pre>
+  <p>
+    모분산을 모르고 n이 작으므로 정규분포가 아니라 <strong>t-분포</strong>를 쓴다. 반복 수가 클수록
+    t-임계값은 1.96(정규)에 가까워진다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>반복 n</th>
+          <th>자유도 df = n−1</th>
+          <th>t(0.975, df)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">10</td><td>9</td><td>2.262</td></tr>
+        <tr><td class="rowhead">20</td><td>19</td><td>2.093</td></tr>
+        <tr><td class="rowhead">30</td><td>29</td><td>2.045</td></tr>
+        <tr><td class="rowhead">40</td><td>39</td><td>2.023</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="신뢰구간 도식: 반복별 KPI 표본 점들이 세로로 흩어져 있고, 가운데 평균 가로선과 위아래 신뢰구간 밴드가 있다. 밴드 안에 이론값 가로선이 들어 있어 검증 통과를 나타낸다.">
+      <line class="d-rail" x1="70" y1="250" x2="760" y2="250" stroke-width="2"/>
+      <text class="d-label" x="415" y="280" text-anchor="middle">반복 20회 → 표본 20개</text>
+
+      <!-- CI 밴드 -->
+      <rect class="d-fill-accent" x="70" y="120" width="690" height="70" opacity="0.16"/>
+      <line x1="70" y1="120" x2="760" y2="120" class="d-soft" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <line x1="70" y1="190" x2="760" y2="190" class="d-soft" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text class="d-label" x="770" y="118" text-anchor="end">x̄ + t·s/√n</text>
+      <text class="d-label" x="770" y="204" text-anchor="end">x̄ − t·s/√n</text>
+
+      <!-- 평균선 -->
+      <line x1="70" y1="155" x2="760" y2="155" class="d-accent" stroke-width="2.5"/>
+      <text class="d-label" x="120" y="148">x̄ (표본평균)</text>
+
+      <!-- 이론값선 -->
+      <line x1="70" y1="168" x2="760" y2="168" class="d-rail" stroke-width="2" stroke-dasharray="9 5"/>
+      <text class="d-label" x="640" y="182">이론값 Wq</text>
+
+      <!-- 표본 점들 -->
+      <g class="d-fill-rail">
+        <circle cx="110" cy="140" r="4"/><circle cx="160" cy="175" r="4"/><circle cx="210" cy="130" r="4"/>
+        <circle cx="260" cy="182" r="4"/><circle cx="310" cy="150" r="4"/><circle cx="360" cy="115" r="4"/>
+        <circle cx="410" cy="195" r="4"/><circle cx="460" cy="145" r="4"/><circle cx="510" cy="160" r="4"/>
+        <circle cx="560" cy="135" r="4"/><circle cx="610" cy="188" r="4"/><circle cx="660" cy="150" r="4"/>
+        <circle cx="710" cy="170" r="4"/>
+      </g>
+    </svg>
+    <figcaption>
+      이론값(점선)이 95% CI 밴드 <strong>안</strong>에 들면 "엔진이 알려진 정답을 재현했다" =
+      Verification 통과다. DesCore의 M/M/1 테스트가 정확히 이 그림을 코드로 단언한다 —
+      λ=0.5·μ=1.0의 이론 Wq=1.0이 40회 반복의 95% CI 안에 드는지.
+    </figcaption>
+  </figure>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/TqOeMYtOc1w" title="Confidence Intervals, Clearly Explained — StatQuest" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      StatQuest의 <strong>신뢰구간</strong> 직관 설명. "95% 신뢰구간"이 정확히 무엇을 의미하는지,
+      왜 점추정치 하나보다 구간이 정직한지를 그림으로 풀어 준다.
+      <a href="https://www.youtube.com/watch?v=TqOeMYtOc1w">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>공통 난수와 대응 비교 — 우연을 상쇄한다</h2>
+  <p>
+    두 정책을 비교할 때 서로 다른 난수로 돌리면 정책 차이와 우연 차이가 섞인다. <strong>공통
+    난수</strong>(CRN) — 같은 반송 명령 스트림을 두 정책에 흘리면 우연이 상쇄돼 정책 차이만 남는다.
+    배차 랩은 이미 <code>streamRandom</code>(스트림 공유)과 <code>policyRandom</code>(정책 내부)을
+    분리해 절반을 해 두었다. CRN에서는 반복별 차이 d<sub>r</sub> = KPI<sub>A</sub>(r) −
+    KPI<sub>B</sub>(r)의 <strong>대응(paired) t-검정</strong>을 쓰면 분산이 크게 줄어, 더 적은
+    반복으로 유의성을 판정할 수 있다.
+  </p>
+  <div class="callout">
+    <span class="label">랩에서 실제로 나온 판정</span>
+    <p>
+      혼잡 부하에서 최근접작업의 평균대기는 <strong>1.22 ± 0.04분</strong>, 최근접차량은
+      <strong>9.02 ± 2.54분</strong> — 두 CI가 겹치지 않는다. 대응 비교는 Δ=−7.80분,
+      <strong>t=−6.49</strong>로 95% 유의(임계값 2.093을 한참 넘는다). 반대로 여유 부하에서는
+      Δ=−0.01분인데도 t=−3.62로 "유의"가 뜬다 — <strong>통계적 유의성 ≠ 효과 크기</strong>를
+      보여 주는 자리다. 유의하다고 다 중요한 것은 아니다.
+    </p>
+  </div>
+
+  <h2>트윈 검증 맛보기 — Validation의 실전판</h2>
+  <p>
+    Validation을 실무로 옮기면 이렇게 된다: 시뮬레이션 KPI를 <strong>실측 로그 KPI</strong>와
+    대조한다. 오차 지표로는 <strong>MAPE</strong>(평균 절대 백분율 오차)를 쓴다 — 트윈의 예측이
+    실측과 평균 몇 % 어긋나는지를 한 숫자로 말한다. 그 실측 로그는 어디서 오나? Phase 8의
+    이벤트 스트림 <strong>레코더</strong>가 이 데이터를 공급한다. 검증은 곁다리가 아니라, 트윈이
+    신뢰받기 위해 반드시 통과해야 하는 관문이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      "신뢰구간 없이 시뮬레이션 결과를 보고하지 않는다"는 태도가 트윈 엔지니어의 직무 역량이다.
+      의사결정("이 배차 정책을 도입하자", "이 레이아웃이 낫다")이 시뮬레이터 출력에서 나오는 이상,
+      그 숫자에 <strong>불확실성의 폭</strong>을 함께 붙이는 것이 정직한 보고다. 다음 스테이션에서
+      이 둘(테스트 + 신뢰구간)을 직접 자기 손으로 붙인다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Verification과 Validation의 차이를 한 문장씩 말해 보라.</summary>
+      <div class="answer">
+        <p>
+          Verification은 "엔진을 <strong>설계대로</strong> 맞게 만들었나"(코드↔설계)를, Validation은
+          "그 모델이 <strong>현실을</strong> 반영하는 맞는 모델인가"(모델↔현실)를 묻는다. 앞은 단위
+          테스트·이론값 대조로, 뒤는 실측 로그와의 KPI 비교로 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>왜 점추정치 하나가 아니라 신뢰구간으로 보고하는가?</summary>
+      <div class="answer">
+        <p>
+          단일 실행의 숫자는 난수 시드가 만든 우연일 수 있기 때문이다. 반복으로 표본을 모아
+          x̄ ± t·s/√n의 구간을 보고하면, 그 결과에 담긴 불확실성의 폭이 드러난다. 두 정책의 CI가
+          겹치면 "차이가 우연일 수 있다"고, 겹치지 않으면 "우연으로 설명되지 않는다"고 정직하게
+          말할 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>warm-up 구간을 버리지 않으면 무엇이 편향되는가?</summary>
+      <div class="answer">
+        <p>
+          시뮬레이션은 빈 큐에서 출발하므로 초기 구간의 대기시간·큐 길이가 정상 부하보다 낮게
+          나온다. 이 초기 과도 구간을 평균에 넣으면 <strong>정상 상태 KPI가 낮게 편향</strong>된다.
+          그래서 정상 상태형 시뮬레이션에서는 절단점 이전 구간을 버린다. 단, 종료형(끝이 있는
+          8시간 교대 등)에서는 그 구간 자체가 관심사라 대개 버리지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>공통 난수(CRN)가 정책 비교를 어떻게 공정하게 만드는가?</summary>
+      <div class="answer">
+        <p>
+          같은 반송 명령 스트림을 두 정책에 똑같이 흘리면, 두 실행의 차이에서 <strong>우연이
+          상쇄</strong>되고 정책 자체의 차이만 남는다. 이 상태에서 반복별 차이 d<sub>r</sub>의
+          대응(paired) t-검정을 쓰면 분산이 크게 줄어, 더 적은 반복으로도 유의성을 가릴 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M/M/1 이론값 Wq가 시뮬레이션 CI 안에 든다는 것은 무엇을 뜻하는가?</summary>
+      <div class="answer">
+        <p>
+          엔진이 <strong>알려진 정답을 재현</strong>했다는 뜻이다 — 즉 Verification 통과다. 대기행렬
+          이론이 닫힌 해 Wq = ρ/(μ−λ)를 주는데, DesCore로 시뮬레이션한 Wq의 95% CI가 그 이론값을
+          감싸면 "우리 엔진이 이 알려진 경우에서 맞게 동작한다"가 통계적으로 확인된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-testing-asmdef.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">테스트 — Unity Test Framework &amp; asmdef</span>
+    </a>
+    <a class="next" href="03-practice.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">실습 — 테스트와 신뢰구간 직접 붙이기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 6 — RELIABILITY: TESTING &amp; V&amp;V</div>
+</footer>
+
+</body>
+</html>
