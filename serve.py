@@ -23,6 +23,11 @@ PROJECTS = {
     "p4-complete": ROOT / "FabSim-P4-Complete",   # Phase 4 완성본 (최적화 실험장)
     "p5-complete": ROOT / "FabSim-P5-Complete",   # Phase 5 완성본 (미니 팹 시뮬레이터)
     "p3viz-complete": ROOT / "FabSim-P3Viz-Complete",  # Phase 3 DT 시각화 완성본
+    "p6-complete": ROOT / "FabSim-P6-Complete",   # Phase 6 완성본 (asmdef·테스트)
+    "p7-complete": ROOT / "FabSim-P7-Complete",   # Phase 7 완성본 (교통 제어·데드락)
+    "p8-complete": ROOT / "FabSim-P8-Complete",   # Phase 8 완성본 (디지털 트윈 브리지)
+    "p9-complete": ROOT / "FabSim-P9-Complete",   # Phase 9 완성본 (Jobs/Burst·스트리밍)
+    "p10-complete": ROOT / "FabSim-P10-Complete", # Phase 10 완성본 (자산 파이프라인)
 }
 
 

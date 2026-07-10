@@ -443,6 +443,31 @@ figure.media figcaption {
   border-top: 1px dashed var(--line);
 }
 
+/* 완성본 스크린샷 — 실물 미디어와 동일한 프레임 톤 */
+
+figure.photo {
+  margin: 0 0 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px;
+}
+
+figure.photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+figure.photo figcaption {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
 /* file:// 로 열었을 때의 YouTube 폴백 (썸네일 + 새 탭 링크) */
 .frame .yt-fallback {
   position: relative;
@@ -743,6 +768,7 @@ figure.media figcaption {
   vertical-align: middle;
 }
 .badge.live { border-color: var(--ok); color: var(--ok); }
+.badge.soon { border-color: var(--line); color: var(--muted); }
 
 /* 유니티 프로젝트 실행 버튼 */
 

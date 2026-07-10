@@ -518,6 +518,337 @@
     </table>
   </div>
 
+  <h2>신뢰성 · 검증</h2>
+  <p>Phase 6에서 코드와 숫자를 책임지는 법을 배울 때 쓸 어휘. 테스트와 통계적 출력 분석의 도구들이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">asmdef</td>
+          <td><i class="en">Assembly Definition</i></td>
+          <td>폴더 서브트리를 하나의 컴파일 단위(DLL)로 선언해 재컴파일 범위·의존 방향·테스트 분리를 통제하는 파일.</td>
+          <td><a href="../phase6/01-testing-asmdef.html">P6·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">회귀 테스트</td>
+          <td><i class="en">regression test</i></td>
+          <td>이미 고친 결함이 되살아나지 않는지 자동으로 반복 확인하는 테스트. 팀 협업의 안전그물.</td>
+          <td><a href="../phase6/01-testing-asmdef.html">P6·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">EditMode / PlayMode</td>
+          <td><i class="en">EditMode / PlayMode</i></td>
+          <td>Unity 테스트의 두 모드. 프레임이 필요 없는 순수 로직은 EditMode, 프레임이 흘러야 하는 런타임은 PlayMode.</td>
+          <td><a href="../phase6/01-testing-asmdef.html">P6·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">V&amp;V</td>
+          <td><i class="en">Verification &amp; Validation</i></td>
+          <td>"엔진을 설계대로 맞게 만들었나"(Verification)와 "현실을 반영하는 맞는 모델인가"(Validation)의 두 검증 축.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">신뢰구간</td>
+          <td><i class="en">confidence interval</i></td>
+          <td>참값이 그 안에 있으리라고 주어진 확률(보통 95%)로 말할 수 있는 값의 범위. 점추정치의 불확실성을 담는다.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">독립 반복</td>
+          <td><i class="en">replication</i></td>
+          <td>시드만 바꿔 같은 시나리오를 여러 번 돌려 각 실행을 표본으로 삼는 것. 신뢰구간의 재료.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">warm-up</td>
+          <td><i class="en">warm-up / transient</i></td>
+          <td>빈 상태에서 출발한 초기 과도 구간. 정상 상태 통계에서는 편향을 피하려 이 구간을 버린다.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">공통 난수</td>
+          <td><i class="en">CRN</i></td>
+          <td>두 대안에 같은 난수 스트림을 흘려 우연 차이를 상쇄하고 대안 자체의 차이만 남기는 분산 감소 기법.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">MAPE</td>
+          <td><i class="en">Mean Absolute Percentage Error</i></td>
+          <td>예측과 실측의 절대 백분율 오차 평균. 트윈 KPI가 실측과 몇 % 어긋나는지를 한 숫자로 말하는 Validation 척도.</td>
+          <td><a href="../phase6/02-output-analysis.html">P6·02</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Fleet 심화 — 교통 · 데드락 · 라우팅 · 배차</h2>
+  <p>Phase 7에서 차량이 서로를 막고 멈추는 세계를 다룰 때 쓸 어휘. 교통 제어와 경로·배차의 도구들이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">구간 점유</td>
+          <td><i class="en">zone control</i></td>
+          <td>경로를 구간으로 나눠 한 구간에 한 대만 들이고, 다음 구간을 예약받아야 진입하는 교통 제어.</td>
+          <td><a href="../phase7/01-traffic-control.html">P7·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">밀도-흐름 관계</td>
+          <td><i class="en">fundamental diagram</i></td>
+          <td>차량 밀도와 흐름(처리량)의 관계 곡선. 임계 밀도를 넘으면 정체로 흐름이 급감(꺾임)한다.</td>
+          <td><a href="../phase7/01-traffic-control.html">P7·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">순환 대기</td>
+          <td><i class="en">circular wait</i></td>
+          <td>대기 관계가 A→B→…→A로 원을 이루는 상태. 데드락 성립의 마지막 조건이다.</td>
+          <td><a href="../phase7/02-deadlock.html">P7·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">wait-for 그래프</td>
+          <td><i class="en">wait-for graph</i></td>
+          <td>"누가 누구를 기다리는가"를 간선으로 그린 방향 그래프. 사이클이 있으면 곧 데드락이다.</td>
+          <td><a href="../phase7/02-deadlock.html">P7·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">자원 순서화</td>
+          <td><i class="en">resource ordering</i></td>
+          <td>자원에 전역 번호를 매겨 커지는 순서로만 획득하게 해 순환 대기를 원천 차단하는 데드락 예방.</td>
+          <td><a href="../phase7/02-deadlock.html">P7·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">A*</td>
+          <td><i class="en">A-star</i></td>
+          <td>f=g+h(실비용+목표까지 추정)로 탐색을 목표 쪽으로 당기는 최단경로 알고리즘. 다익스트라보다 적게 확장한다.</td>
+          <td><a href="../phase7/03-routing.html">P7·03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">허용 가능 휴리스틱</td>
+          <td><i class="en">admissible heuristic</i></td>
+          <td>실제 비용을 절대 과대평가하지 않는 추정. 이 성질이 있어야 A*가 최단해를 보장한다.</td>
+          <td><a href="../phase7/03-routing.html">P7·03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">에이징</td>
+          <td><i class="en">aging</i></td>
+          <td>오래 기다린 요청의 우선순위를 대기 시간에 비례해 올려 기아를 막는 기법. 실제 기아가 있을 때만 값어치한다.</td>
+          <td><a href="../phase7/04-advanced-dispatch.html">P7·04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">P95</td>
+          <td><i class="en">95th percentile</i></td>
+          <td>표본의 95 %가 그 값 이하인 지점. 평균이 감추는 꼬리(최악 근처)를 드러내는 공정성 지표다.</td>
+          <td><a href="../phase7/04-advanced-dispatch.html">P7·04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">기회 충전</td>
+          <td><i class="en">opportunity charging</i></td>
+          <td>유휴 시간마다 조금씩 충전해 배터리를 넉넉히 유지하는 정책. 배터리 AGV/AMR에 해당(OHT는 무관).</td>
+          <td><a href="../phase7/04-advanced-dispatch.html">P7·04</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>디지털 트윈 · 네트워킹 · UI</h2>
+  <p>Phase 8에서 시뮬레이터를 외부 스트림에 연결하고 운영자 화면을 만들 때 쓸 어휘.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">미러링 / 섀도</td>
+          <td><i class="en">mirroring / shadow</i></td>
+          <td>디지털 트윈 성숙도 단계 — 실물을 비추기만(미러링) → 이력 축적·분석(섀도) → 되먹임(트윈).</td>
+          <td><a href="../phase8/01-twin-vs-sim.html">P8·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">NDJSON</td>
+          <td><i class="en">Newline-Delimited JSON</i></td>
+          <td>한 줄에 완결된 JSON 객체 하나를 줄바꿈으로 구분하는 스트리밍 로그 형식. 이벤트 스트림에 알맞다.</td>
+          <td><a href="../phase8/02-event-stream-replay.html">P8·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">스냅샷 / 델타</td>
+          <td><i class="en">snapshot / delta</i></td>
+          <td>전체 상태(스냅샷, 재동기 기준점)와 변화분(델타). 비디오 코덱의 키프레임/P프레임과 같은 구조.</td>
+          <td><a href="../phase8/02-event-stream-replay.html">P8·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">플레이아웃 지연</td>
+          <td><i class="en">playout delay</i></td>
+          <td>도착 데이터를 버퍼(지터 버퍼)에 잠시 담았다 재생해 네트워크 흔들림을 흡수하는 지연. 게임 넷코드와 동일.</td>
+          <td><a href="../phase8/03-realtime-bridge.html">P8·03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">마샬링</td>
+          <td><i class="en">marshalling</i></td>
+          <td>수신 스레드에서 만든 데이터를 Unity 메인 스레드로 안전하게 넘기는 것. 스레드 경계를 넘길 때 거친다.</td>
+          <td><a href="../phase8/03-realtime-bridge.html">P8·03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">UXML / USS</td>
+          <td><i class="en">UnityXML / Unity Style Sheets</i></td>
+          <td>UI Toolkit의 구조(UXML=HTML)와 스타일(USS=CSS). 로직(C#)과 분리해 웹처럼 UI를 짠다.</td>
+          <td><a href="../phase8/04-ui-toolkit-dashboard.html">P8·04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">BEM</td>
+          <td><i class="en">Block Element Modifier</i></td>
+          <td>UI 클래스를 block__element--modifier로 짓는 명명 규약. 색이 아니라 의미(상태)를 이름에 담는다.</td>
+          <td><a href="../phase8/04-ui-toolkit-dashboard.html">P8·04</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">ListView 가상화</td>
+          <td><i class="en">ListView virtualization</i></td>
+          <td>긴 목록에서 화면에 보이는 몇 행만 만들어 재활용하는 기법. 차량 수천 대 목록을 가볍게 유지한다.</td>
+          <td><a href="../phase8/04-ui-toolkit-dashboard.html">P8·04</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>대규모 성능 — Jobs · 메모리 · GPU</h2>
+  <p>Phase 9에서 수천~수만 대를 60fps로 굴릴 때 쓸 어휘. 멀티스레딩·메모리·GPU 렌더링의 도구들이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">NativeArray</td>
+          <td><i class="en">NativeArray&lt;T&gt;</i></td>
+          <td>GC 밖 네이티브 메모리에 값 타입을 연속 배치한 배열. 잡에 넘겨 워커 스레드에서 안전하게 다룬다.</td>
+          <td><a href="../phase9/01-jobs-burst.html">P9·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">Burst</td>
+          <td><i class="en">Burst</i></td>
+          <td>잡 코드를 LLVM으로 받아 SIMD 네이티브 기계어로 컴파일하는 Unity 컴파일러. float3/math를 써야 산다.</td>
+          <td><a href="../phase9/01-jobs-burst.html">P9·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">TransformAccessArray</td>
+          <td><i class="en">TransformAccessArray</i></td>
+          <td>GameObject의 Transform 무리를 잡에서 병렬로 다루게 해 주는 컨테이너. IJobParallelForTransform과 짝.</td>
+          <td><a href="../phase9/01-jobs-burst.html">P9·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">Memory Profiler</td>
+          <td><i class="en">Memory Profiler</i></td>
+          <td>메모리 스냅샷을 찍어 관리·네이티브·자산별 점유를 보고, 스냅샷 diff로 누수를 사냥하는 패키지.</td>
+          <td><a href="../phase9/02-memory-streaming.html">P9·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">애디티브 씬</td>
+          <td><i class="en">additive scene</i></td>
+          <td>기존 씬을 유지한 채 겹쳐 로드하는 씬. 큰 맵을 구역별로 나눠 필요한 곳만 메모리에 올린다.</td>
+          <td><a href="../phase9/02-memory-streaming.html">P9·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">인다이렉트 드로우</td>
+          <td><i class="en">indirect draw</i></td>
+          <td>그릴 인스턴스 수·오프셋을 GPU 버퍼에서 읽어 드로우콜 한 번으로 수만 개를 그리는 렌더링.</td>
+          <td><a href="../phase9/03-gpu-driven.html">P9·03</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">VSync</td>
+          <td><i class="en">Vertical Synchronization</i></td>
+          <td>프레임을 모니터 주사율에 맞춰 캡하는 설정. 켜면 CPU 여유가 가려져 성능 측정 시 끈다.</td>
+          <td><a href="../phase9/04-practice.html">P9·04</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>실자산 파이프라인</h2>
+  <p>Phase 10에서 고객의 CAD 자산을 배칭되는 씬으로 길들일 때 쓸 어휘. 임포트·자동화의 도구들이다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>영문 · 약어</th>
+          <th>한 줄 정의</th>
+          <th>관련 문서</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">서브메시</td>
+          <td><i class="en">submesh</i></td>
+          <td>한 메시 안에서 같은 재질이 적용되는 삼각형 묶음. 재질 N개 → 서브메시 N개 → 드로우콜 하한 N개.</td>
+          <td><a href="../phase10/01-cad-fbx-import.html">P10·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">Read/Write Enabled</td>
+          <td><i class="en">Read/Write Enabled</i></td>
+          <td>메시를 런타임에 CPU에서도 읽고 쓰게 유지하는 임포트 옵션. 켜면 메모리가 2배 — 기본은 끈다.</td>
+          <td><a href="../phase10/01-cad-fbx-import.html">P10·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">tessellation</td>
+          <td><i class="en">tessellation</i></td>
+          <td>CAD의 수학적 곡면(B-rep)을 삼각형 그물로 잘게 나누는 과정. 곡률이 클수록 촘촘히 쪼갠다.</td>
+          <td><a href="../phase10/01-cad-fbx-import.html">P10·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">프리팹 Variant</td>
+          <td><i class="en">prefab variant</i></td>
+          <td>기존 프리팹을 원본으로 오버라이드만 얹은 파생 프리팹. 원본 FBX가 갱신돼도 내 변경이 유지된다.</td>
+          <td><a href="../phase10/01-cad-fbx-import.html">P10·01</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">AssetPostprocessor</td>
+          <td><i class="en">AssetPostprocessor</i></td>
+          <td>임포트 순간 Unity가 호출하는 에디터 훅 클래스. 상속만 하면 스케일·재질·플래그를 자동 교정한다.</td>
+          <td><a href="../phase10/02-import-automation.html">P10·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">ModelImporter</td>
+          <td><i class="en">ModelImporter</i></td>
+          <td>FBX·OBJ 모델의 임포트 설정을 담는 객체. 스케일·노멀·재질 위치 등을 코드로 바꿀 때 통한다.</td>
+          <td><a href="../phase10/02-import-automation.html">P10·02</a></td>
+        </tr>
+        <tr>
+          <td class="rowhead">EditorWindow</td>
+          <td><i class="en">EditorWindow</i></td>
+          <td>에디터에 띄우는 커스텀 창의 기반 클래스. 임포트 리포트 같은 도구 창을 만든다.</td>
+          <td><a href="../phase10/02-import-automation.html">P10·02</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <div class="callout field">
     <span class="label">사용법</span>
     <p>
