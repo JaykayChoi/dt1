@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 실습 — 내 시뮬레이터를 트윈으로 — DT1 Phase 8</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 8 디지털 트윈 연결<span class="sep">/</span>05 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 8 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-twin-vs-sim.html" title="시뮬레이션 vs 트윈">01</a></li>
+      <li><a href="02-event-stream-replay.html" title="이벤트 스트림과 리플레이">02</a></li>
+      <li><a href="03-realtime-bridge.html" title="실시간 브리지 — 버퍼링·재동기화">03</a></li>
+      <li><a href="04-ui-toolkit-dashboard.html" title="UI Toolkit 운영자 대시보드">04</a></li>
+      <li class="current"><span class="st">05</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 8 — 디지털 트윈 연결</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 8 · Station 05 · 실습</p>
+    <h1>실습 — 내 시뮬레이터를 트윈으로</h1>
+    <p class="lede">
+      01~04에서 완성본으로 "두 소스가 한 뷰를 구동하는" 구조를 읽었다. 이번엔 그 구조를 <strong>내
+      FabSim에 직접 붙인다</strong>. 다섯 마일스톤을 지나면, 내가 만든 시뮬레이터가 외부 스트림으로도
+      돌아가는 미니 트윈이 된다.
+    </p>
+  </div>
+
+  <h2>시작 상태 — 어디서 출발하나</h2>
+  <ul>
+    <li><strong>무대</strong>: 사용자의 <code>FabSim</code>(미니 팹 시뮬레이터: <code>FabModel</code>·
+      <code>VehicleFleetView</code>·<code>StatsHud</code>가 도는 상태). <strong>폴백</strong>:
+      <code>FabSim-P5-Complete</code>. 트윈 브리지는 교통 제어(P7)와 독립이라 P5 상태에서도 성립한다.</li>
+    <li><strong>콘솔 실습</strong>: <code>examples/twin-bridge-practice</code> 스켈레톤(직렬화·페이싱이 TODO),
+      정답지 <code>examples/twin-bridge</code>.</li>
+  </ul>
+  <p>
+    <button class="btn-launch" type="button" data-open="fabsim">
+      <span class="glyph">▶</span><span class="btn-label">실습 프로젝트 열기 — FabSim</span>
+    </button>
+    <button class="btn-launch alt" type="button" data-open="p8-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P8-Complete</span>
+    </button>
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="실습 5단계 노선도: 레코더·서버 스켈레톤 → IFleetSource 분리 → TwinFeedClient 수신·재생 → 고장 주입 → UI Toolkit 패널.">
+      <line class="d-rail" x1="50" y1="60" x2="800" y2="60" stroke-width="3"/>
+      <g>
+        <circle cx="90" cy="60" r="11" class="d-node"/><text class="d-label" x="90" y="95" text-anchor="middle">M1 스켈레톤</text>
+        <circle cx="260" cy="60" r="11" class="d-node"/><text class="d-label" x="260" y="95" text-anchor="middle">M2 IFleetSource</text>
+        <circle cx="430" cy="60" r="11" class="d-node"/><text class="d-label" x="430" y="95" text-anchor="middle">M3 수신·재생</text>
+        <circle cx="600" cy="60" r="11" class="d-node"/><text class="d-label" x="600" y="95" text-anchor="middle">M4 고장 주입</text>
+        <circle cx="770" cy="60" r="11" class="d-fill-accent"/><text class="d-label" x="770" y="95" text-anchor="middle">M5 대시보드</text>
+      </g>
+      <text class="d-text" x="90" y="38" text-anchor="middle">NDJSON·페이싱</text>
+      <text class="d-text" x="260" y="38" text-anchor="middle">회귀 없는 리팩터</text>
+      <text class="d-text" x="430" y="38" text-anchor="middle">MAPE≈0</text>
+      <text class="d-text" x="600" y="38" text-anchor="middle">재동기화</text>
+      <text class="d-text" x="770" y="38" text-anchor="middle">KPI 패널</text>
+    </svg>
+    <figcaption>실습은 다섯 마일스톤을 좌→우로 지난다. 각 M은 완료 기준이 명확하고, 막히면 완성본을 대조한다.</figcaption>
+  </figure>
+
+  <h2>마일스톤 — 목표 · 할 일 · 완료 기준</h2>
+  <ol>
+    <li>
+      <strong>M1 — 레코더·리플레이 서버 스켈레톤 채우기</strong>(<code>examples/twin-bridge-practice</code>)
+      <br><strong>목표</strong>: 헤드리스 레코더가 NDJSON을 굽고, 서버가 타임스탬프 간격대로 송출한다.
+      <br><strong>할 일</strong>: <code>EventRecorder</code>의 각 이벤트 직렬화(필드 추가)와
+      <code>NdjsonPacer.ComputeDelay</code>((curT−prevT)/speed) TODO를 채운다.
+      <br><strong>완료 기준</strong>: 내 로그가 정답지 <code>sample.ndjson</code>과 구조 일치(HELLO·주기
+      SNAPSHOT·단조 <code>n</code>·델타 필드 완비), 서버가 페이싱대로 라인을 흘린다.
+    </li>
+    <li>
+      <strong>M2 — FabSim에 <code>IFleetSource</code> 분리 리팩터링</strong>
+      <br><strong>목표</strong>: 뷰·HUD가 <code>FabSimulation</code>이 아니라 <code>IFleetSource</code>를 읽는다.
+      <br><strong>할 일</strong>: <code>IFleetSource</code> 선언, <code>SimFleetSource</code>로 <code>FabModel</code>을
+      감싸 구현, 두 뷰의 <code>Initialize</code>가 소스를 받도록 수정.
+      <br><strong>완료 기준</strong>: 리팩터 후에도 내장 Sim으로 <strong>이전과 똑같이</strong> 동작(회귀 없음).
+      이것이 "뷰가 소스를 모른다"의 첫 증거다.
+      <br><strong>막히면</strong>: <code>FabSim-P8-Complete/Assets/Scripts/Twin/IFleetSource.cs</code>·<code>SimFleetSource.cs</code>.
+    </li>
+    <li>
+      <strong>M3 — <code>TwinFeedClient</code> 수신·버퍼·보간 재생</strong>
+      <br><strong>목표</strong>: 리플레이 서버에 붙어, 받은 이벤트로 같은 뷰가 움직인다.
+      <br><strong>할 일</strong>: TCP 수신 스레드 → <code>ConcurrentQueue</code> → 메인스레드에서 0.5초 플레이아웃
+      버퍼 후 <code>VehicleAgent</code> 필드에 적용. 위치는 손대지 않은 <code>EvaluatePosition</code>이 그린다.
+      <br><strong>완료 기준</strong>: <code>Replay</code> 소스로 차량 궤적이 내장 Sim과 <strong>육안·수치로
+      동일</strong>(처리량·가동률 MAPE ≈ 0).
+      <br><strong>막히면</strong>: <code>FabSim-P8-Complete/Assets/Scripts/Twin/TwinFeedClient.cs</code>.
+    </li>
+    <li>
+      <strong>M4 — 고장 주입 재현</strong>
+      <br><strong>목표</strong>: 끊기고 유실돼도 화면이 스스로 복구된다.
+      <br><strong>할 일</strong>: 서버를 <code>--cut</code>/<code>--drop</code>으로 흔들고, 수신 지연·<code>n</code> 갭을
+      HUD에 표시, SNAPSHOT 도착 시 전체 덮어쓰기로 재동기화.
+      <br><strong>완료 기준</strong>: 서버를 껐다 켜도 다음 SNAPSHOT에서 화면이 실물과 다시 맞는다 —
+      "sync 버그"를 스스로 만들고 스스로 고쳐 본 것이 핵심.
+    </li>
+    <li>
+      <strong>M5 — UI Toolkit 대시보드 패널 1개 추가</strong>
+      <br><strong>목표</strong>: <code>OnGUI</code> HUD를 UI Toolkit 패널로 한 조각 대체한다.
+      <br><strong>할 일</strong>: 최소 KPI 패널(<code>Dashboard.uxml</code>/<code>.uss</code>/<code>DashboardController.cs</code>,
+      BEM 클래스)을 만들어 처리량·가동률을 <code>schedule.Execute(...).Every(250)</code>로 바인딩.
+      <br><strong>완료 기준</strong>: 화면에 UI Toolkit KPI 패널이 뜨고 지표가 0.25초 주기로 갱신된다.
+    </li>
+  </ol>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      완성본과 내 구현의 <strong>차이가 곧 학습의 증거</strong>다. 소스 어댑터를 직접 붙여 본 사람만
+      "데이터 소스를 하나 더 붙여 주세요"라는 첫 과제 앞에서 손이 움직인다. 프로토콜을 어떻게 정했는지,
+      버퍼를 몇 초로 뒀는지 — 그 결정을 말할 수 있는 코드가 포트폴리오가 된다.
+    </p>
+  </div>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/cl-L8dILY-U" title="What is a Digital Twin in Manufacturing?" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      실물과 데이터로 연결돼 함께 변하는 <strong>디지털 트윈</strong> — 이 실습이 도달할 목표의 실물
+      참고다. 내 시뮬레이터가 외부 스트림으로 돌면 그 골격을 갖춘 것이다.
+      <a href="https://www.youtube.com/watch?v=cl-L8dILY-U">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>M2 리팩터의 완료 기준이 "동작이 안 바뀐다"인 이유는?</summary>
+      <div class="answer">
+        <p>
+          M2는 <strong>회귀 없는 리팩터</strong>다 — 소스를 인터페이스 뒤로 옮기되 내장 Sim의 동작은
+          그대로여야 한다. 동작이 바뀌면 리팩터가 아니라 기능 변경이다. "똑같이 동작한다"가 곧 "뷰가
+          소스를 모르게 잘 분리됐다"의 증거다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M3에서 플레이아웃 버퍼 0.5초를 두는 이유는?</summary>
+      <div class="answer">
+        <p>
+          네트워크 지연·지터를 흡수해 매끄럽게 재생하기 위해서다. 도착하자마자 그리면 흔들림이 그대로
+          보인다. 0.5초 늦게 재생하면 그 창 안의 변동이 평탄해진다 — 게임의 스냅샷 보간과 같은 트레이드오프다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M4에서 재동기화에 델타가 아니라 SNAPSHOT이 필요한 이유는?</summary>
+      <div class="answer">
+        <p>
+          갭 이후의 델타는 잃어버린 이전 상태를 기준으로 삼아 어긋난다. 자기 완결적인 SNAPSHOT만이
+          이전 맥락 없이 전체 상태를 덮어써 복원한다 — 그래서 복구·재접속의 공통 해법이 스냅샷이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>EvaluatePosition</code>을 고치지 않고도 소스를 바꿀 수 있는 구조적 이유는?</summary>
+      <div class="answer">
+        <p>
+          <code>EvaluatePosition</code>은 <code>VehicleAgent</code>의 엣지 시각 필드로만 위치를 보간한다.
+          어느 소스든 그 필드를 채워 주기만 하면 되므로, 소스가 내장 Sim이든 스트림이든 보간 코드는
+          손댈 필요가 없다. 프로토콜을 그 필드에 1:1로 맞춘 것이 이 구조의 핵심이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 실습이 신입 첫 과제(소스 어댑터·sync 버그)와 대응되는 지점은?</summary>
+      <div class="answer">
+        <p>
+          M2~M3(새 소스를 인터페이스로 붙이기)이 "데이터 소스 어댑터" 과제, M4(끊김·유실 복구)가
+          "화면이 실물과 안 맞는 sync 버그" 과제에 각각 대응한다. 통제된 실험실에서 미리 겪어 두면
+          현장에서 같은 문제를 만났을 때 손이 움직인다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="04-ui-toolkit-dashboard.html">
+      <span class="dir">← PREV — STATION 04</span>
+      <span class="title">UI Toolkit 운영자 대시보드</span>
+    </a>
+    <a class="next" href="../phase9/01-jobs-burst.html">
+      <span class="dir">NEXT — PHASE 9 →</span>
+      <span class="title">대규모 성능 심화 — Jobs &amp; Burst</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 8 — Digital Twin Bridge</div>
+</footer>
+
+</body>
+</html>

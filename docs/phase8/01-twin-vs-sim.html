@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 시뮬레이션 vs 트윈 — 누가 시간을 만드는가 — DT1 Phase 8</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 8 디지털 트윈 연결<span class="sep">/</span>01 시뮬 vs 트윈
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 8 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-event-stream-replay.html" title="이벤트 스트림과 리플레이">02</a></li>
+      <li><a href="03-realtime-bridge.html" title="실시간 브리지 — 버퍼링·재동기화">03</a></li>
+      <li><a href="04-ui-toolkit-dashboard.html" title="UI Toolkit 운영자 대시보드">04</a></li>
+      <li><a href="05-practice.html" title="실습 — 내 시뮬레이터를 트윈으로">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 8 — 디지털 트윈 연결</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 8 · Station 01</p>
+    <h1>시뮬레이션 vs 트윈 — 누가 시간을 만드는가</h1>
+    <p class="lede">
+      Phase 5 아키텍처는 소스가 <strong>하나</strong>였다: <code>FabModel</code>이 사건을 낳고, 뷰가
+      읽었다. 이 스테이션은 "그 소스 자리에 <strong>다른 것</strong>을 꽂으면?"을 묻는다 — 내장
+      시뮬레이션 대신 <strong>외부 실물 피드</strong>를 꽂으면, 우리 시뮬레이터는 <strong>디지털
+      트윈</strong>이 된다. 팀 이름이 곧 이 페이즈다.
+    </p>
+  </div>
+
+  <h2>시간을 만드는 두 방식</h2>
+  <p>
+    결정적 차이는 <strong>누가 시간을 만드는가</strong>다. DES는 모델이 시간을 만든다 —
+    <code>Simulation.Run</code>이 클록을 미래로 민다. 트윈은 외부(실물 설비·스트림)가 시간을
+    만들고, 우리 쪽은 <strong>받아서 재생</strong>할 뿐이다. 그래서 "미래를 앞당겨 예약"(Schedule)이
+    가능한가가 갈린다 — 시뮬은 가능하고, 트윈은 <strong>과거만 안다</strong>. 트윈은 예언자가
+    아니라 목격자다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/cl-L8dILY-U" title="What is a Digital Twin in Manufacturing?" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      제조에서 <strong>디지털 트윈</strong>이 무엇인지 — 단순한 3D 모델이 아니라 실물과 데이터로
+      연결돼 실시간으로 함께 변하는 가상 복제본이라는 점을 설명한다.
+      <a href="https://www.youtube.com/watch?v=cl-L8dILY-U">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>같은 뷰, 두 소스</h2>
+  <p>
+    Phase 5의 통찰을 한 단계 민다: <code>VehicleFleetView</code>가 읽는 것은
+    <code>Graph</code>·<code>Vehicles</code>·<code>Now</code> <strong>셋뿐</strong>이고, 위치는
+    <code>EvaluatePosition</code>이 "엣지 출발/도착 시각"으로 보간한다. 그렇다면 그 셋만 제공하면
+    소스가 무엇이든 뷰는 똑같이 동작한다. 이 "소스 자리"를 인터페이스 뒤로 감추면
+    (<code>IFleetSource</code>) <strong>같은 뷰를 두 소스가 구동</strong>한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="두-소스 아키텍처: 가운데 IFleetSource 인터페이스 아래로 SimFleetSource와 TwinFleetSource 두 구현이 갈라지고, 위로 VehicleFleetView와 대시보드가 인터페이스만 바라본다.">
+      <defs>
+        <marker id="ah8p" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 뷰 계층 -->
+      <rect class="d-node" x="200" y="20" width="140" height="46" rx="8"/>
+      <text class="d-label" x="270" y="48" text-anchor="middle">VehicleFleetView</text>
+      <rect class="d-node" x="380" y="20" width="140" height="46" rx="8"/>
+      <text class="d-label" x="450" y="48" text-anchor="middle">대시보드</text>
+      <!-- 인터페이스 -->
+      <rect class="d-fill-accent" x="250" y="120" width="220" height="50" rx="8" opacity="0.18"/>
+      <rect x="250" y="120" width="220" height="50" rx="8" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="360" y="150" text-anchor="middle">«interface» IFleetSource</text>
+      <!-- 두 구현 -->
+      <rect class="d-node" x="120" y="230" width="180" height="50" rx="8"/>
+      <text class="d-label" x="210" y="252" text-anchor="middle">SimFleetSource</text>
+      <text class="d-text" x="210" y="270" text-anchor="middle">← FabModel(내장 DES)</text>
+      <rect class="d-node" x="420" y="230" width="180" height="50" rx="8"/>
+      <text class="d-label" x="510" y="252" text-anchor="middle">TwinFeedClient</text>
+      <text class="d-text" x="510" y="270" text-anchor="middle">← TCP 스트림(실물)</text>
+      <!-- 화살표: 뷰 → 인터페이스 -->
+      <line x1="270" y1="66" x2="330" y2="118" class="d-rail" stroke-width="2" marker-end="url(#ah8p)"/>
+      <line x1="450" y1="66" x2="390" y2="118" class="d-rail" stroke-width="2" marker-end="url(#ah8p)"/>
+      <!-- 화살표: 구현 → 인터페이스(구현 관계) -->
+      <line x1="210" y1="230" x2="290" y2="172" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah8p)"/>
+      <line x1="510" y1="230" x2="430" y2="172" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah8p)"/>
+    </svg>
+    <figcaption>
+      뷰와 대시보드는 <strong>인터페이스만</strong> 바라본다(실선). 두 소스는 그 인터페이스를
+      구현한다(점선). 그래서 소스를 Sim ↔ Twin으로 갈아 끼워도 뷰 코드는 한 줄도 안 바뀐다.
+    </figcaption>
+  </figure>
+
+  <h2>디지털 트윈 성숙도 3단계</h2>
+  <p>
+    트윈은 한 번에 완성되지 않는다. <strong>미러링</strong>(실물→화면 단방향 시각화) →
+    <strong>섀도</strong>(화면이 실물 이력을 축적·분석) → <strong>트윈</strong>(화면에서의 판단이
+    실물로 되먹임)의 세 단계로 자란다. 이 페이즈는 미러링~섀도까지 구현하고, 트윈(되먹임)은
+    개념으로만 둔다 — 되먹임은 안전·인증의 무게가 완전히 다른 세계다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>축</th>
+          <th>내장 시뮬레이션</th>
+          <th>리플레이(기록된 로그)</th>
+          <th>라이브 트윈(실시간 피드)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">시간의 출처</td><td>모델(Run이 클록 전진)</td><td>로그 타임스탬프</td><td>외부 벽시계 + 이벤트 타임스탬프</td></tr>
+        <tr><td class="rowhead">미래 예측</td><td>가능(Schedule)</td><td>불가(과거만)</td><td>불가(현재까지만)</td></tr>
+        <tr><td class="rowhead">결정성</td><td>시드 고정 시 재현</td><td>완전 재현</td><td>재현 불가(네트워크 변동)</td></tr>
+        <tr><td class="rowhead">지연·유실</td><td>없음</td><td>없음</td><td>있음 → 버퍼링 필요</td></tr>
+        <tr><td class="rowhead">배속 제어</td><td>timeScale</td><td>배속 인자</td><td>실시간 고정(1×)</td></tr>
+        <tr><td class="rowhead">성숙도</td><td>—</td><td>섀도(분석용 이력)</td><td>미러링→트윈</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>왜 신입이 이걸 먼저 만지나</h2>
+  <p>
+    디지털 트윈 팀 신입의 첫 과제는 대체로 둘 중 하나다 — (1) 새 <strong>데이터 소스 어댑터</strong>를
+    붙이기, (2) <strong>"화면이 실물과 안 맞는" sync 버그</strong>를 잡기. 둘 다 소스 추상화 위에서
+    벌어진다. 소스를 인터페이스 뒤로 감춰 본 사람만 "데이터 소스를 하나 더 붙여 주세요" 앞에서
+    손이 움직인다. 이 페이즈 전체가 그 예행 연습이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      "같은 뷰를 두 소스가 구동한다"가 증명되면(다음 스테이션들의 목표), 우리 시뮬레이터는 이미
+      트윈의 골격을 갖춘 것이다. 남은 것은 소스를 실물 피드로 바꾸고, 네트워크가 만드는 지연·유실을
+      다루는 일 — Phase 8의 나머지가 그것이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>"미래를 예약할 수 있는가"가 시뮬레이션과 트윈을 가르는 이유는?</summary>
+      <div class="answer">
+        <p>
+          시뮬레이션은 모델이 시간을 만들므로 미래 사건을 <code>Schedule</code>로 앞당겨 예약할 수
+          있다. 트윈은 외부가 시간을 만들고 우리는 <strong>받아 재생</strong>만 하므로 과거·현재만
+          안다 — 아직 오지 않은 사건은 존재하지 않는다. 이 비대칭이 두 세계의 본질적 차이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>View가 소스를 모르게 하려면 무엇만 노출하면 되는가?</summary>
+      <div class="answer">
+        <p>
+          <code>VehicleFleetView</code>가 실제로 읽는 것 — <code>Graph</code>(노드 좌표),
+          <code>Vehicles</code>(엣지 시각 필드를 담은 상태 목록), <code>Now</code>(현재 시각) — 만
+          인터페이스로 노출하면 된다. 위치는 뷰가 이 셋으로 보간하므로, 소스가 이 셋을 제공하는 한
+          뷰는 소스의 정체를 알 필요가 없다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>미러링·섀도·트윈은 무엇으로 구분되는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>되먹임의 유무·정도</strong>다. 미러링은 실물을 화면에 비추기만(단방향), 섀도는
+          이력을 축적·분석까지(여전히 실물 제어 없음), 완전한 트윈은 화면에서의 판단이 실물로
+          되먹여진다. 이 페이즈는 미러링~섀도까지다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>리플레이(기록된 로그 재생)가 "섀도"에 해당하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          로그는 실물의 이력을 축적한 것이고, 그것을 재생·분석하되 실물을 제어하지는 않는다.
+          이력을 좇아 기록·분석하지만 되먹이지 않는다는 점이 정확히 디지털 섀도의 정의다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>timeScale이 라이브 소스에서 1×로 고정되는 이유는?</summary>
+      <div class="answer">
+        <p>
+          라이브 피드는 외부 벽시계에 묶여 있다 — 실물이 지금 이 순간 만드는 이벤트를 받는다.
+          배속을 올리면 아직 오지 않은 미래를 당겨와야 하는데 그건 불가능하다. 배속·시킹은
+          과거가 확정된 리플레이에서만 가능하다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase7/05-practice.html">
+      <span class="dir">← PREV — PHASE 7</span>
+      <span class="title">실습 — FabSim에 교통 제어 넣기</span>
+    </a>
+    <a class="next" href="02-event-stream-replay.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">이벤트 스트림과 리플레이</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 8 — Digital Twin Bridge</div>
+</footer>
+
+</body>
+</html>

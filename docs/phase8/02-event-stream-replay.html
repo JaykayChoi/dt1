@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 이벤트 스트림과 리플레이 — DT1 Phase 8</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 8 디지털 트윈 연결<span class="sep">/</span>02 이벤트 스트림
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 8 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-twin-vs-sim.html" title="시뮬레이션 vs 트윈">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-realtime-bridge.html" title="실시간 브리지 — 버퍼링·재동기화">03</a></li>
+      <li><a href="04-ui-toolkit-dashboard.html" title="UI Toolkit 운영자 대시보드">04</a></li>
+      <li><a href="05-practice.html" title="실습 — 내 시뮬레이터를 트윈으로">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 8 — 디지털 트윈 연결</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 8 · Station 02</p>
+    <h1>이벤트 스트림과 리플레이</h1>
+    <p class="lede">
+      소스를 바꾸려면 먼저 소스가 <strong>말하는 언어</strong>를 정의해야 한다. 그 언어를
+      <code>VehicleAgent</code> 필드에서 곧장 뽑아, 한 줄에 하나씩 흐르는 <strong>NDJSON 이벤트
+      스트림</strong>으로 설계한다. 콘솔 랩 <code>examples/twin-bridge</code>가 이 스트림을 굽고 재생한다.
+    </p>
+  </div>
+
+  <h2>왜 이벤트인가 — 스냅샷 vs 델타</h2>
+  <p>
+    매 프레임 전체 상태를 보내면 대역폭이 폭발한다. 그래서 변화(<strong>델타</strong>)만 이벤트로
+    보내고, 가끔 전체(<strong>스냅샷</strong>)로 기준을 맞춘다 — 비디오 코덱의 키프레임(I)과
+    P프레임과 같은 구조다. 이렇게 "무슨 일이 있었는가"의 목록을 원본으로 삼아 상태를 되살리는
+    방식을 <strong>이벤트 소싱</strong>이라 한다. 스냅샷은 자기 완결적이라 재동기화·뒤늦은 합류의
+    기준점이 되고, 델타는 그 사이를 가볍게 채운다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th></th><th>스냅샷(전체 상태)</th><th>델타(이벤트)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">크기</td><td>큼(차량 수 × 필드)</td><td>작음(바뀐 것만)</td></tr>
+        <tr><td class="rowhead">late-join</td><td>즉시 가능</td><td>불가(기준 없음)</td></tr>
+        <tr><td class="rowhead">유실 복구</td><td>자기 완결</td><td>이전 상태 의존</td></tr>
+        <tr><td class="rowhead">빈도</td><td>드물게(주기·재동기)</td><td>상태 변화마다</td></tr>
+        <tr><td class="rowhead">비유</td><td>키프레임(I)</td><td>P프레임</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/AUj4M-st3ic" title="Event Sourcing Example & Explained in plain English" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      <strong>이벤트 소싱</strong>을 쉬운 말로 — 현재 상태 대신 "사건의 목록"을 원본으로 저장하고
+      재생해 어느 시점이든 되살리는 발상. 우리 레코더가 굽는 로그가 정확히 이 사건의 목록이다.
+      <a href="https://www.youtube.com/watch?v=AUj4M-st3ic">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>NDJSON 라인 프로토콜</h2>
+  <p>
+    <strong>NDJSON</strong>은 한 줄에 완결된 JSON 객체 하나(<code>\n</code> 프레이밍)다. 사람이
+    읽고, <code>grep</code>·<code>tail</code>로 디버깅되고, 스트리밍 파싱이 쉽다. 공통 봉투는
+    <code>n</code>(단조 시퀀스, 유실·갭 탐지), <code>t</code>(시뮬 시각), <code>type</code>이다.
+    이벤트 타입은 <code>FabModel</code>의 상태 변화 지점에서 그대로 뽑았다:
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>type</th><th>FabModel 발생 지점</th><th>필드</th><th>VehicleAgent 매핑</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">JOB_CREATE</td><td>OnJobArrived</td><td>jid·from·to</td><td>TransportJob.Id/FromPort/ToPort</td></tr>
+        <tr><td class="rowhead">DISPATCH</td><td>Assign 진입</td><td>jid·vid</td><td>Phase→ToPickup</td></tr>
+        <tr><td class="rowhead">EDGE_DEPART</td><td>엣지 주행 시작</td><td>vid·from·to·eta</td><td>EdgeFromNode/EdgeToNode/EdgeArriveAt</td></tr>
+        <tr><td class="rowhead">EDGE_ARRIVE</td><td>경로 끝(정지)</td><td>vid·node</td><td>NodeId, IsMoving=false</td></tr>
+        <tr><td class="rowhead">PICKUP</td><td>픽업 dwell 콜백</td><td>vid·jid</td><td>Phase→Carrying (FOUP on)</td></tr>
+        <tr><td class="rowhead">JOB_COMPLETE</td><td>CompleteJob</td><td>vid·jid</td><td>Phase→Idle, CompletedJobs++</td></tr>
+        <tr><td class="rowhead">SNAPSHOT</td><td>주기 타이머</td><td>vehicles[]·stats{}</td><td>전체 상태</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    핵심은 여기다: <code>EDGE_DEPART</code>의 <code>from</code>/<code>to</code>/<code>eta</code>가
+    <code>VehicleAgent</code>의 <code>EdgeFromNode</code>/<code>EdgeToNode</code>/<code>EdgeArriveAt</code>와
+    <strong>1:1</strong>이다. Unity의 <code>EvaluatePosition</code>이 이 시각들로 <code>Vector3.Lerp</code>하므로,
+    <strong>스트림이 이 필드를 실어 나르면 기존 보간 View는 소스가 바뀌어도 코드 한 줄 안 고쳐도 된다.</strong>
+  </p>
+
+  <h2>레코더가 실제로 굽는 로그</h2>
+  <p>
+    레코더는 <code>FabModel</code>을 Unity 없이 헤드리스로 돌리며 이벤트를 파일로 쓴다. 헤드리스라
+    <strong>로그 자체가 산출물</strong>이다. <code>examples/twin-bridge/sample.ndjson</code>의 실제 앞부분:
+  </p>
+  <pre><code>{"n":0,"t":0,"type":"HELLO","v":1,"layout":"loop-12","nodeCount":12,"portNodes":[1,2,3,7,8,9],"vehicleCount":4}
+{"n":1,"t":12.081,"type":"JOB_CREATE","jid":0,"from":9,"to":7}
+{"n":2,"t":12.081,"type":"DISPATCH","jid":0,"vid":3}
+{"n":3,"t":12.081,"type":"EDGE_ARRIVE","vid":3,"node":9}
+{"n":4,"t":13.423,"type":"JOB_CREATE","jid":1,"from":3,"to":8}
+{"n":26,"t":60,"type":"SNAPSHOT","v":1,"vehicles":[{"vid":0,"phase":"Idle","node":0,...}],"stats":{"completed":1,"pending":0}}</code></pre>
+  <div class="callout">
+    <span class="label">검증된 사실</span>
+    <p>
+      seed 7·3600초 레코딩은 <strong>158건 완료 · 2602줄</strong>. <strong>결정성</strong>: 같은
+      시드로 두 번 구우면 바이트 단위로 동일한 파일. <strong>일치성</strong>: 로그의
+      <code>JOB_COMPLETE</code> 수(158) = 헤드리스 <code>FabModel.CompletedJobs</code>(158). 로그가
+      곧 시뮬레이션의 충실한 그림자다.
+    </p>
+  </div>
+
+  <h2>리플레이 — 배속·일시정지·시킹</h2>
+  <p>
+    리플레이는 Phase 5 timeScale 브리지의 재활용이다. 리플레이 클록이 로그 타임스탬프를 소비하며
+    View를 구동한다. ReplayServer는 라인 간 지연을 <code>(t_i − t_{i-1}) / 배속</code>으로 두어
+    실물처럼 재생한다. <strong>시킹</strong>은 "목표 시각 직전 <strong>스냅샷</strong>으로 점프한 뒤
+    델타를 재생"으로 구현한다 — 스냅샷이 자기 완결적이라 아무 지점에서나 합류할 수 있기 때문이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="시간축 위에 SNAPSHOT 하나 뒤로 델타 이벤트들이 이어지고, 다음 SNAPSHOT에서 다시 기준이 잡힌다. late-join 클라이언트는 SNAPSHOT 지점에서만 합류 가능하다.">
+      <line class="d-rail" x1="40" y1="120" x2="690" y2="120" stroke-width="2"/>
+      <text class="d-label" x="365" y="150" text-anchor="middle">시간 →</text>
+      <!-- SNAPSHOT 마커 -->
+      <rect class="d-fill-accent" x="70" y="95" width="16" height="50" rx="2"/>
+      <text class="d-text" x="78" y="86" text-anchor="middle">SNAP</text>
+      <rect class="d-fill-accent" x="470" y="95" width="16" height="50" rx="2"/>
+      <text class="d-text" x="478" y="86" text-anchor="middle">SNAP</text>
+      <!-- 델타 마커들 -->
+      <g class="d-soft" stroke-width="2">
+        <line x1="140" y1="108" x2="140" y2="132"/><line x1="200" y1="108" x2="200" y2="132"/>
+        <line x1="270" y1="108" x2="270" y2="132"/><line x1="340" y1="108" x2="340" y2="132"/>
+        <line x1="410" y1="108" x2="410" y2="132"/>
+        <line x1="540" y1="108" x2="540" y2="132"/><line x1="610" y1="108" x2="610" y2="132"/>
+      </g>
+      <text class="d-text" x="275" y="175" text-anchor="middle">델타(EDGE_DEPART·PICKUP·…)</text>
+      <!-- late-join -->
+      <path d="M478,40 L478,92" class="d-accent" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="d-label" x="478" y="32" text-anchor="middle">late-join은 여기서만</text>
+    </svg>
+    <figcaption>
+      SNAPSHOT(굵은 막대)이 기준을 잡고, 그 사이를 델타(가는 선)가 채운다. 뒤늦게 합류하는
+      클라이언트는 델타만으로는 기준이 없어, <strong>SNAPSHOT 지점에서만</strong> 합류할 수 있다.
+    </figcaption>
+  </figure>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>델타만으로 late-join(뒤늦은 합류)이 안 되는 이유는?</summary>
+      <div class="answer">
+        <p>
+          델타는 "직전 상태로부터의 변화"라 <strong>기준이 되는 이전 상태</strong>가 있어야 뜻이
+          통한다. 중간에 합류한 클라이언트는 그 기준이 없으므로 델타를 적용할 대상이 없다. 자기
+          완결적인 SNAPSHOT을 받아야 비로소 기준이 생겨 이후 델타를 이어 붙일 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>EDGE_DEPART</code>의 필드가 <code>VehicleAgent</code>의 어느 필드에 대응하는가?</summary>
+      <div class="answer">
+        <p>
+          <code>from</code>→<code>EdgeFromNode</code>, <code>to</code>→<code>EdgeToNode</code>,
+          <code>eta</code>→<code>EdgeArriveAt</code>, 그리고 <code>t</code>→<code>EdgeDepartAt</code>.
+          이 네 값이 <code>EvaluatePosition</code>의 보간 입력이라, 스트림이 이를 실으면 뷰가 그대로
+          위치를 그린다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>NDJSON을 XML이나 단일 거대 JSON 대신 쓰는 이유는?</summary>
+      <div class="answer">
+        <p>
+          한 줄에 하나씩 완결되므로 <strong>스트리밍</strong>에 알맞다 — 도착하는 대로 한 줄씩
+          파싱·처리하고, <code>tail -f</code>·<code>grep</code>로 사람이 디버깅한다. 단일 거대 JSON은
+          끝까지 받아야 파싱되고, XML은 무겁고 스트리밍이 번거롭다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>결정적 리플레이의 조건은 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          <strong>시드 고정</strong>이다. 레코더가 같은 난수 시드로 돌면 사건의 순서·시각이
+          똑같아 바이트 단위로 동일한 로그가 나온다(우리 랩에서 확인). 그러면 리플레이도 매번 같은
+          궤적을 재생한다 — Phase 6에서 못 박은 결정성이 여기서 다시 값어치를 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>시킹이 "가장 가까운 앞선 스냅샷"을 필요로 하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          임의 시각으로 점프하려면 그 시점의 전체 상태가 있어야 하는데, 델타만으로는 처음부터
+          누적해야 한다. 목표 시각 직전의 SNAPSHOT으로 점프하면 그 자기 완결적 상태에서 시작해,
+          목표까지의 델타만 재생하면 되므로 빠르다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-twin-vs-sim.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">시뮬레이션 vs 트윈 — 누가 시간을 만드는가</span>
+    </a>
+    <a class="next" href="03-realtime-bridge.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">실시간 브리지 — 버퍼링·재동기화</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 8 — Digital Twin Bridge</div>
+</footer>
+
+</body>
+</html>

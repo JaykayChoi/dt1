@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 실시간 브리지 — 버퍼링·재동기화 — DT1 Phase 8</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 8 디지털 트윈 연결<span class="sep">/</span>03 실시간 브리지
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 8 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-twin-vs-sim.html" title="시뮬레이션 vs 트윈">01</a></li>
+      <li><a href="02-event-stream-replay.html" title="이벤트 스트림과 리플레이">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-ui-toolkit-dashboard.html" title="UI Toolkit 운영자 대시보드">04</a></li>
+      <li><a href="05-practice.html" title="실습 — 내 시뮬레이터를 트윈으로">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 8 — 디지털 트윈 연결</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 8 · Station 03</p>
+    <h1>실시간 브리지 — 버퍼링·재동기화</h1>
+    <p class="lede">
+      리플레이는 시간을 <strong>우리가</strong> 통제했다. 라이브는 <strong>네트워크가</strong>
+      통제한다 — 지연이 흔들리고, 순서가 뒤집히고, 패킷이 사라진다. 다행히 이건 <strong>온라인
+      게임이 이미 푼 문제</strong>다. 그들의 스냅샷 보간을 그대로 빌려 온다.
+    </p>
+  </div>
+
+  <h2>전송 계층 — 언제 무엇을</h2>
+  <p>
+    파일 리플레이는 결정적 재생·시킹에, <strong>TCP</strong>는 팹 내부 관제망(랩의 ReplayServer↔
+    Unity 클라이언트)에, <strong>WebSocket</strong>은 브라우저 대시보드에 쓴다. UDP는 이 페이즈에서
+    쓰지 않지만 "순서·유실을 감수하고 지연을 최소화"하는 대조군으로 알아 둔다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>계층</th><th>지연</th><th>순서</th><th>유실</th><th>이 페이즈 용도</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">파일 리플레이</td><td>없음</td><td>보장</td><td>없음</td><td>결정적 재생·시킹</td></tr>
+        <tr><td class="rowhead">TCP</td><td>낮음</td><td>보장</td><td>재전송</td><td>랩 ReplayServer·Unity 클라이언트</td></tr>
+        <tr><td class="rowhead">WebSocket</td><td>낮음</td><td>보장</td><td>재전송</td><td>브라우저 대시보드(개념)</td></tr>
+        <tr><td class="rowhead">UDP(개념)</td><td>최저</td><td>없음</td><td>있음</td><td>재정렬·유실 논의용 대조군</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>이벤트 타임스탬프 vs 벽시계</h2>
+  <p>
+    이벤트의 <code>t</code>(시뮬/설비 시각)와 그것이 도착한 <strong>수신 벽시계</strong>는 다르다.
+    재생은 <code>t</code> 간격을 존중하되, 실시간성은 벽시계로 맞춘다. 이 둘을 혼동하면 화면이
+    빨라졌다 느려졌다 한다.
+  </p>
+
+  <h2>버퍼링 + 플레이아웃 지연 — 지연을 사서 매끄러움을 얻는다</h2>
+  <p>
+    도착하자마자 그리지 않는다. <strong>0.5초 지연 버퍼</strong>(<strong>지터 버퍼</strong>)에
+    담았다가 재생한다 — 이것이 <strong>플레이아웃 지연</strong>이다. 네트워크 게임의 스냅샷
+    보간과 <strong>완전히 같은 패턴</strong>이다: 약간의 지연을 감수하고 흔들림을 흡수해 매끄러움을
+    산다. 지연을 키우면 유실에 강해지고 반응성은 떨어지는 트레이드오프다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/ADM7dtCQnbE" title="Properly Interpolating Between Server State Updates" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      멀티플레이어 게임이 서버 상태 갱신 사이를 <strong>보간</strong>하는 법 — 도착한 상태를 조금
+      늦게(과거로) 재생해 매끄러운 움직임을 만든다. 우리 트윈의 0.5초 플레이아웃 버퍼가 바로 이것이다.
+      <a href="https://www.youtube.com/watch?v=ADM7dtCQnbE">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="상단에 불규칙 간격으로 도착하는 수신 이벤트, 하단에 0.5초 뒤로 밀린 매끄러운 재생. 그 사이 버퍼 창을 음영으로. 유실 이벤트 하나가 SNAPSHOT에서 복구된다.">
+      <text class="d-label" x="60" y="40">수신(지터)</text>
+      <line class="d-rail" x1="40" y1="60" x2="690" y2="60" stroke-width="1.5"/>
+      <g class="d-soft" stroke-width="2">
+        <line x1="90" y1="48" x2="90" y2="72"/><line x1="150" y1="48" x2="150" y2="72"/>
+        <line x1="250" y1="48" x2="250" y2="72"/><line x1="290" y1="48" x2="290" y2="72"/>
+        <line x1="430" y1="48" x2="430" y2="72"/><line x1="600" y1="48" x2="600" y2="72"/>
+      </g>
+      <line x1="360" y1="48" x2="360" y2="72" class="d-accent" stroke-width="2" stroke-dasharray="3 3"/>
+      <text class="d-text" x="360" y="44" text-anchor="middle">유실</text>
+
+      <rect class="d-fill-accent" x="40" y="90" width="650" height="60" opacity="0.12"/>
+      <text class="d-text" x="365" y="118" text-anchor="middle">0.5초 플레이아웃 버퍼</text>
+
+      <text class="d-label" x="60" y="188">재생(매끄러움)</text>
+      <line class="d-rail" x1="40" y1="200" x2="690" y2="200" stroke-width="1.5"/>
+      <g class="d-accent" stroke-width="2.5">
+        <line x1="140" y1="188" x2="140" y2="212"/><line x1="200" y1="188" x2="200" y2="212"/>
+        <line x1="300" y1="188" x2="300" y2="212"/><line x1="340" y1="188" x2="340" y2="212"/>
+        <line x1="480" y1="188" x2="480" y2="212"/><line x1="650" y1="188" x2="650" y2="212"/>
+      </g>
+      <rect class="d-fill-accent" x="600" y="185" width="16" height="30" rx="2"/>
+      <text class="d-text" x="608" y="230" text-anchor="middle">SNAPSHOT에서 유실 복구</text>
+    </svg>
+    <figcaption>
+      위: 불규칙하게 도착(지터), 하나는 유실. 아래: 0.5초 뒤로 밀어 고른 간격으로 재생. 유실된
+      델타는 다음 SNAPSHOT이 전체 상태를 덮어써 복구한다.
+    </figcaption>
+  </figure>
+
+  <h2>순서 뒤바뀜·유실, 그리고 재동기화</h2>
+  <p>
+    각 라인의 단조 증가 시퀀스 <code>n</code>으로 <strong>갭</strong>을 탐지한다. 단일 TCP
+    스트림은 순서를 보장하므로 실전 재정렬은 드물지만, 유실(서버가 라인을 건너뜀)·재접속에서는
+    갭이 생긴다. 갭을 만나면 다음 <strong>스냅샷</strong>까지 델타를 신뢰하지 않고, SNAPSHOT
+    도착 시 전체 상태를 <strong>덮어써</strong> 복구한다. 재접속도 같은 경로다 — 재동기화의
+    프리미티브는 언제나 스냅샷이다.
+  </p>
+
+  <h2>고장 주입 = sync 버그 디버깅 예행연습</h2>
+  <p>
+    서버 강제 종료·재시작, 이벤트 드롭을 <strong>일부러 주입</strong>해 "화면이 실물과 어긋나는"
+    상황을 재현한다. 랩의 ReplayServer는 <code>--cut &lt;초&gt;</code>(연결 강제 종료)와
+    <code>--drop &lt;확률&gt;</code>(라인 스킵)로 이를 제공한다. 대시보드의 <code>feed-status</code>가
+    수신 지연·드롭 카운트를 보여 주고, 복구를 눈으로 확인한다. 신입의 "sync 버그" 첫 과제를 안전한
+    실험실에서 미리 겪는 것이다.
+  </p>
+  <div class="callout warn">
+    <span class="label">재동기화에 델타가 아니라 스냅샷이 필요한 이유</span>
+    <p>
+      갭이 생긴 뒤의 델타는 "잃어버린 이전 상태"에 기대므로 적용해도 어긋난다. 자기 완결적인
+      SNAPSHOT만이 이전 맥락 없이 전체 상태를 복원할 수 있다 — 그래서 복구·재접속·시킹의 공통
+      해법이 언제나 스냅샷 덮어쓰기다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>플레이아웃 지연이 사 오는 것과 지불하는 것은?</summary>
+      <div class="answer">
+        <p>
+          사 오는 것: <strong>매끄러움</strong>(지터·순서 흔들림을 흡수). 지불하는 것:
+          <strong>반응성</strong>(모든 것을 0.5초 늦게 본다). 지연을 키울수록 유실·지터에 강해지지만
+          화면이 더 늦어진다 — 관제 화면에서는 대개 이 교환이 남는 장사다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>지터 버퍼가 게임의 스냅샷 보간과 같은 이유는?</summary>
+      <div class="answer">
+        <p>
+          둘 다 "도착한 상태를 조금 과거로 미뤄 재생"한다. 게임은 다른 플레이어를 100ms 늦게
+          보간해 그리고, 우리는 이벤트를 0.5초 늦게 재생한다. 지연을 감수하고 네트워크 변동을
+          흡수해 부드러운 움직임을 얻는다는 원리가 동일하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>단일 TCP인데도 갭(유실)이 생기는 경우는?</summary>
+      <div class="answer">
+        <p>
+          TCP 자체는 순서·재전송을 보장하지만, <strong>서버가 라인을 건너뛰거나</strong>(드롭 주입),
+          <strong>연결이 끊겼다 재접속</strong>하면 그 사이의 이벤트가 비어 <code>n</code>에 갭이
+          생긴다. 재정렬이 아니라 이 두 경우가 실전의 갭 원인이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>재동기화에 델타가 아니라 스냅샷이 필요한 이유는?</summary>
+      <div class="answer">
+        <p>
+          갭 이후의 델타는 잃어버린 이전 상태를 기준으로 삼으므로 적용해도 어긋난다. 자기 완결적인
+          스냅샷만이 이전 맥락 없이 전체 상태를 덮어써 복원할 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>고장 주입이 실무 sync 버그와 어떻게 대응되는가?</summary>
+      <div class="answer">
+        <p>
+          실무의 "화면이 실물과 안 맞는다"는 대개 지연·유실·재접속에서 온다. <code>--cut</code>·
+          <code>--drop</code>으로 이를 통제된 실험실에서 재현하고, 지연·드롭 카운트를 관측하며 복구를
+          확인하면, 진짜 현장에서 같은 증상을 만났을 때 어디를 볼지 안다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-event-stream-replay.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">이벤트 스트림과 리플레이</span>
+    </a>
+    <a class="next" href="04-ui-toolkit-dashboard.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">UI Toolkit 운영자 대시보드</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 8 — Digital Twin Bridge</div>
+</footer>
+
+</body>
+</html>

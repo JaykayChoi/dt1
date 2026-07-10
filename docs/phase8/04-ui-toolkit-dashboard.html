@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 UI Toolkit 운영자 대시보드 — DT1 Phase 8</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 8 디지털 트윈 연결<span class="sep">/</span>04 UI Toolkit 대시보드
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 8 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-twin-vs-sim.html" title="시뮬레이션 vs 트윈">01</a></li>
+      <li><a href="02-event-stream-replay.html" title="이벤트 스트림과 리플레이">02</a></li>
+      <li><a href="03-realtime-bridge.html" title="실시간 브리지 — 버퍼링·재동기화">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+      <li><a href="05-practice.html" title="실습 — 내 시뮬레이터를 트윈으로">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 8 — 디지털 트윈 연결</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 8 · Station 04</p>
+    <h1>UI Toolkit 운영자 대시보드</h1>
+    <p class="lede">
+      Phase 5의 <code>StatsHud</code>는 <code>OnGUI</code>로 그린 임시 HUD였다. 운영자 화면은 그렇게
+      못 만든다 — 팀 스택은 <strong>UI Toolkit</strong>이다. 구조·스타일·로직을 나누고, 수천 대
+      목록을 가상화로 다룬다.
+    </p>
+  </div>
+
+  <h2>UXML / USS / UI Builder</h2>
+  <p>
+    UI Toolkit은 웹을 빼닮았다. <strong>UXML</strong>이 구조(HTML), <strong>USS</strong>가
+    스타일(CSS), C#이 로직(JS)이다. UI Builder로 시각 편집도 한다. 이 분리가 협업의 핵심 —
+    디자이너가 USS를, 개발자가 로직을 따로 만질 수 있다.
+  </p>
+
+  <h2>BEM 네이밍 — 이름만 보고 구조를 읽는다</h2>
+  <p>
+    클래스 이름은 저장소 컨벤션 그대로 <strong>BEM</strong>: <code>block__element--modifier</code>
+    kebab-case로, <strong>의미 기반</strong>이다. 색이 아니라 상태를 이름에 담는다 —
+    <code>vehicle-list__row--blocked</code>이지 <code>--red</code>가 아니다. 나중에 "막힘"의 색을
+    바꿔도 이름은 그대로다.
+  </p>
+  <pre><code>&lt;!-- Dashboard.uxml (구조) --&gt;
+&lt;ui:VisualElement class="kpi-panel"&gt;
+  &lt;ui:VisualElement class="kpi-panel__tile"&gt;
+    &lt;ui:Label class="kpi-panel__value" /&gt;
+    &lt;ui:Label class="kpi-panel__label" text="처리량" /&gt;
+  &lt;/ui:VisualElement&gt;
+  &lt;ui:VisualElement class="kpi-panel__tile--alert" /&gt;  &lt;!-- 임계 초과 시 --&gt;
+&lt;/ui:VisualElement&gt;
+&lt;ui:ListView class="vehicle-list" /&gt;</code></pre>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/6DcwHPxCE54" title="Building Runtime UI with UI Toolkit In Unity" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Unity <strong>UI Toolkit</strong>으로 런타임 UI를 만드는 법 — UXML 구조, USS 스타일,
+      <code>UIDocument</code> 런타임 바인딩을 실제로 보여 준다.
+      <a href="https://www.youtube.com/watch?v=6DcwHPxCE54">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>런타임 API와 갱신 주기</h2>
+  <p>
+    <code>UIDocument</code> 컴포넌트의 <code>rootVisualElement</code>에서 <code>Q&lt;T&gt;(className)</code>로
+    요소를 찾고, <code>clicked</code>·<code>RegisterCallback</code>로 이벤트를 건다. 여기서
+    <code>StatsHud</code>의 교훈("문자열을 매 프레임 만들지 말라 — GC")이 <strong>바인딩 주기</strong>로
+    되돌아온다: KPI는 <code>schedule.Execute(UpdateKpis).Every(250)</code>로 <strong>0.25초마다만</strong>
+    갱신하고, ListView는 더 성긴 주기로 <code>RefreshItems</code>. 프레임마다 재바인딩하지 않는다.
+  </p>
+
+  <h2>ListView 가상화 — 수천 대를 십여 행으로</h2>
+  <p>
+    차량 수천 대 목록을 항목마다 GameObject로 만들면 무너진다. <strong>ListView 가상화</strong>는
+    화면에 <strong>실제로 보이는 몇 행만</strong> 생성(<code>makeItem</code>)하고 재활용
+    (<code>bindItem</code>)한다. 수천 개가 다 있는 듯 스크롤되지만 실제로 존재하는 것은 십여 개
+    행뿐 — uGUI로는 불가능한, UI Toolkit의 결정적 이점이다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>축</th><th>UI Toolkit</th><th>uGUI</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">대량 목록</td><td>ListView 가상화(수천 행)</td><td>항목마다 GameObject → 무거움</td></tr>
+        <tr><td class="rowhead">스타일 재사용</td><td>USS 클래스</td><td>컴포넌트별 수동</td></tr>
+        <tr><td class="rowhead">월드 스페이스</td><td>제한적</td><td>강함(빌보드 라벨)</td></tr>
+        <tr><td class="rowhead">편집</td><td>UI Builder + 텍스트</td><td>씬 계층</td></tr>
+        <tr><td class="rowhead">이 페이즈 용도</td><td>운영자 대시보드</td><td>차량 위 3D 라벨</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="대시보드 레이아웃 와이어프레임: 좌측 KPI 패널, 중앙 뷰포트, 우측 차량 ListView, 하단 컨트롤 바.">
+      <rect x="20" y="20" width="680" height="230" rx="8" fill="none" class="d-soft" stroke-width="1.5"/>
+      <!-- KPI panel -->
+      <rect class="d-node" x="36" y="36" width="150" height="120" rx="6"/>
+      <text class="d-label" x="111" y="30" text-anchor="middle">kpi-panel</text>
+      <rect class="d-fill-accent" x="48" y="50" width="126" height="22" rx="3" opacity="0.3"/>
+      <rect class="d-fill-accent" x="48" y="78" width="126" height="22" rx="3" opacity="0.3"/>
+      <rect class="d-fill-accent" x="48" y="106" width="126" height="22" rx="3" opacity="0.3"/>
+      <!-- viewport -->
+      <rect class="d-soft" x="200" y="36" width="300" height="180" rx="6" fill="none" stroke-width="1.5"/>
+      <text class="d-text" x="350" y="130" text-anchor="middle">뷰포트(3D)</text>
+      <!-- vehicle list -->
+      <rect class="d-node" x="514" y="36" width="170" height="180" rx="6"/>
+      <text class="d-label" x="599" y="30" text-anchor="middle">vehicle-list</text>
+      <g class="d-soft" stroke-width="1">
+        <line x1="524" y1="60" x2="674" y2="60"/><line x1="524" y1="84" x2="674" y2="84"/>
+        <line x1="524" y1="108" x2="674" y2="108"/><line x1="524" y1="132" x2="674" y2="132"/>
+        <line x1="524" y1="156" x2="674" y2="156"/><line x1="524" y1="180" x2="674" y2="180"/>
+      </g>
+      <text class="d-text" x="599" y="205" text-anchor="middle">가상화(보이는 행만)</text>
+      <!-- control bar -->
+      <rect class="d-node" x="200" y="226" width="300" height="16" rx="4"/>
+      <text class="d-text" x="350" y="238" text-anchor="middle" fill="#fff">control-bar: ⏸ 1× 120× · 소스 토글</text>
+    </svg>
+    <figcaption>
+      좌: KPI 타일, 중앙: 3D 뷰포트, 우: 차량 ListView(가상화), 하단: 컨트롤 바(배속·소스 토글).
+      각 영역이 하나의 BEM 블록이다.
+    </figcaption>
+  </figure>
+
+  <h2>uGUI와 공존</h2>
+  <p>
+    UI Toolkit이 uGUI를 완전히 대체하지는 않는다. 차량 위에 떠다니는 FOUP ID <strong>월드 스페이스
+    라벨(빌보드)</strong>은 여전히 uGUI/월드 스페이스의 강점 영역이다. 스크린 스페이스 운영자
+    대시보드는 UI Toolkit, 3D 공간에 붙는 라벨은 uGUI — 둘은 각자의 자리에서 공존한다.
+  </p>
+
+  <!-- TODO(editor-session): FabSim-P8-Complete의 UI Toolkit 대시보드(KPI 패널·차량 ListView·
+       컨트롤 바)가 게임뷰에 올라온 phase8-dashboard.png를 캡처해 <figure class="photo">로 수록. -->
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>수천 대 목록에 ListView 가상화가 필수인 이유는?</summary>
+      <div class="answer">
+        <p>
+          항목마다 GameObject/VisualElement를 만들면 수천 개의 객체가 메모리·레이아웃 비용을
+          잡아먹어 프레임이 무너진다. 가상화는 화면에 보이는 십여 개 행만 생성·재활용하므로, 목록이
+          아무리 길어도 비용이 일정하게 유지된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>BEM에서 <code>--red</code> 대신 <code>--blocked</code>를 쓰는 이유는?</summary>
+      <div class="answer">
+        <p>
+          이름은 <strong>의미(상태)</strong>를 담아야지 표현(색)을 담으면 안 된다. "막힘"의 색을
+          빨강에서 주황으로 바꿔도 <code>--blocked</code>는 그대로다. <code>--red</code>였다면 이름과
+          실제 색이 어긋나 혼란스러워진다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>Every(250)</code> 바인딩이 <code>StatsHud</code> 스로틀과 같은 문제를 푸는 방식은?</summary>
+      <div class="answer">
+        <p>
+          둘 다 "매 프레임 갱신은 낭비(특히 문자열 생성 GC)"라는 문제를 <strong>갱신 빈도를 낮춰</strong>
+          푼다. <code>StatsHud</code>는 0.25초에 한 번만 문자열을 만들었고, 대시보드는
+          <code>schedule.Execute(...).Every(250)</code>로 KPI 바인딩을 0.25초 주기로 돌린다. 사람 눈에
+          충분하고 GC는 줄인다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>월드 스페이스 라벨을 uGUI로 남기는 이유는?</summary>
+      <div class="answer">
+        <p>
+          3D 공간의 특정 오브젝트에 붙어 따라다니는 빌보드 라벨은 uGUI/월드 스페이스 캔버스가
+          강하고 자연스럽다. UI Toolkit은 스크린 스페이스 UI(대시보드)에 강하다. 각자의 강점 영역이
+          달라 공존시키는 것이 실용적이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>Q&lt;T&gt;()</code>가 하는 일은?</summary>
+      <div class="answer">
+        <p>
+          <code>rootVisualElement</code> 아래에서 이름이나 클래스로 <code>VisualElement</code>를
+          찾아 반환한다(웹의 <code>querySelector</code>에 해당). 찾은 요소에 값을 바인딩하거나
+          콜백을 걸어 로직과 UI를 잇는다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="03-realtime-bridge.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">실시간 브리지 — 버퍼링·재동기화</span>
+    </a>
+    <a class="next" href="05-practice.html">
+      <span class="dir">NEXT — STATION 05 →</span>
+      <span class="title">실습 — 내 시뮬레이터를 트윈으로</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 8 — Digital Twin Bridge</div>
+</footer>
+
+</body>
+</html>
