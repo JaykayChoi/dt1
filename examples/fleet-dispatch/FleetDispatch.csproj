@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\phase2-descore\DesCore\DesCore.csproj" />
+    <ProjectReference Include="..\common\SimStats\SimStats.csproj" />
   </ItemGroup>
 
 </Project>

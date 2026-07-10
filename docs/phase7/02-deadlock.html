@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 데드락 — 예방·회피·탐지 — DT1 Phase 7</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 7 Fleet 심화<span class="sep">/</span>02 데드락
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 7 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-traffic-control.html" title="교통 제어 — 구간 점유와 정체">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-routing.html" title="경로 탐색 심화 — A*·정체 인지 라우팅">03</a></li>
+      <li><a href="04-advanced-dispatch.html" title="배차 심화 — 기아 방지·핫 로트·충전">04</a></li>
+      <li><a href="05-practice.html" title="실습 — FabSim에 교통 제어 넣기">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 7 — FLEET 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 7 · Station 02</p>
+    <h1>데드락 — 예방·회피·탐지</h1>
+    <p class="lede">
+      Station 01에서 구간 점유가 데드락을 <strong>가능</strong>케 했다. 이제 그것을 세 갈래로
+      다룬다 — 아예 못 생기게 하는 <strong>예방</strong>, 생길 길목에서 막는 <strong>회피</strong>,
+      생긴 뒤 잡아 푸는 <strong>탐지+복구</strong>. 콘솔 랩이 실제로 데드락을 유발하고
+      <code>t=4.0s</code>에 잡는다.
+    </p>
+  </div>
+
+  <h2>데드락의 4조건</h2>
+  <p>
+    <strong>데드락</strong>은 넷이 동시에 성립할 때만 생긴다 — ① 상호 배제(한 구간에 한 대),
+    ② <strong>점유 대기</strong>(구간을 쥔 채 다음을 기다림), ③ 비선점(뺏을 수 없음),
+    ④ <strong>순환 대기</strong>(대기 관계가 원을 이룸). 구간 점유가 이미 앞 세 개를 만들었으니,
+    <strong>순환 대기만 막으면</strong> 데드락은 사라진다. 세 전략은 모두 네 번째 조건을 겨냥한다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/JdVpWA3Q20I" title="Understanding Deadlock and the Dining Philosopher's Problem" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      데드락의 성립 조건과 고전 예제(식사하는 철학자들) — 각자 포크 하나를 쥔 채 옆 포크를
+      기다리면 순환 대기가 완성돼 아무도 못 먹는다. 마주 오는 두 차량이 서로의 구간을 쥐는 것과
+      똑같은 구조다.
+      <a href="https://www.youtube.com/watch?v=JdVpWA3Q20I">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>예방 — 순환을 구조적으로 불가능하게</h2>
+  <p>
+    <strong>예방</strong>은 순환 대기를 애초에 만들 수 없게 구조를 짜는 것이다. <strong>단방향
+    루프</strong>가 그 대표다 — <code>FabLayout</code>이 이미 반시계 12노드 단일 사이클이라,
+    마주 보는 대기가 존재할 수 없다. Phase 5가 데드락을 한 번도 못 본 이유가 바로 이것이다.
+    자유도(아무 방향으로나 가기)를 포기한 대가로 데드락을 원천 봉쇄한 셈이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="왼쪽 단방향 루프는 화살표가 모두 한 방향이라 순환 대기가 없고, 오른쪽 양방향 지름길이 추가되면 마주 보는 두 화살표가 순환 대기를 만든다.">
+      <defs>
+        <marker id="ah8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+        <marker id="ah8a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" class="d-fill-accent"/>
+        </marker>
+      </defs>
+      <!-- 단방향 루프 -->
+      <text class="d-label" x="160" y="30" text-anchor="middle">단방향 — 데드락 없음</text>
+      <circle cx="90" cy="90" r="8" class="d-node"/>
+      <circle cx="230" cy="90" r="8" class="d-node"/>
+      <circle cx="230" cy="200" r="8" class="d-node"/>
+      <circle cx="90" cy="200" r="8" class="d-node"/>
+      <line x1="100" y1="88" x2="220" y2="88" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+      <line x1="232" y1="100" x2="232" y2="188" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+      <line x1="220" y1="202" x2="100" y2="202" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+      <line x1="88" y1="188" x2="88" y2="100" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+
+      <!-- 양방향 지름길 -->
+      <text class="d-label" x="560" y="30" text-anchor="middle">양방향 지름길 — 순환 대기</text>
+      <circle cx="490" cy="90" r="8" class="d-node"/>
+      <circle cx="630" cy="90" r="8" class="d-node"/>
+      <circle cx="630" cy="200" r="8" class="d-node"/>
+      <circle cx="490" cy="200" r="8" class="d-node"/>
+      <line x1="500" y1="88" x2="620" y2="88" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+      <line x1="620" y1="202" x2="500" y2="202" class="d-rail" stroke-width="2" marker-end="url(#ah8)"/>
+      <!-- 양방향 corridor -->
+      <line x1="500" y1="138" x2="620" y2="138" class="d-accent" stroke-width="2.5" marker-end="url(#ah8a)"/>
+      <line x1="620" y1="152" x2="500" y2="152" class="d-accent" stroke-width="2.5" marker-end="url(#ah8a)"/>
+      <text class="d-text" x="560" y="130" text-anchor="middle">↔ 마주 봄</text>
+    </svg>
+    <figcaption>
+      왼쪽: 모든 화살표가 한 방향 → 대기 관계가 원을 못 그린다. 오른쪽: 양방향 corridor가 끼면
+      두 차량이 서로의 구간을 쥔 채 상대 구간을 기다려 순환 대기가 완성된다.
+    </figcaption>
+  </figure>
+
+  <h2>회피 — 승인 전에 안전을 검사</h2>
+  <p>
+    <strong>회피</strong>는 구조는 그대로 두되, 자원을 내주기 <strong>전에</strong> "그래도
+    안전한가"를 검사한다. 두 방법: <strong>자원 순서화</strong>는 모든 구간에 전역 번호를 매기고
+    <strong>번호가 커지는 순서로만</strong> 획득하게 해 순환을 원천 차단한다(콘솔 랩의 "자원
+    순서화" 구성). <strong>뱅커스 알고리즘</strong>은 요청을 승인해도 시스템이 여전히 "안전
+    상태"(모두가 언젠가 끝날 수 있는 상태)로 남는지 미리 검사하고, 아니면 보류한다. 보수적이라
+    처리량을 다소 갉아먹는 것이 대가다.
+  </p>
+
+  <h2>탐지 후 복구 — wait-for 그래프의 사이클을 찾는다</h2>
+  <p>
+    <strong>탐지</strong>는 데드락을 허용하되 주기적으로 잡아 푼다. <strong>wait-for 그래프</strong>는
+    "대기 차량 → 그 구간을 점유한 차량"을 간선으로 그린 방향 그래프이고, 여기에
+    <strong>사이클이 있으면 곧 데드락</strong>이다. DFS로 사이클을 찾아, 낀 차량 한 대를 후진·재경로해
+    끊는다. 콘솔 랩의 <code>SegmentController.DetectDeadlockCycle()</code>이 정확히 이 DFS다.
+  </p>
+  <div class="callout">
+    <span class="label">랩에서 실측한 데드락</span>
+    <p>
+      <code>examples/fleet-traffic</code>의 실험 B는 2구간 양방향 corridor에 마주 오는 두 차량을
+      태운다. 각자 한 구간을 획득한 뒤 상대 구간을 요청 → 순환 대기 → <code>DetectDeadlockCycle()</code>이
+      <strong>t=4.0s에 사이클 [0, 1]</strong>을 잡는다. 같은 corridor를 <strong>단방향화</strong>하거나
+      두 구간에 <strong>자원 순서화</strong>를 적용하면 데드락은 <strong>0</strong>이 된다.
+    </p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="wait-for 사이클: 차량 A가 B가 점유한 구간을, B가 A가 점유한 구간을 기다려 화살표가 원을 이룬다.">
+      <defs>
+        <marker id="ah9" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-accent"/>
+        </marker>
+      </defs>
+      <circle cx="180" cy="125" r="34" class="d-node"/>
+      <text class="d-label" x="180" y="131" text-anchor="middle">차량 0</text>
+      <circle cx="440" cy="125" r="34" class="d-node"/>
+      <text class="d-label" x="440" y="131" text-anchor="middle">차량 1</text>
+      <path d="M212,110 C300,70 340,70 410,108" fill="none" class="d-accent" stroke-width="2.5" marker-end="url(#ah9)"/>
+      <text class="d-text" x="310" y="72" text-anchor="middle">1의 구간을 기다림</text>
+      <path d="M408,142 C340,182 300,182 214,144" fill="none" class="d-accent" stroke-width="2.5" marker-end="url(#ah9)"/>
+      <text class="d-text" x="310" y="196" text-anchor="middle">0의 구간을 기다림</text>
+      <text class="d-label" x="310" y="230" text-anchor="middle">화살표가 원 = 사이클 = 데드락</text>
+    </svg>
+    <figcaption>
+      두 간선이 원을 이루면 데드락이다. DFS가 방문 중인 노드를 다시 만나면 그 지점부터가
+      사이클 — 랩은 이 사이클의 차량 id를 정렬해 로그한다.
+    </figcaption>
+  </figure>
+
+  <h2>비교표 — 세 전략</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>전략</th>
+          <th>언제 작동</th>
+          <th>비용</th>
+          <th>이 트랙의 구현</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">예방(단방향)</td><td>항상</td><td>경로 자유도↓</td><td>FabLayout 기본</td></tr>
+        <tr><td class="rowhead">회피(순서화/뱅커스)</td><td>예약 승인 시</td><td>검사 오버헤드·보수성</td><td>순서화 데모(랩 실험 B)</td></tr>
+        <tr><td class="rowhead">탐지+복구</td><td>주기적</td><td>해소 동작 비쌈</td><td>wait-for DFS(랩 실험 B)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <span class="label">완성본에서 확인</span>
+    <p>
+      <code>FabSim-P7-Complete</code>는 이 데드락 탐지를 <code>SegmentController.DetectDeadlockCycle()</code>로
+      담고, EditMode 테스트가 (1) 단방향 사슬에서는 사이클이 없고(<code>UnidirectionalChainHasNoDeadlock</code>),
+      (2) 마주 보는 교차 점유에서는 사이클 <code>[0, 1]</code>을 잡음(<code>CrossOccupancyIsDetectedAsCycle</code>)을
+      검증한다 — 콘솔 랩의 <code>t=4.0s</code> 데드락과 같은 로직이다. 데드락에 낀 차량을 적색으로
+      하이라이트하는 시각화는 이 로직 위에 얹는 뷰 계층으로, Station 05 실습에서 배선한다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>데드락 4조건을 열거하고, 각각을 깨는 방법을 하나씩 대라.</summary>
+      <div class="answer">
+        <p>
+          ① 상호 배제 → 공유 가능 자원으로(구간엔 부적합). ② 점유 대기 → 필요한 자원을 한꺼번에
+          모두 획득. ③ 비선점 → 낮은 우선순위 자원을 뺏기. ④ 순환 대기 → 자원 순서화(전역 순서로만
+          획득). Fleet에서는 주로 ④를 겨냥한다(단방향·순서화).
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>단방향 루프는 4조건 중 어느 것을 없애는가?</summary>
+      <div class="answer">
+        <p>
+          <strong>순환 대기</strong>다. 모든 이동이 한 방향이라 대기 관계가 원을 그릴 수 없다.
+          나머지 세 조건(상호 배제·점유 대기·비선점)은 구간 점유가 그대로 만들지만, 네 번째가
+          없으면 데드락은 성립하지 않는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>자원 순서화가 순환을 막는 원리는?</summary>
+      <div class="answer">
+        <p>
+          모든 자원에 전역 번호를 매기고 항상 번호가 커지는 순서로만 획득하게 하면, 어떤 차량도
+          "큰 번호를 쥔 채 작은 번호를 기다리는" 관계를 만들 수 없다. 대기 간선이 항상 번호가
+          커지는 방향뿐이라 원(순환)을 이룰 수 없다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>wait-for 그래프에서 데드락의 정의는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          그래프에 <strong>사이클이 존재</strong>하는 것이다. 노드는 차량, 간선은 "이 차량이 저
+          차량이 쥔 자원을 기다린다"를 뜻한다. 간선이 원을 이루면 서로가 서로를 기다려 아무도
+          전진 못 하는 데드락이다. 탐지는 이 사이클을 DFS로 찾는 일이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>뱅커스 알고리즘이 "안전 상태"로 보장하는 것은?</summary>
+      <div class="answer">
+        <p>
+          어떤 순서로든 <strong>모든 작업이 결국 필요한 자원을 다 받아 완료</strong>될 수 있는
+          상태다. 요청을 승인해도 그런 순서가 하나라도 남아 있으면 승인하고, 없으면(모두가 막힐
+          위험이면) 보류한다. 은행이 모든 예금주에게 언젠가 다 지급할 수 있을 때만 대출하는 것과 같다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-traffic-control.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">교통 제어 — 구간 점유와 정체</span>
+    </a>
+    <a class="next" href="03-routing.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">경로 탐색 심화 — A*·정체 인지 라우팅</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 7 — FLEET ADVANCED</div>
+</footer>
+
+</body>
+</html>

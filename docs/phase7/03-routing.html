@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 경로 탐색 심화 — A*·정체 인지 라우팅 — DT1 Phase 7</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 7 Fleet 심화<span class="sep">/</span>03 경로 탐색
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 7 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-traffic-control.html" title="교통 제어 — 구간 점유와 정체">01</a></li>
+      <li><a href="02-deadlock.html" title="데드락 — 예방·회피·탐지">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-advanced-dispatch.html" title="배차 심화 — 기아 방지·핫 로트·충전">04</a></li>
+      <li><a href="05-practice.html" title="실습 — FabSim에 교통 제어 넣기">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 7 — FLEET 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 7 · Station 03</p>
+    <h1>경로 탐색 심화 — A*·정체 인지 라우팅</h1>
+    <p class="lede">
+      02까지는 "누가 어디를 <strong>점유</strong>하나"였다. 이제 "애초에 <strong>어느 길로</strong>
+      보내나"로 올라간다. Phase 5의 다익스트라를 <strong>A*</strong>로 끌어올려 탐색 낭비를 줄이고,
+      정체를 엣지 비용에 실어 모두가 같은 길로 몰리는 함정을 벗어난다.
+    </p>
+  </div>
+
+  <h2>다익스트라의 한계 — 전방위로 균일하게 퍼진다</h2>
+  <p>
+    Phase 5의 <code>RailGraph.FindPath</code>는 선형 탐색 다익스트라라, 출발점을 중심으로
+    <strong>모든 방향으로 균일하게</strong> 퍼지며 최단 경로를 찾는다. 노드가 수십 개면 충분하지만,
+    격자가 커지면 목표와 정반대 방향까지 탐색하는 낭비가 명확해진다. 개선의 교보재로 딱 좋다.
+  </p>
+
+  <h2>A* — 목표까지의 추정으로 탐색을 당긴다</h2>
+  <p>
+    <strong>A*</strong>는 지금까지의 실비용 <code>g</code>에 목표까지의 낙관적 추정 <code>h</code>를
+    더한 <code>f = g + h</code>로 확장 순서를 정해, 탐색을 <strong>목표 쪽으로 당긴다</strong>.
+    핵심 조건은 <strong>허용 가능 휴리스틱</strong> — 실제 비용을 절대 과대평가하지 않는 것 —
+    이고, 직선(유클리드) 거리가 그것이다. 허용 가능하면 A*는 다익스트라와 <strong>완전히 같은
+    최단 경로</strong>를 <strong>더 적은 확장</strong>으로 찾는다.
+  </p>
+  <div class="callout">
+    <span class="label">랩에서 실측한 효율</span>
+    <p>
+      <code>examples/fleet-routing</code>의 6×6 격자에서 200쌍을 돌리면, 다익스트라는 평균
+      <strong>18.0노드</strong>를 확장하지만 A*(직선거리 휴리스틱)는 <strong>6.5노드</strong>만
+      확장한다(약 1/3). 계산 시간도 21.7 → 11.8 µs로 줄고, <strong>경로 길이는 100 % 일치</strong> —
+      허용 가능 휴리스틱이 최적성을 깨지 않았다는 증거다.
+    </p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="같은 격자에서 다익스트라는 출발점 중심 원형으로 넓게 확장하고, A*는 출발에서 목표로 타원형으로 좁게 확장한다.">
+      <text class="d-label" x="185" y="28" text-anchor="middle">다익스트라 — 전방위</text>
+      <text class="d-label" x="540" y="28" text-anchor="middle">A* — 목표 지향</text>
+      <!-- 다익스트라: 동심원 -->
+      <circle cx="130" cy="160" r="90" class="d-soft" fill="none" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="130" cy="160" r="60" class="d-soft" fill="none" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="130" cy="160" r="30" class="d-soft" fill="none" stroke-width="1.5" opacity="0.7"/>
+      <circle cx="130" cy="160" r="6" class="d-fill-rail"/>
+      <text class="d-text" x="130" y="185" text-anchor="middle">출발</text>
+      <circle cx="270" cy="120" r="6" class="d-fill-accent"/>
+      <text class="d-text" x="270" y="110" text-anchor="middle">목표</text>
+      <line x1="130" y1="160" x2="270" y2="120" class="d-accent" stroke-width="2.5"/>
+      <!-- A*: 타원(출발→목표) -->
+      <ellipse cx="500" cy="160" rx="95" ry="34" transform="rotate(-16 500 160)" class="d-fill-accent" opacity="0.16"/>
+      <circle cx="420" cy="185" r="6" class="d-fill-rail"/>
+      <text class="d-text" x="420" y="208" text-anchor="middle">출발</text>
+      <circle cx="590" cy="135" r="6" class="d-fill-accent"/>
+      <text class="d-text" x="590" y="125" text-anchor="middle">목표</text>
+      <line x1="420" y1="185" x2="590" y2="135" class="d-accent" stroke-width="2.5"/>
+    </svg>
+    <figcaption>
+      다익스트라는 출발점 중심으로 원형(전방위)으로 퍼지고, A*는 휴리스틱이 탐색을 목표 방향
+      타원으로 좁힌다. 확장 셀이 적을수록 빠르고, 경로(굵은 선)는 동일하다.
+    </figcaption>
+  </figure>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/-L-WgKMFuhE" title="A* Pathfinding (E01: algorithm explanation) — Sebastian Lague" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      Sebastian Lague의 <strong>A* 알고리즘 설명</strong> — <code>g</code>, <code>h</code>,
+      <code>f = g + h</code>가 무엇이고 왜 A*가 목표 쪽으로 탐색을 당기는지를 격자 위에서 보여 준다.
+      <a href="https://www.youtube.com/watch?v=-L-WgKMFuhE">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>정체 인지 라우팅 — 가장 짧은 길이 아니라 가장 빠른 길</h2>
+  <p>
+    정적 최단 경로는 <strong>모두가 같은 길로 몰리는 함정</strong>이다(Phase 1 Station 04의 "동적
+    엣지 비용"). 해법은 엣지 비용에 <strong>점유율·최근 통과 대기를 페널티로</strong> 더하는 것 —
+    붐비는 구간은 비싸지므로 뒤따르는 차량이 옆길로 돌아간다. 주행 중에도 예약 실패 누적이나
+    정체 임계 초과가 감지되면 <strong>재계획</strong>(rerouting)으로 남은 경로를 갈아탄다.
+  </p>
+  <div class="callout">
+    <span class="label">랩에서 실측한 분산</span>
+    <p>
+      왼쪽에서 오른쪽으로 가는 60대가 모두 순수 최단을 고르면 가운데 구간에 최대 <strong>19.9대</strong>가
+      몰려 평균 반송시간이 <strong>60.6초</strong>다. 부하를 비용에 실은 동적 라우팅은 최대 부하를
+      <strong>11.6대</strong>로 낮추고 반송시간을 <strong>49.5초</strong>로 줄인다(두 95% CI가 겹치지
+      않음). "가장 짧은 길"이 아니라 "가장 빠른 길"을 고른 결과다.
+    </p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="같은 엣지에 차량 점유가 늘수록 비용 라벨이 오르고, 대체 경로가 선택되는 전후 두 컷.">
+      <defs>
+        <marker id="ah10" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" class="d-fill-accent"/>
+        </marker>
+      </defs>
+      <text class="d-label" x="180" y="28" text-anchor="middle">정적 — 다 같은 길</text>
+      <circle cx="70" cy="110" r="7" class="d-node"/><circle cx="300" cy="110" r="7" class="d-node"/>
+      <line x1="80" y1="110" x2="290" y2="110" class="d-accent" stroke-width="6" opacity="0.5"/>
+      <text class="d-text" x="185" y="98" text-anchor="middle">부하 20 · 비용↑↑</text>
+      <text class="d-text" x="185" y="140" text-anchor="middle">60대 전부 이 구간</text>
+
+      <text class="d-label" x="540" y="28" text-anchor="middle">동적 — 분산</text>
+      <circle cx="430" cy="80" r="7" class="d-node"/><circle cx="650" cy="80" r="7" class="d-node"/>
+      <circle cx="430" cy="150" r="7" class="d-node"/><circle cx="650" cy="150" r="7" class="d-node"/>
+      <line x1="438" y1="80" x2="642" y2="80" class="d-accent" stroke-width="3" opacity="0.6" marker-end="url(#ah10)"/>
+      <line x1="438" y1="150" x2="642" y2="150" class="d-accent" stroke-width="3" opacity="0.6" marker-end="url(#ah10)"/>
+      <text class="d-text" x="540" y="118" text-anchor="middle">부하 12씩 나눠 흐름</text>
+    </svg>
+    <figcaption>
+      정적은 한 구간에 부하가 쌓여 그 구간이 비싸진다. 동적은 앞 차량이 깔아 둔 부하를 비용에
+      실어 뒤 차량을 옆 경로로 흘려보낸다.
+    </figcaption>
+  </figure>
+
+  <h2>업계는 어떻게 하나 (서베이)</h2>
+  <p>
+    완전 시공간 계획도 있다 — <strong>시간창 예약</strong>(엣지를 "언제부터 언제까지" 단위로 예약),
+    <strong>WHCA*</strong>(시공간 협력 A*), <strong>CBS</strong>(충돌 기반 탐색). 하지만 실제 OHT
+    현장은 완전 계획보다 <strong>예약 + 지역 규칙</strong>(구간 점유·양보) 위주다 — 계산이 싸고
+    예측 가능하기 때문이다. 이 이름들은 면접 대비 지식으로 자리매김해 두자.
+  </p>
+
+  <h2>비교표 — 다익스트라 vs A*</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>항목</th><th>다익스트라</th><th>A* (유클리드 h)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">확장 방향</td><td>전방위 균일</td><td>목표 지향</td></tr>
+        <tr><td class="rowhead">확장 노드 수</td><td>많음(랩 18.0)</td><td>적음(랩 6.5)</td></tr>
+        <tr><td class="rowhead">최적성</td><td>보장</td><td>허용 가능 h이면 보장</td></tr>
+        <tr><td class="rowhead">추가 입력</td><td>없음</td><td>휴리스틱 함수</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>허용 가능 휴리스틱의 정의와, 유클리드 거리가 왜 허용 가능한가?</summary>
+      <div class="answer">
+        <p>
+          허용 가능 = 어느 노드에서도 목표까지의 <strong>실제 최소 비용을 절대 넘겨 추정하지
+          않는</strong>(과소평가만 하는) 것. 격자에서 실제 경로는 엣지를 따라 꺾여 가므로 항상
+          직선거리 이상이다. 따라서 직선(유클리드) 거리는 실제 비용을 절대 넘지 않아 허용 가능하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>A*가 다익스트라와 같은 답을 더 적게 확장하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          다익스트라는 <code>g</code>(출발부터의 비용)만으로 확장해 전방위로 퍼진다. A*는
+          <code>g + h</code>로 확장해 목표에서 먼 노드를 뒤로 미룬다. 허용 가능한 <code>h</code>는
+          최적 경로를 배제하지 않으므로, 답은 같되 쓸데없는 방향의 확장이 줄어든다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>정적 최단경로의 함정과 동적 비용의 해법을 한 문장씩.</summary>
+      <div class="answer">
+        <p>
+          함정: 모두가 같은 최단 경로를 골라 그 구간이 병목이 된다. 해법: 엣지 비용에 점유율
+          페널티를 실어, 붐비는 구간을 비싸게 만들어 뒤따르는 차량이 옆길로 분산되게 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>재계획(rerouting)을 촉발하는 트리거의 예를 들라.</summary>
+      <div class="answer">
+        <p>
+          예약 실패가 일정 횟수 누적되거나, 남은 경로의 정체 지표가 임계값을 넘거나, 앞 구간
+          대기 시간이 어떤 한계를 초과할 때. 이때 현재 위치에서 목표까지 남은 경로를 정체 인지
+          비용으로 다시 계산해 더 나은 길로 갈아탄다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>업계가 완전 시공간 계획보다 예약+지역 규칙을 선호하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          완전 시공간 계획(WHCA*/CBS)은 최적에 가깝지만 계산이 비싸고 상황 변화에 취약하다.
+          예약 + 지역 규칙(구간 점유·양보)은 계산이 싸고 <strong>예측 가능</strong>하며 고장·지연에
+          강건하다. 현장은 최적성보다 안정성·설명 가능성을 택한다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-deadlock.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">데드락 — 예방·회피·탐지</span>
+    </a>
+    <a class="next" href="04-advanced-dispatch.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">배차 심화 — 기아 방지·핫 로트·충전</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 7 — FLEET ADVANCED</div>
+</footer>
+
+</body>
+</html>

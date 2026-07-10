@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 배차 심화 — 기아 방지·핫 로트·충전 — DT1 Phase 7</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 7 Fleet 심화<span class="sep">/</span>04 배차 심화
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 7 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-traffic-control.html" title="교통 제어 — 구간 점유와 정체">01</a></li>
+      <li><a href="02-deadlock.html" title="데드락 — 예방·회피·탐지">02</a></li>
+      <li><a href="03-routing.html" title="경로 탐색 심화 — A*·정체 인지 라우팅">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+      <li><a href="05-practice.html" title="실습 — FabSim에 교통 제어 넣기">05</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 7 — FLEET 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 7 · Station 04</p>
+    <h1>배차 심화 — 기아 방지·핫 로트·충전</h1>
+    <p class="lede">
+      Phase 1과 배차 랩에서 탐욕 배차(최근접 작업)의 <code>MaxWait</code>가 이미 문제를 드러냈다 —
+      어떤 명령은 계속 뒤로 밀린다. 여기서 그 기아를 <strong>가중 점수</strong>로 풀고, 평균이
+      감추는 꼬리를 <strong>P95</strong>로 잰다. 그리고 "손잡이를 켜기 전에 측정하라"는 Phase 6의
+      교훈이 배차에서도 그대로 되풀이됨을 랩으로 확인한다.
+    </p>
+  </div>
+
+  <h2>탐욕 배차의 기아</h2>
+  <p>
+    최근접 작업 배차는 공차를 줄이는 데는 탁월하지만, 먼 명령을 <strong>영원히 미룰</strong> 수
+    있다 — 가까운 새 명령이 계속 도착하면 먼 명령은 늘 뒤로 밀린다. 이것이 <strong>기아</strong>이고,
+    평균 대기가 아니라 <code>MaxWait</code>·<strong>P95</strong> 같은 꼬리 지표가 그것을 드러낸다.
+  </p>
+
+  <h2>가중 점수 배차 — 오래 기다린 명령에 가산점</h2>
+  <p>
+    <strong>가중 점수</strong> 배차는 점수를 <code>공차거리[m] − k × 대기시간[분]</code>으로 매기고
+    가장 낮은 쌍을 고른다. 오래 기다린 명령은 <code>−k·대기</code> 항 때문에 점수가 낮아져(우선)
+    선택된다 — 이것이 <strong>에이징</strong>이다. <code>k = 0</code>이면 최근접 작업으로 환원된다.
+    공정성은 <strong>P95 대기</strong>로 잰다: 평균은 기아를 숨기고, 꼬리가 진실을 말한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="대기시간 히스토그램에 평균선과 P95선. 탐욕 정책은 긴 꼬리, 가중 정책은 짧아진 꼬리.">
+      <line class="d-rail" x1="60" y1="210" x2="690" y2="210" stroke-width="2"/>
+      <text class="d-label" x="375" y="240" text-anchor="middle">대기시간 →</text>
+      <!-- 히스토그램 막대(탐욕: 긴 꼬리) -->
+      <g class="d-fill-rail" opacity="0.55">
+        <rect x="80" y="120" width="30" height="90"/><rect x="115" y="90" width="30" height="120"/>
+        <rect x="150" y="110" width="30" height="100"/><rect x="185" y="140" width="30" height="70"/>
+        <rect x="220" y="165" width="30" height="45"/><rect x="255" y="180" width="30" height="30"/>
+        <rect x="290" y="188" width="30" height="22"/><rect x="325" y="193" width="30" height="17"/>
+        <rect x="360" y="196" width="30" height="14"/><rect x="395" y="198" width="30" height="12"/>
+        <rect x="430" y="200" width="30" height="10"/><rect x="500" y="202" width="30" height="8"/>
+        <rect x="580" y="203" width="30" height="7"/><rect x="640" y="204" width="26" height="6"/>
+      </g>
+      <line x1="175" y1="60" x2="175" y2="210" class="d-accent" stroke-width="2"/>
+      <text class="d-text" x="175" y="52" text-anchor="middle">평균</text>
+      <line x1="560" y1="60" x2="560" y2="210" class="d-accent" stroke-width="2" stroke-dasharray="6 4"/>
+      <text class="d-text" x="560" y="52" text-anchor="middle">P95(꼬리)</text>
+      <text class="d-text" x="620" y="150" text-anchor="middle">긴 꼬리 = 기아</text>
+    </svg>
+    <figcaption>
+      평균(왼쪽 실선)은 대다수의 짧은 대기에 눌려 낮게 보이지만, <strong>P95</strong>(오른쪽 점선)는
+      먼 명령들이 만든 <strong>긴 꼬리</strong>를 드러낸다. 에이징의 목표는 이 꼬리를 짧게 하는 것이다.
+    </figcaption>
+  </figure>
+
+  <div class="callout warn">
+    <span class="label">에이징은 공짜가 아니다 — 랩의 정직한 결과</span>
+    <p>
+      교과서는 "에이징이 기아를 없앤다"고 하지만, <code>examples/fleet-dispatch</code>의 작은
+      균형 팹(반송차 3대·6스테이션)에서 <code>k</code>를 0→160으로 올리면 오히려 나빠진다:
+      P95 대기가 <strong>4.5 → 41분</strong>으로, 처리량은 <strong>143 → 131건/h</strong>로 악화된다.
+      이유는 이 시스템에 <strong>고칠 기아가 거의 없기</strong> 때문이다 — 최근접 작업이 이미
+      꼬리가 짧다(P95 ≈ 4.5분). k를 올리면 먼 옛 명령을 좇느라 공차만 늘어(26→39 m) 처리량이
+      떨어지고 큐가 자라 모두의 대기가 는다. <strong>공정성 손잡이는 실제 기아가 있을 때만
+      값어치를 한다</strong> — 먼 스토커 접근이 드문 실제 팹에서는 에이징이 P95를 내린다. 랩은
+      그 전제 조건을 드러낸다. "측정하기 전엔 켜지 마라"가 여기서도 규칙이다.
+    </p>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>정책</th><th>최소화 대상</th><th>기아 위험</th><th>지표</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">최근접 작업(기존)</td><td>공차</td><td>높음(기아 큰 시스템)</td><td>MaxWait·P95 큼</td></tr>
+        <tr><td class="rowhead">가중 점수</td><td>공차 − k·대기</td><td>낮음(기아 큰 시스템에서 k↑)</td><td>P95↓, 공차 다소↑</td></tr>
+        <tr><td class="rowhead">핫 로트 선점</td><td>우선 로트 지연</td><td>일반 로트↑</td><td>우선/일반 분리 대기</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>핫 로트 선점 — 급한 로트가 줄을 건너뛴다</h2>
+  <p>
+    <strong>핫 로트</strong>는 납기·중요도가 급해 일반 로트를 제치고 우선 처리되는 로트다. 큐를
+    건너뛰게 해 주면 그 로트는 빨라지지만, 그 대가로 일반 로트의 대기가 늘어난다 — 공짜 우선순위는
+    없다. 얼마나 밀어줄지는 늘 트레이드오프다.
+  </p>
+
+  <h2>유휴차 재배치(staging)</h2>
+  <p>
+    <strong>스테이징</strong>은 다음 수요가 예상되는 지점 근처에 유휴 차량을 미리 흩어 두는 것이다.
+    다음 배차가 왔을 때 가까운 곳에 이미 차량이 있으니 응답 시간이 준다 — 소방차를 미리 요지에
+    배치하는 것과 같다.
+  </p>
+
+  <h2>충전 스케줄링 — 그리고 도메인의 경계</h2>
+  <p>
+    배터리 구동 AGV/AMR은 충전을 스케줄해야 한다. <strong>임계치 충전</strong>은 배터리가 문턱
+    아래로 떨어지면 충전소로 보낸다 — 단순하지만 여러 대가 <strong>동시에</strong> 빠질 위험이 있다.
+    <strong>기회 충전</strong>은 유휴 시간마다 조금씩 채워 늘 넉넉하게 유지한다 — 대신 충전소
+    자리다툼이 생긴다.
+  </p>
+  <div class="callout field">
+    <span class="label">도메인 구분이 곧 학습 포인트</span>
+    <p>
+      이 문제는 <strong>배터리 구동 AGV/AMR에만</strong> 해당한다. 천장 레일에서 <strong>비접촉
+      급전</strong>을 받는 OHT는 충전이 필요 없다 — 급전 방식이 문제의 무게를 정한다. "이 개념이
+      어느 장비에 해당하는가"를 아는 것 자체가 팀 업무의 역량이다.
+    </p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가용 차량 수 곡선: 임계치 충전은 여러 대가 동시에 빠져 급감하고, 기회 충전은 완만하게 유지된다.">
+      <line class="d-rail" x1="60" y1="200" x2="690" y2="200" stroke-width="2"/>
+      <line class="d-rail" x1="60" y1="30" x2="60" y2="200" stroke-width="2"/>
+      <text class="d-label" x="375" y="230" text-anchor="middle">시간 →</text>
+      <text class="d-label" x="24" y="115" transform="rotate(-90 24 115)" text-anchor="middle">가용 차량</text>
+      <!-- 임계치: 급감 -->
+      <path d="M70,60 L250,60 L250,150 L430,150 L430,72 L610,72 L610,158 L680,158" fill="none" class="d-accent" stroke-width="2.5"/>
+      <text class="d-label" x="300" y="140">임계치(동시 급감)</text>
+      <!-- 기회: 완만 -->
+      <path d="M70,80 C200,90 300,86 430,92 C540,96 620,90 680,94" fill="none" class="d-soft" stroke-width="2.5"/>
+      <text class="d-label" x="470" y="86">기회(완만)</text>
+    </svg>
+    <figcaption>
+      임계치 충전(굵은 선)은 여러 대가 동시에 문턱에 닿아 함대가 급감한다. 기회 충전(연한 선)은
+      조금씩 채워 가용 대수를 완만하게 유지한다.
+    </figcaption>
+  </figure>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/NZTVgExZqoI" title="The Dazzling Universe of Amazon Robots" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      아마존 창고의 로봇 함대 — 관제 시스템이 <strong>경로 배정·교차로 데드락 방지·워크스테이션
+      큐 관리·충전 스케줄링</strong>을 항공 관제처럼 한다. 이 스테이션의 개념들이 실제로 어떻게
+      돌아가는지 볼 수 있다.
+      <a href="https://www.youtube.com/watch?v=NZTVgExZqoI">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>탐욕 배차가 기아를 만드는 이유와, 어느 지표가 그것을 드러내는가?</summary>
+      <div class="answer">
+        <p>
+          최근접 작업은 늘 가까운 명령을 고르므로, 가까운 새 명령이 계속 도착하면 먼 명령이
+          영원히 뒤로 밀린다(기아). 평균 대기는 대다수의 짧은 대기에 눌려 이를 숨기고,
+          <strong>MaxWait·P95</strong> 같은 꼬리 지표가 드러낸다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>가중 점수의 에이징 항 <code>−k·대기</code>는 무엇을 하는가?</summary>
+      <div class="answer">
+        <p>
+          오래 기다린 명령일수록 점수를 낮춰(우선순위를 높여) 선택되게 한다. k가 클수록 대기
+          시간의 영향이 커져 기아가 완화된다. k=0이면 이 항이 사라져 최근접 작업으로 환원된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>평균 대신 P95를 보는 이유는?</summary>
+      <div class="answer">
+        <p>
+          평균은 소수의 심하게 굶은 명령(꼬리)을 다수의 짧은 대기로 희석해 숨긴다. P95는 "가장
+          나쁜 5 %가 얼마나 나쁜가"를 직접 보여 줘 공정성·기아를 정량화한다. 최악 근처의 경험이
+          곧 서비스 품질이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 랩에서 k를 올려도 P95가 안 내려가고 오히려 오른 이유는?</summary>
+      <div class="answer">
+        <p>
+          이 작은 균형 팹은 최근접 작업이 이미 꼬리가 짧아(P95 ≈ 4.5분) <strong>고칠 기아가
+          거의 없다</strong>. 그래서 k를 올리면 먼 옛 명령을 좇느라 공차가 늘어 처리량이 떨어지고,
+          큐가 자라 모두의 대기가 는다. 에이징은 실제 기아가 있는 시스템에서만 값어치를 한다 —
+          손잡이를 켜기 전에 측정해야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>OHT에 충전 스케줄링이 (대체로) 무관한 이유는?</summary>
+      <div class="answer">
+        <p>
+          OHT는 천장 레일에서 <strong>비접촉 급전</strong>을 받아 상시 전력이 공급되므로 배터리
+          충전 스케줄이 필요 없다. 충전 스케줄링(임계치 vs 기회)은 배터리로 도는 AGV/AMR의
+          문제다. 급전 방식이 이 문제의 유무를 결정한다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="03-routing.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">경로 탐색 심화 — A*·정체 인지 라우팅</span>
+    </a>
+    <a class="next" href="05-practice.html">
+      <span class="dir">NEXT — STATION 05 →</span>
+      <span class="title">실습 — FabSim에 교통 제어 넣기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 7 — FLEET ADVANCED</div>
+</footer>
+
+</body>
+</html>

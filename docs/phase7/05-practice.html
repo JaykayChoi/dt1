@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 실습 — FabSim에 교통 제어 넣기 — DT1 Phase 7</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 7 Fleet 심화<span class="sep">/</span>05 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 7 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-traffic-control.html" title="교통 제어 — 구간 점유와 정체">01</a></li>
+      <li><a href="02-deadlock.html" title="데드락 — 예방·회피·탐지">02</a></li>
+      <li><a href="03-routing.html" title="경로 탐색 심화 — A*·정체 인지 라우팅">03</a></li>
+      <li><a href="04-advanced-dispatch.html" title="배차 심화 — 기아 방지·핫 로트·충전">04</a></li>
+      <li class="current"><span class="st">05</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 7 — FLEET 심화</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 7 · Station 05 · 실습</p>
+    <h1>실습 — FabSim에 교통 제어 넣기</h1>
+    <p class="lede">
+      01~04에서 교통 제어·데드락·라우팅·배차를 개념과 콘솔 랩으로 익혔다. 이제 그 넷을
+      <strong>자기 손으로</strong> — 스켈레톤의 <code>SegmentController</code>를 채우고, 데드락을
+      직접 유발·탐지하고, 자신의 <code>FabSim</code>에 교통 제어를 이식한다. 읽는 페이지가 아니라
+      <strong>만드는 페이지</strong>다.
+    </p>
+  </div>
+
+  <h2>시작 상태 — 어디서 출발하나</h2>
+  <ul>
+    <li><strong>Unity 실습</strong>은 사용자의 <code>FabSim/</code>에서 진행한다(Phase 5 결과 —
+      레일 루프 + <code>FabModel</code> 브리지 + 뷰/HUD가 올라간 프로젝트).</li>
+    <li><strong>폴백</strong>: <code>FabSim</code>에 Phase 5 결과가 없거나 어긋났다면
+      <code>FabSim-P5-Complete</code>를 참고해 "레일 위를 차량이 도는" 상태를 먼저 만든다.</li>
+    <li><strong>콘솔 실습</strong>은 <code>examples/fleet-traffic-practice</code>·
+      <code>fleet-routing-practice</code> 스켈레톤에서 출발한다.</li>
+  </ul>
+  <p>
+    <button class="btn-launch" type="button" data-open="fabsim">
+      <span class="glyph">▶</span><span class="btn-label">실습 프로젝트 열기 — FabSim</span>
+    </button>
+    <button class="btn-launch alt" type="button" data-open="p7-complete">
+      <span class="glyph">▶</span><span class="btn-label">완성본 열기 — FabSim-P7-Complete</span>
+    </button>
+  </p>
+  <p class="launch-note">
+    버튼은 어떤 방식으로 열었든 동작한다. 콘솔 실습은 프로젝트를 열 필요 없이
+    <code>examples/fleet-traffic-practice</code>에서 바로 <code>dotnet run</code>으로 한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 820 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="실습 4단계 노선도: 콘솔 교통 제어 뼈대 → 데드락 유발·탐지 → FabSim 이식 → 배차 확장.">
+      <line class="d-rail" x1="60" y1="60" x2="760" y2="60" stroke-width="3"/>
+      <g>
+        <circle cx="110" cy="60" r="12" class="d-node"/><text class="d-label" x="110" y="95" text-anchor="middle">1 콘솔 뼈대</text>
+        <circle cx="320" cy="60" r="12" class="d-node"/><text class="d-label" x="320" y="95" text-anchor="middle">2 데드락</text>
+        <circle cx="530" cy="60" r="12" class="d-node"/><text class="d-label" x="530" y="95" text-anchor="middle">3 FabSim 이식</text>
+        <circle cx="710" cy="60" r="12" class="d-fill-accent"/><text class="d-label" x="710" y="95" text-anchor="middle">4 배차 확장</text>
+      </g>
+      <text class="d-text" x="110" y="38" text-anchor="middle">SegmentController</text>
+      <text class="d-text" x="320" y="38" text-anchor="middle">유발·탐지</text>
+      <text class="d-text" x="530" y="38" text-anchor="middle">정지·히트맵</text>
+      <text class="d-text" x="710" y="38" text-anchor="middle">P95·가중점수</text>
+    </svg>
+    <figcaption>실습은 좌→우 4단계다. 각 단계는 완료 기준이 명확하고, 막히면 완성본을 대조한다.</figcaption>
+  </figure>
+
+  <h2>실습 체크리스트 — 4단계</h2>
+  <ol>
+    <li>
+      <strong>콘솔에서 교통 제어 뼈대 세우기</strong> —
+      <code>examples/fleet-traffic-practice</code>의 <code>SegmentController</code> TODO
+      (Acquire/Release/HolderOf/DetectDeadlockCycle)를 채운다.
+      <br><strong>완료 기준</strong>: <code>dotnet run --project examples/fleet-traffic-practice -c Release</code>의
+      실험 A ON에서 처리량이 12대에서 <strong>꺾인다</strong>(완성본과 같은 234건/h 부근).
+      <br><strong>막히면</strong>: 완성본 <code>examples/fleet-traffic/SegmentController.cs</code>.
+    </li>
+    <li>
+      <strong>데드락을 직접 유발·탐지</strong> — 채운 <code>DetectDeadlockCycle()</code>로 양방향
+      corridor의 순환 대기를 잡는다.
+      <br><strong>완료 기준</strong>: 탐지 로그에 사이클·발생 시각·차량 id(<code>t=4.0s [0, 1]</code>)가
+      찍히고, 단방향화·자원 순서화 구성에선 데드락이 0이 된다.
+      <br><strong>막히면</strong>: 완성본의 실험 B 하네스와 <code>DetectDeadlockCycle</code>의 DFS.
+    </li>
+    <li>
+      <strong>FabSim에 SegmentController 이식</strong> — 채운 컨트롤러를 <code>FabSim</code>의
+      <code>Sim/</code>에 넣고, <code>FabModel</code>의 엣지 이동을 "다음 엣지 Acquire → 획득 시
+      이동 → 도착 시 이전 엣지 Release"로 바꾼다. 대기 상태색과 엣지 점유 히트맵을 붙인다.
+      <br><strong>완료 기준</strong>: Play에서 차량이 앞차 뒤에 <strong>실제로 정지·대기</strong>하고,
+      정체 구간이 히트맵으로 물들며, 데드락 시 관련 차량이 하이라이트된다.
+      <br><strong>막히면</strong>: 완성본 <code>FabSim-P7-Complete/Assets/Scripts/Sim/SegmentController.cs</code>와
+      <code>FabModel</code>의 Acquire/Release 통합부, 히트맵/대기색 컨트롤러.
+    </li>
+    <li>
+      <strong>배차 심화 확장 과제</strong> — <code>examples/fleet-dispatch</code>에
+      <code>WeightedScore</code> 정책과 <code>P95Wait</code> 지표를 더해 가중치 <code>k</code>를
+      스윕한다.
+      <br><strong>완료 기준</strong>: k 스윕 표가 나오고, 이 균형 팹에서는 k를 올릴수록 P95가
+      <strong>오히려 오르는</strong> 정직한 결과(기아가 없어 에이징이 역효과)를 재현한다.
+      <br><strong>막히면</strong>: 완성본 <code>fleet-dispatch/Program.cs</code>의
+      <code>SelectWeightedPair</code>·<code>RunWeightedSweep</code>.
+    </li>
+  </ol>
+
+  <div class="callout warn">
+    <span class="label">보고 베끼지 말 것</span>
+    <p>
+      완성본은 <strong>대조하는 곳</strong>이지 베끼는 곳이 아니다. 스켈레톤 실행 출력이 완성본과
+      어긋나면(제어 ON이 안 꺾임·데드락 미검출·A* 무개선) 그것이 "미완성"의 신호다. 손으로 만든 뒤
+      비교해야 다음 페이즈에서 막히지 않는다.
+    </p>
+  </div>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/NZTVgExZqoI" title="The Dazzling Universe of Amazon Robots" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      실제 로봇 함대가 정지·대기·교차로 양보·데드락 방지를 어떻게 하는지 — 이 실습에서 만들
+      거동의 실물 참고다.
+      <a href="https://www.youtube.com/watch?v=NZTVgExZqoI">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="photo">
+    <img src="../assets/img/phase7-traffic-queue.png" alt="완성본 FabSim-P7-Complete의 MiniFab — 실습이 도달할 목표">
+    <figcaption>
+      실습이 도달할 목표 — 정답지 <code>FabSim-P7-Complete</code>의 MiniFab이다. 이 완성본은
+      <code>SegmentController</code>가 <code>FabModel</code>에 이식돼 구간 점유로 돌고, 점유·대기·
+      데드락 탐지 로직이 EditMode 9개 테스트로 검증돼 있다(<code>unity-cli test</code> 통과).
+      완성본의 <code>VehicleFleetView</code>는 대기 차량을 호박색, 데드락 차량을 적색으로 물들인다
+      (위 게임 뷰의 호박색 차량이 그것). 위 버튼으로 열어 자기 <code>FabSim</code> 결과와 대조한다 —
+      엣지 점유 히트맵은 이 위에 얹는 마무리 뷰로, 실습 3단계에서 직접 배선한다.
+    </figcaption>
+  </figure>
+
+  <h2>완료 기준 (Definition of Done)</h2>
+  <ul>
+    <li><strong>콘솔 스켈레톤</strong>이 완성본과 같은 수치(처리량 꺾임 234·데드락 t=4.0s·A* 6.5확장)를 낸다.</li>
+    <li><strong>FabSim에서 차량이 앞차 뒤에 정지</strong>하고, 점유 히트맵·데드락 하이라이트가 동작한다.</li>
+    <li><strong>fleet-dispatch가 k 스윕</strong>을 출력하고, 에이징의 정직한 트레이드오프를 재현한다.</li>
+  </ul>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary><code>Acquire</code>가 즉시 콜백과 대기 큐 삽입으로 갈리는 조건은?</summary>
+      <div class="answer">
+        <p>
+          구간이 비어 있으면(<code>HolderOf == -1</code>) 그 차량을 점유자로 기록하고
+          <strong>즉시 onGranted</strong>를 부른다. 이미 점유 중이면 대기 큐에 넣고
+          <code>waitingEdge</code>에 "이 차량이 이 구간을 기다린다"를 기록해, 나중에 승계받게 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이식 후 FabSim의 일방통행 루프에서 데드락이 안 생기는 이유는?</summary>
+      <div class="answer">
+        <p>
+          단방향 루프는 항상 빈 구간이 있어 대기 관계가 원(순환)을 이루지 못한다. 순환 대기가
+          없으면 데드락 4조건이 완성되지 않는다. 데드락을 보려면 양방향 corridor를 일부러 넣어야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>대기 상태를 <code>VehicleAgent</code>에 어떻게 표현하고, 뷰는 그것을 어떻게 색으로 옮기나?</summary>
+      <div class="answer">
+        <p>
+          <code>VehicleAgent</code>에 <code>IsWaiting</code>(또는 <code>Waiting</code> 단계)을 두고,
+          <code>Acquire</code>가 대기 큐로 갈 때 참으로 만든다. 뷰(<code>VehicleFleetView</code>)는
+          매 프레임 그 플래그를 읽어 차량의 <code>MaterialPropertyBlock</code>으로 <code>_BaseColor</code>를
+          경고색으로 밀어(GC 없이) 대기 차량을 물들인다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>엣지 점유율을 0~1로 집계해 히트맵 <code>_Value</code>로 넘기는 흐름은?</summary>
+      <div class="answer">
+        <p>
+          각 구간의 최근 창 기준 점유 시간 비율을 0~1로 집계하는 컨트롤러가, 레일 박스에 붙은
+          <code>HeatmapCell.Value</code>에 그 값을 넣는다. <code>HeatmapCell</code>은
+          <code>MaterialPropertyBlock</code>으로 <code>FabVizHeatmap</code> 셰이더의 <code>_Value</code>를
+          갱신해 파랑→적 램프로 정체를 시각화한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>스켈레톤 실행 출력이 "미완성"임을 무엇으로 아는가?</summary>
+      <div class="answer">
+        <p>
+          교통 제어 ON이 OFF와 똑같이 처리량이 단조 증가하고(꺾이지 않음), 데드락을 못 잡으며,
+          A*의 확장 노드가 다익스트라와 같거나 많게 나온다. 이 세 신호가 완성본 수치와 어긋나는
+          것이 곧 채울 곳이 남았다는 뜻이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="04-advanced-dispatch.html">
+      <span class="dir">← PREV — STATION 04</span>
+      <span class="title">배차 심화 — 기아 방지·핫 로트·충전</span>
+    </a>
+    <a class="next" href="../phase8/01-twin-vs-sim.html">
+      <span class="dir">NEXT — PHASE 8 →</span>
+      <span class="title">디지털 트윈 연결 — 시뮬레이션 vs 트윈</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 7 — FLEET ADVANCED</div>
+</footer>
+
+</body>
+</html>
