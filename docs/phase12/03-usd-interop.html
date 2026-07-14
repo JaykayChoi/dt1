@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 USD 상호운용 — Phase 11 씬을 Omniverse에서 열기 — DT1 Phase 12</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 12 Omniverse<span class="sep">/</span>03 USD 상호운용
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 12 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-omniverse.html" title="NVIDIA Omniverse란">01</a></li>
+      <li><a href="02-core-components.html" title="핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-kit-extension.html" title="Kit 확장 개발 — Python · omni.ui · 스테이지 조작">04</a></li>
+      <li><a href="05-omnigraph-physics.html" title="고급 — OmniGraph · 물리 · 실시간 데이터 바인딩">05</a></li>
+      <li><a href="06-practice.html" title="실습 — Kit 확장으로 팹 상태 시각화">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 12 — NVIDIA OMNIVERSE</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 12 · Station 03</p>
+    <h1>USD 상호운용 — Phase 11 씬을 Omniverse에서 열기</h1>
+    <p class="lede">
+      Phase 11에서 <code>examples/openusd-lab/build_fab_stage.py</code>로 조립한 팹 씬 USD가 있다.
+      그 파일은 Omniverse 전용이 아니라 <strong>표준 OpenUSD</strong>다 — 그래서 USD Composer에서
+      그대로 열린다. 이 스테이션은 그 "열림"이 왜 공짜인지, 그리고 <strong>라이브 레이어</strong>로
+      여럿이 같은 스테이지를 편집하는 협업이 어떻게 성립하는지를 다룬다.
+    </p>
+  </div>
+
+  <h2>왜 "그냥 열린다" — 상호운용은 포맷 덕분</h2>
+  <p>
+    Phase 11의 <code>build_fab_stage.py</code>는 <strong>usd-core</strong>(Pixar 오픈소스 라이브러리)만
+    써서 <code>.usd</code>를 썼다. Omniverse는 그 위에 얹힌 툴일 뿐, 파일 자체는 벤더 중립 표준이다.
+    그래서 같은 <code>.usda</code>/<code>.usdc</code>를 <strong>USD Composer가 그대로 로드</strong>한다 —
+    변환도, 임포트 마법사도 필요 없다. 이것이 Phase 10의 FBX 임포트(포맷 변환·교정이 필요했던)와
+    결정적으로 다른 점이다. USD에서는 씬 파일이 이미 <strong>공용어</strong>다.
+  </p>
+  <p>
+    Phase 11에서 심은 <strong>레이어</strong>·<strong>PointInstancer</strong>·<strong>VariantSet</strong>·
+    <strong>UsdShade</strong> 머티리얼도 개념이 그대로 살아 넘어온다. Composer의 스테이지 창에서
+    레이어 스택을 보고, 배리언트를 토글하고, 인스턴서로 복제된 차량 수천 대를 확인할 수 있다 —
+    Phase 11에서 코드로 만든 것을 여기서 눈으로 검수하는 셈이다. 코드로 짠 씬을 눈으로 되짚는 이
+    과정은 그 자체로 훌륭한 검증이다: PointInstancer가 의도한 수만큼 인스턴스를 찍었는지, VariantSet의
+    각 배리언트가 제대로 전환되는지, 머티리얼 바인딩이 빠진 프림은 없는지를 <strong>렌더된 화면</strong>에서
+    바로 확인할 수 있기 때문이다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/JJeF40lSXWE" title="NVIDIA Omniverse: Realtime Global Collaboration over Nucleus Cloud server" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      <strong>Nucleus 라이브 협업</strong> 데모 — 여러 클라이언트가 같은 USD 스테이지에 동시에 접속해
+      함께 편집하면, 한쪽의 변경이 다른 쪽 화면에 실시간으로 나타난다. 이 스테이션 뒷부분의 "라이브
+      레이어" 개념이 실제로 어떻게 보이는지를 그대로 보여 준다.
+      <a href="https://www.youtube.com/watch?v=JJeF40lSXWE">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="상호운용 흐름: 왼쪽 openusd-lab의 build_fab_stage.py가 fab_layout.usda를 생성하고, 그 파일을 USD Composer가 그대로 열며(변환 없음), Nucleus를 통해 두 클라이언트(운영자 A·B)가 같은 스테이지를 라이브 레이어로 동시 편집한다.">
+      <defs>
+        <marker id="ah12c" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 생성 -->
+      <rect class="d-node" x="24" y="120" width="150" height="56" rx="8"/>
+      <text class="d-label" x="99" y="143" text-anchor="middle">build_fab_stage.py</text>
+      <text class="d-text" x="99" y="161" text-anchor="middle">usd-core (Phase 11)</text>
+      <!-- 파일 -->
+      <rect class="d-fill-accent" x="222" y="126" width="110" height="44" rx="8" opacity="0.18"/>
+      <rect x="222" y="126" width="110" height="44" rx="8" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="277" y="153" text-anchor="middle">fab_layout.usda</text>
+      <line x1="174" y1="148" x2="220" y2="148" class="d-rail" stroke-width="2" marker-end="url(#ah12c)"/>
+      <text class="d-text" x="197" y="120" text-anchor="middle">쓰기</text>
+      <!-- Composer -->
+      <rect class="d-node" x="392" y="120" width="150" height="56" rx="8"/>
+      <text class="d-label" x="467" y="143" text-anchor="middle">USD Composer</text>
+      <text class="d-text" x="467" y="161" text-anchor="middle">변환 없이 그대로 로드</text>
+      <line x1="332" y1="148" x2="390" y2="148" class="d-rail" stroke-width="2" marker-end="url(#ah12c)"/>
+      <text class="d-text" x="361" y="120" text-anchor="middle">열기</text>
+      <!-- Nucleus -->
+      <rect x="600" y="120" width="176" height="56" rx="8" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="688" y="143" text-anchor="middle">Nucleus</text>
+      <text class="d-text" x="688" y="161" text-anchor="middle">라이브 레이어(게시·구독)</text>
+      <line x1="542" y1="148" x2="598" y2="148" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah12c)"/>
+      <!-- 두 운영자 -->
+      <rect class="d-node" x="600" y="24" width="176" height="40" rx="8"/>
+      <text class="d-label" x="688" y="49" text-anchor="middle">운영자 A</text>
+      <rect class="d-node" x="600" y="232" width="176" height="40" rx="8"/>
+      <text class="d-label" x="688" y="257" text-anchor="middle">운영자 B</text>
+      <line x1="688" y1="120" x2="688" y2="66" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah12c)"/>
+      <line x1="688" y1="176" x2="688" y2="230" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah12c)"/>
+    </svg>
+    <figcaption>
+      실선은 "파일을 쓰고 그대로 연다"(변환 없음), 점선은 "네트워크로 동기화"한다. 두 운영자는 같은
+      스테이지에 각자의 <strong>세션 레이어</strong>로 붙어, Nucleus가 서로의 변경을 실시간으로
+      게시·구독한다.
+    </figcaption>
+  </figure>
+
+  <h2>라이브 레이어 — 여럿이 같은 스테이지를 편집한다</h2>
+  <p>
+    Phase 11의 컴포지션에서 씬은 여러 <strong>레이어</strong>가 강도 순서(LIVRPS)로 겹쳐 합성된 결과였다.
+    상호운용의 협업은 이 발상을 네트워크로 민다 — 각 클라이언트가 스테이지에 자신의 <strong>편집
+    레이어</strong>로 붙고, Nucleus가 그 레이어들의 변경을 <strong>게시·구독</strong>으로 실시간
+    중계한다. 운영자 A가 반송 차량을 옮기면, 그 변경이 A의 레이어에 기록되고 Nucleus를 거쳐 B의
+    화면에 나타난다. 이 구조에서 눈여겨볼 점은, 두 사람의 편집이 <strong>서로 다른 레이어</strong>에
+    기록되므로 원본 씬 파일은 건드려지지 않는다는 것이다 — 각자의 변경은 각자의 레이어에 쌓이고,
+    합성 결과만 화면에 하나로 보인다. Phase 11에서 "강한 레이어가 약한 레이어를 덮는다(LIVRPS)"고
+    배운 규칙이, 여기서는 "누구의 편집이 최종적으로 이기는가"를 결정하는 <strong>협업 규칙</strong>이 된다.
+  </p>
+  <p>
+    합쳐진 결과를 한 파일로 굳히고 싶으면 레이어들을 <strong>병합(flatten)</strong>한다 — 여러 레이어의
+    합성 결과를 하나의 스테이지로 눌러 담는 것이다. 반대로, 각자의 의견을 <strong>레이어로 분리</strong>해
+    둔 채로 두면 원본을 건드리지 않고 검토·되돌리기가 쉽다. "원본은 그대로, 내 변경은 내 레이어에"라는
+    Phase 11의 비파괴 편집 원칙이 협업에서도 그대로 안전벨트가 된다.
+  </p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>축</th>
+          <th>Phase 10 — FBX 임포트</th>
+          <th>Phase 12 — USD 상호운용</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">여는 방식</td><td>임포트·포맷 변환 필요</td><td>표준 USD를 그대로 로드</td></tr>
+        <tr><td class="rowhead">교정 부담</td><td>스케일·재질·플래그 교정</td><td>씬 그래프가 이미 정돈됨</td></tr>
+        <tr><td class="rowhead">원본 편집</td><td>임포트본을 수정(원본과 분리)</td><td>레이어로 비파괴 오버라이드</td></tr>
+        <tr><td class="rowhead">협업</td><td>파일 주고받기</td><td>Nucleus 라이브 레이어(동시 편집)</td></tr>
+        <tr><td class="rowhead">합치기</td><td>수동 병합</td><td>레이어 합성·flatten</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>파일로 주고받는 흐름 — Connect SDK의 자리</h2>
+  <p>
+    모두가 USD로 태어나는 건 아니다. 벤더 CAD·DCC 데이터는 여전히 각자의 포맷으로 온다. 이때
+    <strong>커넥터/Connect SDK</strong>가 그 데이터를 USD로 바꿔 스테이지에 들이고, 일부는 원본 툴의
+    변경을 스테이지에 <strong>라이브로 동기</strong>한다. 정리하면 상호운용에는 두 길이 있다 — 이미
+    USD인 것은 <strong>그대로 열고</strong>(Phase 11 산출물), USD가 아닌 것은 <strong>커넥터로
+    들인다</strong>. 우리 팹 씬은 앞의 길, 벤더 설비 모델은 뒤의 길이다.
+  </p>
+  <p>
+    두 길의 차이를 실무 감각으로 새기면 이렇다. 우리가 <code>build_fab_stage.py</code>로 만든 팹 씬은
+    이미 USD로 <strong>태어났으니</strong> 아무 변환 비용이 없다 — 열면 끝이다. 반면 벤더가 STEP·JT·FBX
+    같은 CAD 포맷으로 보낸 설비 모델은 Connect SDK나 커넥터를 거쳐 USD로 <strong>번역</strong>되어야
+    스테이지에 들어온다. 이 번역 단계에서 Phase 10에서 겪은 임포트의 고민(스케일·단위·법선·서브메시)이
+    다시 등장한다. 결국 "가능하면 처음부터 USD로 만들어 두면 파이프라인 전체가 단순해진다"는 것이 이
+    상호운용이 주는 교훈이고, 그래서 산업계가 USD를 <strong>교환 포맷</strong>으로 채택하는 것이다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8의 핵심 명제는 "외부 소스가 뷰를 구동한다"였다. 상호운용은 그 명제의 <strong>공간
+      버전</strong>이다 — 하나의 팹 스테이지를 여러 운영자·여러 툴이 <strong>공유된 진실</strong>로
+      삼고, 각자 자기 레이어로 개입한다. Phase 8이 "시간을 누가 만드나"였다면, 여기서는 "공간(씬)을
+      누가 공유하나"다. 실물 피드(Phase 8)와 공유 스테이지(Phase 12)가 만나는 지점이 바로 산업
+      디지털 트윈의 운영 화면이다.
+    </p>
+  </div>
+
+  <h2>공식 문서 — 손으로 확인할 때</h2>
+  <p>
+    실제로 여는 절차·경로는 버전에 따라 다르므로 1차 출처로 확인한다. RTX GPU가 준비된 장비에서 직접
+    로드해 보는 것이 이 스테이션의 실행 단계다.
+  </p>
+  <ul>
+    <li><strong>USD Composer·스테이지 다루기</strong>: <a href="https://docs.omniverse.nvidia.com">docs.omniverse.nvidia.com</a></li>
+    <li><strong>Connect SDK·커넥터</strong>: <a href="https://developer.nvidia.com/omniverse">developer.nvidia.com/omniverse</a></li>
+    <li><strong>OpenUSD 레이어·컴포지션</strong>: <a href="https://openusd.org">openusd.org</a> (Phase 11 복습)</li>
+  </ul>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Phase 11의 <code>fab_layout.usda</code>가 Omniverse에서 "변환 없이" 열리는 이유는?</summary>
+      <div class="answer">
+        <p>
+          그 파일이 Omniverse 전용이 아니라 <strong>표준 OpenUSD</strong>이기 때문이다.
+          <code>build_fab_stage.py</code>는 벤더 중립 라이브러리(usd-core)로 <code>.usd</code>를 썼고,
+          Omniverse는 그 표준을 읽는 툴일 뿐이다. 그래서 임포트·변환 단계가 필요 없다 — 씬 파일이
+          이미 공용어다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>라이브 레이어 협업이 Phase 11의 어떤 개념을 네트워크로 확장한 것인가?</summary>
+      <div class="answer">
+        <p>
+          <strong>레이어(컴포지션)</strong>다. 씬이 여러 레이어의 합성이라는 Phase 11의 발상을, 각
+          클라이언트가 자기 편집 레이어로 같은 스테이지에 붙고 <strong>Nucleus가 그 변경을 게시·구독으로
+          중계</strong>하는 형태로 넓힌 것이다. "원본은 그대로, 내 변경은 내 레이어에"가 그대로 유지된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>레이어를 분리해 두는 것과 flatten(병합)의 트레이드오프는?</summary>
+      <div class="answer">
+        <p>
+          <strong>분리</strong>하면 원본을 건드리지 않고 각자의 변경을 되돌리거나 검토하기 쉽다(비파괴).
+          <strong>flatten</strong>하면 여러 레이어의 합성 결과를 하나로 굳혀 배포·고정에 편하지만, 이후
+          개별 기여를 다시 떼어내기 어렵다. 검토 중에는 분리, 확정 배포에는 병합이 자연스러운 선택이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>USD인 자산과 USD가 아닌 자산은 상호운용에서 각각 어떤 길로 들어오나?</summary>
+      <div class="answer">
+        <p>
+          이미 USD인 것(우리 팹 씬 등)은 <strong>그대로 로드</strong>한다. USD가 아닌 벤더 CAD·DCC
+          데이터는 <strong>커넥터/Connect SDK</strong>가 USD로 변환·연결해 들이고, 일부는 원본 툴의
+          변경을 스테이지에 라이브로 동기한다. 두 길이 한 스테이지에서 만난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 상호운용을 Phase 8의 명제와 나란히 두면?</summary>
+      <div class="answer">
+        <p>
+          Phase 8이 "외부 소스가 <strong>시간</strong>을 만들어 뷰를 구동한다"였다면, 상호운용은 여러
+          주체가 하나의 스테이지를 <strong>공유된 공간(씬)</strong>으로 삼고 각자 레이어로 개입하는
+          "공간 공유"다. 실물 피드(시간)와 공유 스테이지(공간)가 합쳐질 때 운영형 산업 트윈이 된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-core-components.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터</span>
+    </a>
+    <a class="next" href="04-kit-extension.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">Kit 확장 개발 — Python · omni.ui · 스테이지 조작</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 12 — NVIDIA Omniverse</div>
+</footer>
+
+</body>
+</html>

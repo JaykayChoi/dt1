@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터 — DT1 Phase 12</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 12 Omniverse<span class="sep">/</span>02 핵심 구성요소
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 12 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-omniverse.html" title="NVIDIA Omniverse란">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-usd-interop.html" title="USD 상호운용 — Phase 11 씬을 Omniverse에서 열기">03</a></li>
+      <li><a href="04-kit-extension.html" title="Kit 확장 개발 — Python · omni.ui · 스테이지 조작">04</a></li>
+      <li><a href="05-omnigraph-physics.html" title="고급 — OmniGraph · 물리 · 실시간 데이터 바인딩">05</a></li>
+      <li><a href="06-practice.html" title="실습 — Kit 확장으로 팹 상태 시각화">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 12 — NVIDIA OMNIVERSE</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 12 · Station 02</p>
+    <h1>핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터</h1>
+    <p class="lede">
+      Omniverse가 "앱을 만드는 플랫폼"이라면, 그 플랫폼은 어떤 부품으로 이루어져 있나. 이 스테이션은
+      다섯 축 — <strong>Kit</strong>(앱 프레임워크), <strong>USD Composer</strong>(씬 조립 앱),
+      <strong>RTX 렌더러</strong>(그리기), <strong>Nucleus</strong>(협업 서버),
+      <strong>커넥터·omni.ui</strong>(연결과 UI) — 이 각각 무엇을 맡는지 한 지도에 펼친다.
+    </p>
+  </div>
+
+  <h2>한 장의 부품 지도</h2>
+  <p>
+    부품들의 관계를 먼저 그림으로 잡자. 중심에 <strong>Kit</strong>이 있고, 그 위에서 앱(USD
+    Composer, 내가 만들 팹 뷰어)이 조립되며, Kit은 아래로 <strong>RTX 렌더러</strong>·<strong>USD
+    런타임</strong>을 부르고, 옆으로 <strong>Nucleus</strong>(협업)와 <strong>커넥터</strong>(외부 툴)에
+    연결된다. 이 다섯을 따로 외우기보다, "<strong>Kit이 가운데서 나머지를 불러 쓴다</strong>"는 한 문장으로
+    관계를 쥐는 편이 오래 남는다 — 렌더도, 협업도, 외부 연결도 결국 Kit 앱이 필요할 때 켜서 호출하는
+    부품이기 때문이다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/9T40HolIYNA" title="Series Introduction - Part 1: Platform Overview | NVIDIA Omniverse Tutorials" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA Omniverse 튜토리얼 시리즈의 플랫폼 개요 편 — 이 스테이션에서 지도로 그린 다섯 축(Kit·USD
+      Composer·RTX·Nucleus·커넥터)이 실제 화면에서 어떻게 맞물려 돌아가는지를 보여 준다.
+      <a href="https://www.youtube.com/watch?v=9T40HolIYNA">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 780 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="부품 지도: 중앙 Kit 프레임워크를 축으로, 위에 앱(USD Composer·팹 뷰어), 아래에 RTX 렌더러와 USD 런타임, 왼쪽에 커넥터·외부 DCC, 오른쪽에 Nucleus 협업 서버가 연결된다. omni.ui는 Kit 안의 UI 계층으로 표시.">
+      <defs>
+        <marker id="ah12b" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 중앙 Kit -->
+      <rect class="d-fill-accent" x="290" y="140" width="200" height="70" rx="10" opacity="0.18"/>
+      <rect x="290" y="140" width="200" height="70" rx="10" fill="none" class="d-accent" stroke-width="1.8"/>
+      <text class="d-label-strong" x="390" y="168" text-anchor="middle">Kit — 앱 프레임워크</text>
+      <text class="d-text" x="390" y="190" text-anchor="middle">확장(extension) 조립 · omni.ui 포함</text>
+      <!-- 위: 앱 -->
+      <rect class="d-node" x="230" y="24" width="150" height="44" rx="8"/>
+      <text class="d-label" x="305" y="51" text-anchor="middle">USD Composer</text>
+      <rect class="d-node" x="400" y="24" width="150" height="44" rx="8"/>
+      <text class="d-label" x="475" y="51" text-anchor="middle">팹 트윈 뷰어</text>
+      <line x1="330" y1="140" x2="315" y2="70" class="d-rail" stroke-width="2" marker-end="url(#ah12b)"/>
+      <line x1="450" y1="140" x2="465" y2="70" class="d-rail" stroke-width="2" marker-end="url(#ah12b)"/>
+      <!-- 아래: 렌더러 · USD 런타임 -->
+      <rect class="d-node" x="230" y="282" width="150" height="44" rx="8"/>
+      <text class="d-label" x="305" y="309" text-anchor="middle">RTX 렌더러</text>
+      <rect class="d-node" x="400" y="282" width="150" height="44" rx="8"/>
+      <text class="d-label" x="475" y="309" text-anchor="middle">USD 런타임</text>
+      <line x1="330" y1="210" x2="315" y2="280" class="d-rail" stroke-width="2" marker-end="url(#ah12b)"/>
+      <line x1="450" y1="210" x2="465" y2="280" class="d-rail" stroke-width="2" marker-end="url(#ah12b)"/>
+      <!-- 왼쪽: 커넥터 -->
+      <rect class="d-node" x="30" y="152" width="160" height="46" rx="8"/>
+      <text class="d-label" x="110" y="173" text-anchor="middle">커넥터 / Connect SDK</text>
+      <text class="d-text" x="110" y="190" text-anchor="middle">Maya·Revit·CAD ⇄ USD</text>
+      <line x1="190" y1="175" x2="288" y2="175" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah12b)"/>
+      <!-- 오른쪽: Nucleus -->
+      <rect class="d-node" x="590" y="152" width="160" height="46" rx="8"/>
+      <text class="d-label" x="670" y="173" text-anchor="middle">Nucleus</text>
+      <text class="d-text" x="670" y="190" text-anchor="middle">USD 협업 · 라이브 레이어</text>
+      <line x1="490" y1="175" x2="588" y2="175" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah12b)"/>
+    </svg>
+    <figcaption>
+      실선은 "Kit이 직접 호출·조립"(앱↔Kit, Kit↔렌더러/USD), 점선은 "네트워크·플러그인으로 연결"
+      (커넥터·Nucleus)이다. <strong>omni.ui</strong>는 Kit 안에 들어 있는 UI 계층이라 별도 상자로
+      떼지 않았다.
+    </figcaption>
+  </figure>
+
+  <h2>다섯 축, 각자의 담당</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구성요소</th>
+          <th>한 줄 정체</th>
+          <th>무엇을 담당하나</th>
+          <th>FabSim 비유</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Kit</td>
+          <td>확장 기반 앱 프레임워크(SDK)</td>
+          <td>앱의 뼈대. 기능을 <strong>확장(extension)</strong> 단위로 켜고 끄며 조립한다. Python·C++로 확장을 쓴다.</td>
+          <td>Unity 엔진+에디터 코어</td>
+        </tr>
+        <tr>
+          <td class="rowhead">USD Composer</td>
+          <td>씬 조립 앱(구 Create)</td>
+          <td>USD 스테이지를 시각적으로 <strong>열고·배치하고·머티리얼을 입히는</strong> 참고 앱. Kit 위에서 만들어졌다.</td>
+          <td>Unity 씬 에디터</td>
+        </tr>
+        <tr>
+          <td class="rowhead">RTX 렌더러</td>
+          <td>실시간·경로추적 렌더러</td>
+          <td>GPU 레이트레이싱으로 씬을 그린다. 실시간 모드와 경로추적(Path Tracing) 모드를 오간다.</td>
+          <td>URP 파이프라인(단, 광선추적)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Nucleus</td>
+          <td>USD 협업·라이브 레이어 서버</td>
+          <td>같은 스테이지를 여러 클라이언트가 <strong>동시 편집</strong>하도록 변경을 게시·구독으로 중계한다.</td>
+          <td>씬을 위한 실시간 공유 서버</td>
+        </tr>
+        <tr>
+          <td class="rowhead">커넥터 · omni.ui</td>
+          <td>외부 툴 연결 + UI 툴킷</td>
+          <td>커넥터/Connect SDK가 Maya·Revit·CAD를 USD로 잇고, omni.ui가 Kit 앱의 창·패널을 그린다.</td>
+          <td>임포터 + UI Toolkit</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Kit — 왜 "확장"이 핵심인가</h2>
+  <p>
+    Kit의 발상은 하나다: <strong>앱은 확장(extension)들의 조합</strong>이다. 뷰포트도, 속성 편집기도,
+    파일 브라우저도 각각 확장이고, 앱을 만든다는 것은 필요한 확장을 <strong>켜서 묶는 일</strong>에
+    가깝다. 그래서 USD Composer와 내가 만들 팹 뷰어는 서로 다른 확장 조합일 뿐, 같은 Kit 위에 선다.
+    확장은 <code>extension.toml</code>로 자신을 선언하고 Python(또는 C++)으로 동작을 쓴다 — 이
+    구조를 4편에서 직접 만든다.
+  </p>
+  <p>
+    이 발상의 실용적 이점은 <strong>기능을 켜고 끄는 단위</strong>가 명확하다는 데 있다. 팹 뷰어에는
+    무거운 물리 엔진이 필요 없다면 그 확장을 끄고, 반대로 라이브 협업이 필요하면 Nucleus 관련 확장을
+    켠다. 앱은 이렇게 필요한 확장만 담은 가벼운 <code>.kit</code> 파일 하나로 정의되므로, 같은 코드
+    베이스에서 "검수용 뷰어"·"운영 대시보드"·"편집 도구" 같은 여러 앱을 <strong>확장 조합만 바꿔</strong>
+    찍어낼 수 있다. Kit이 스스로를 "확장으로 만들어진 확장 실행기"라고 부르는 이유가 여기 있다 — 뷰포트나
+    파일 브라우저 같은 Kit 자신의 기능조차 확장으로 되어 있다.
+  </p>
+  <p>
+    이 "부품을 켜서 앱을 조립한다"는 감각은 Phase 6의 <strong>asmdef</strong>(어셈블리 분리)와 결이
+    같다. 기능을 경계가 분명한 단위로 쪼개면 재사용과 조립이 쉬워진다는 원칙이, Unity에서는 어셈블리로,
+    Omniverse에서는 확장으로 나타난다.
+  </p>
+
+  <h2>Nucleus — 파일 서버가 아니라 "라이브 스테이지" 서버</h2>
+  <p>
+    Nucleus를 단순 파일 저장소로 오해하기 쉽지만, 핵심은 <strong>라이브 레이어</strong>다. 여러
+    클라이언트가 같은 USD 스테이지에 접속해 각자 편집하면, Nucleus가 그 변경을 <strong>게시(publish)·구독(subscribe)</strong>
+    모델로 실시간 중계한다 — 한 사람이 반송 차량을 옮기면 다른 사람 화면에서도 곧바로 움직인다. 이것이
+    Phase 11 컴포지션의 <strong>레이어</strong> 개념이 네트워크로 확장된 모습이다. 3편에서 이 라이브
+    협업을 팹 씬으로 실습한다.
+  </p>
+  <p>
+    한 가지 유의할 것은 Nucleus가 <strong>구성이 바뀌기 쉬운 부분</strong>이라는 점이다. NVIDIA는
+    협업 서버의 배포·설치 방식을 자주 손보므로(로컬 설치형, 엔터프라이즈형, 클라우드형 등), 세부 설치
+    절차는 반드시 <a href="https://docs.omniverse.nvidia.com">공식 문서</a>로 확인해야 한다. 그러나
+    <strong>개념</strong> — "같은 USD 스테이지를 여러 클라이언트가 라이브 레이어로 동시 편집하고, 서버가
+    변경을 중계한다" — 은 배포 방식과 무관하게 유지된다. 이 페이즈에서 우리가 붙잡을 것은 그 개념이다.
+  </p>
+  <p>
+    나머지 두 축도 한 줄씩 더 새겨 두자. <strong>RTX 렌더러</strong>는 단순히 "예쁘게 그리는" 도구가
+    아니라, 반사·간접광·그림자가 <strong>씬이 바뀌는 즉시 반응</strong>하는 물리 기반 렌더러다 —
+    반송 차량이 움직이면 바닥에 비친 그림자와 금속 표면의 반사가 실시간으로 따라온다. <strong>커넥터·omni.ui</strong>는
+    안팎을 잇는 축이다: 커넥터가 <em>바깥</em>의 벤더 CAD를 USD로 들이고, omni.ui가 <em>안</em>에서
+    운영자가 보는 창·버튼·패널을 그린다. 이 UI 계층은 4편에서 직접 코드로 다룬다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      다섯 축을 트윈의 언어로 다시 읽으면 이렇다 — <strong>Nucleus</strong>는 "여러 운영자가 같은 팹을
+      함께 본다", <strong>RTX</strong>는 "그 팹을 사실적으로 비춘다", <strong>커넥터</strong>는 "벤더
+      CAD를 트윈에 들인다", <strong>Kit</strong>은 "우리 팀 전용 트윈 앱을 만든다". Phase 8에서
+      <code>IFleetSource</code> 하나로 소스를 갈아 끼웠듯, 여기서는 각 부품이 트윈의 한 축씩을 갈아
+      끼울 수 있게 나뉘어 있다.
+    </p>
+  </div>
+
+  <h2>공식 문서</h2>
+  <ul>
+    <li><strong>Kit·SDK 문서</strong>: <a href="https://docs.omniverse.nvidia.com">docs.omniverse.nvidia.com</a> (Kit Manual, Extensions 항목)</li>
+    <li><strong>개발자 포털</strong>: <a href="https://developer.nvidia.com/omniverse">developer.nvidia.com/omniverse</a> (Connect SDK·렌더러 소개)</li>
+  </ul>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Kit을 한 문장으로 정의하면? USD Composer와의 관계는?</summary>
+      <div class="answer">
+        <p>
+          Kit은 <strong>확장(extension)을 켜서 앱을 조립하는 프레임워크·SDK</strong>다. USD Composer는
+          그 Kit 위에서 특정 확장들을 묶어 만든 <strong>씬 조립 앱</strong>이다. 즉 Composer는 Kit의
+          한 사례이고, 내가 만들 팹 뷰어도 Kit의 또 다른 사례다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Nucleus가 "그냥 파일 서버"가 아닌 이유는?</summary>
+      <div class="answer">
+        <p>
+          핵심이 <strong>라이브 레이어</strong>이기 때문이다. Nucleus는 여러 클라이언트가 같은 USD
+          스테이지를 동시에 편집할 때 그 변경을 <strong>게시·구독</strong>으로 실시간 중계한다. 단순
+          저장·다운로드가 아니라 "함께 편집 중인 스테이지를 계속 동기화"하는 것이 본령이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>RTX 렌더러를 Phase 3의 URP와 나란히 두면 무엇이 대응하고 무엇이 다른가?</summary>
+      <div class="answer">
+        <p>
+          둘 다 씬을 화면으로 바꾸는 <strong>렌더 파이프라인</strong>이라는 점이 대응한다. 다른 점은
+          방식이다 — URP는 래스터화 중심에 간접광을 <strong>구워</strong> 쓰지만, RTX 렌더러는 GPU
+          하드웨어 레이트레이싱으로 <strong>경로추적을 실시간</strong>에 근접해 돌린다. 그래서 반사·간접광이
+          씬 변화에 즉시 반응한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>커넥터(Connect SDK)는 무슨 문제를 푸나?</summary>
+      <div class="answer">
+        <p>
+          외부 DCC·CAD 툴(Maya·Revit 등)의 데이터를 <strong>USD로 변환·연결</strong>해 Omniverse
+          스테이지에 들이는 문제다. 일부 커넥터는 라이브 동기까지 지원해, 원본 툴에서 고친 것이 스테이지에
+          반영되게 한다. Phase 10의 임포트 파이프라인이 벤더 자산을 길들였듯, 커넥터는 그 자산의 출처를
+          USD 세계로 잇는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>"앱 = 확장의 조합"이라는 Kit의 발상이 Phase 6의 무엇과 닮았나?</summary>
+      <div class="answer">
+        <p>
+          <strong>asmdef</strong>(어셈블리 분리)와 닮았다. 기능을 경계가 분명한 단위로 쪼개 재사용·조립·의존
+          제어를 쉽게 만든다는 원칙이 같다. Unity에선 어셈블리 DLL로, Kit에선 <code>extension.toml</code>로
+          선언되는 확장으로 나타날 뿐이다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-what-is-omniverse.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">NVIDIA Omniverse란</span>
+    </a>
+    <a class="next" href="03-usd-interop.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">USD 상호운용 — Phase 11 씬을 Omniverse에서 열기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 12 — NVIDIA Omniverse</div>
+</footer>
+
+</body>
+</html>

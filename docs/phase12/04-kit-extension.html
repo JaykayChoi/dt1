@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 Kit 확장 개발 — Python · omni.ui · 스테이지 조작 — DT1 Phase 12</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 12 Omniverse<span class="sep">/</span>04 Kit 확장
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 12 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-omniverse.html" title="NVIDIA Omniverse란">01</a></li>
+      <li><a href="02-core-components.html" title="핵심 구성요소 — Kit·USD Composer·Nucleus·RTX">02</a></li>
+      <li><a href="03-usd-interop.html" title="USD 상호운용 — Phase 11 씬을 Omniverse에서 열기">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+      <li><a href="05-omnigraph-physics.html" title="고급 — OmniGraph·물리·실시간 데이터 바인딩">05</a></li>
+      <li><a href="06-practice.html" title="실습 — Kit 확장으로 팹 상태 시각화">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 12 — NVIDIA OMNIVERSE</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 12 · Station 04</p>
+    <h1>Kit 확장 개발 — Python · omni.ui · 스테이지 조작</h1>
+    <p class="lede">
+      Omniverse의 앱들(USD Composer 등)은 통짜 프로그램이 아니라 <strong>확장(extension)</strong>을
+      레고처럼 끼워 조립한 것이다. <strong>Kit</strong>은 그 조립의 런타임이자 SDK다. 이 스테이션은
+      가장 작은 확장 하나 — <code>extension.toml</code> 한 장과 파이썬 진입 클래스 하나 — 를 읽고,
+      그것이 어떻게 <strong>창을 띄우고 USD 스테이지를 만지는지</strong>를 짚는다. 여기까지가 팹 상태를
+      화면에 그리는 우리 확장의 뼈대다.
+    </p>
+  </div>
+
+  <h2>Kit = 확장을 조립하는 프레임워크</h2>
+  <p>
+    Kit의 발상은 하나다 — <strong>기능은 전부 확장이고, 앱은 확장 목록이다</strong>. 뷰포트,
+    콘텐츠 브라우저, 레이어 창, 물리 엔진까지 모두 각각의 확장이며, 어떤 앱(<code>.kit</code> 파일)은
+    "이 확장들을 켜라"는 목록에 지나지 않는다. 그래서 새 기능을 넣는 일은 앱을 고치는 게 아니라
+    <strong>확장 하나를 더 만들어 켜는</strong> 일이 된다. 확장은 파이썬만으로도, C++로도, 둘을 섞어도
+    쓸 수 있는데, 우리는 파이썬 확장만 다룬다.
+  </p>
+  <p>
+    확장 하나는 폴더 하나다. 그 안에 <strong>무엇인지 선언하는 파일</strong>(<code>extension.toml</code>)과
+    <strong>무엇을 하는지 담은 파이썬 모듈</strong>이 들어간다. 이 둘의 관계가 확장의 전부다. 규모가
+    커져도 이 골격은 변하지 않는다 — 큰 확장은 파이썬 모듈이 여러 파일로 나뉘고 의존이 늘어날 뿐,
+    "선언 파일 + 진입 클래스"라는 뼈대는 그대로다. 그래서 가장 작은 확장을 완전히 이해하면 큰 확장도
+    같은 눈으로 읽힌다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/-K4KbCA5gpw" title="How to Get Started with Creating Extensions Using Omni.ui API" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA가 안내하는 <strong>omni.ui API로 확장 만들기</strong> 입문 — 이 스테이션에서 코드로 읽는
+      <code>extension.toml</code>·<code>IExt</code>·<code>ui.Window</code>가 실제 Kit 앱에서 어떻게
+      만들어지고 창으로 뜨는지를 그대로 보여 준다.
+      <a href="https://www.youtube.com/watch?v=-K4KbCA5gpw">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="확장 폴더의 해부: config/extension.toml 선언 파일이 파이썬 모듈을 가리키고, 그 모듈의 IExt 클래스가 on_startup에서 omni.ui 창과 omni.usd 스테이지 두 갈래로 이어진다.">
+      <defs>
+        <marker id="ah12k" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 확장 폴더 -->
+      <rect x="30" y="110" width="200" height="80" rx="8" fill="none" class="d-rail" stroke-width="2"/>
+      <text class="d-label-strong" x="130" y="100" text-anchor="middle">exts/dt1.fabsim.viz</text>
+      <rect class="d-fill-accent" x="46" y="126" width="168" height="26" rx="5" opacity="0.18"/>
+      <text class="d-text" x="130" y="144" text-anchor="middle">config/extension.toml</text>
+      <rect class="d-node" x="46" y="158" width="168" height="24" rx="5"/>
+      <text class="d-text" x="130" y="174" text-anchor="middle">dt1/fabsim/viz/…</text>
+      <!-- 진입 클래스 -->
+      <rect class="d-node" x="320" y="118" width="170" height="64" rx="8"/>
+      <text class="d-label" x="405" y="142" text-anchor="middle">IExt 진입 클래스</text>
+      <text class="d-text" x="405" y="164" text-anchor="middle">on_startup / on_shutdown</text>
+      <!-- 두 갈래 -->
+      <rect class="d-node" x="570" y="46" width="160" height="56" rx="8"/>
+      <text class="d-label" x="650" y="70" text-anchor="middle">omni.ui</text>
+      <text class="d-text" x="650" y="90" text-anchor="middle">창·버튼·라벨</text>
+      <rect class="d-node" x="570" y="196" width="160" height="56" rx="8"/>
+      <text class="d-label" x="650" y="220" text-anchor="middle">omni.usd</text>
+      <text class="d-text" x="650" y="240" text-anchor="middle">스테이지 읽기·쓰기</text>
+      <!-- 화살표: toml → 모듈(선언) -->
+      <line x1="130" y1="152" x2="130" y2="156" class="d-soft" stroke-width="1.5"/>
+      <!-- 화살표: 폴더 → 진입 클래스 -->
+      <line x1="230" y1="150" x2="316" y2="150" class="d-rail" stroke-width="2" marker-end="url(#ah12k)"/>
+      <text class="d-text" x="273" y="140" text-anchor="middle">모듈 로드</text>
+      <!-- 화살표: 진입 → 두 갈래 -->
+      <line x1="490" y1="134" x2="566" y2="82" class="d-rail" stroke-width="2" marker-end="url(#ah12k)"/>
+      <line x1="490" y1="166" x2="566" y2="216" class="d-rail" stroke-width="2" marker-end="url(#ah12k)"/>
+    </svg>
+    <figcaption>
+      <code>extension.toml</code>이 파이썬 모듈을 가리키고, Kit이 그 모듈을 로드해
+      <code>IExt</code>의 <code>on_startup</code>을 부른다. 거기서 확장은 <strong>UI(omni.ui)</strong>와
+      <strong>스테이지(omni.usd)</strong> 두 세계로 손을 뻗는다.
+    </figcaption>
+  </figure>
+
+  <h2>extension.toml — 확장을 선언한다</h2>
+  <p>
+    <code>config/extension.toml</code>은 이 확장이 무엇이고, 무엇에 <strong>의존</strong>하며, Kit이
+    어느 <strong>파이썬 모듈</strong>을 로드해야 하는지를 적은 명세다. 핵심 세 부분만 보면 된다 —
+    <code>[package]</code>(정체성), <code>[dependencies]</code>(다른 확장 의존), <code>[[python.module]]</code>(로드할 모듈 이름).
+  </p>
+  <pre><code>[package]
+version = "0.1.0"
+title = "DT1 FabSim Viz"
+description = "팹 상태를 USD 스테이지에 반영해 시각화하는 확장"
+category = "Simulation"
+
+# 이 확장이 켜질 때 함께 켜져야 하는 다른 확장들
+[dependencies]
+"omni.usd" = {}
+"omni.ui" = {}
+
+# Kit이 로드할 파이썬 모듈 — 이 모듈 안의 IExt를 찾아 진입한다
+[[python.module]]
+name = "dt1.fabsim.viz"</code></pre>
+  <p>
+    <code>[dependencies]</code>가 중요하다. 확장은 홀로 서지 않고 다른 확장(여기선 USD 접근용
+    <code>omni.usd</code>, UI용 <code>omni.ui</code>) 위에 선다. Kit은 이 선언을 읽어 <strong>의존 확장을
+    먼저 켠 뒤</strong> 내 확장을 켠다. 의존을 빠뜨리면 <code>import</code>는 되더라도 런타임에 필요한
+    서비스가 없어 무너진다.
+  </p>
+
+  <h2>진입점 — omni.ext.IExt</h2>
+  <p>
+    파이썬 모듈 안에는 <code>omni.ext.IExt</code>를 상속한 클래스 하나가 있으면 된다. Kit은 확장을
+    켤 때 <code>on_startup(ext_id)</code>를, 끌 때 <code>on_shutdown()</code>을 부른다. 이 두
+    콜백이 확장의 <strong>생명 주기</strong>다 — 시작에서 자원을 만들고, 종료에서 <strong>반드시 되돌린다</strong>.
+    Kit은 개발 중 확장을 껐다 켜는 <strong>핫 리로드</strong>를 지원하므로, <code>on_shutdown</code>에서
+    창·구독·핸들을 확실히 놓아 주지 않으면 리로드마다 유령 창과 누수가 쌓인다.
+  </p>
+  <pre><code>import omni.ext
+import omni.ui as ui
+
+
+class FabSimVizExtension(omni.ext.IExt):
+    def on_startup(self, ext_id: str):
+        self._window = ui.Window("DT1 FabSim", width=320, height=180)
+        with self._window.frame:
+            with ui.VStack(spacing=6):
+                self._status = ui.Label("스테이지 대기 중…")
+                ui.Button("팹 상태 새로고침", clicked_fn=self._refresh)
+
+    def on_shutdown(self):
+        # 시작에서 만든 것은 종료에서 되돌린다 — 핫 리로드 누수 방지
+        self._window = None</code></pre>
+
+  <h2>omni.ui — 창과 위젯</h2>
+  <p>
+    <code>omni.ui</code>는 Kit의 즉시 모드(immediate-mode) UI 프레임워크다. <code>ui.Window</code>로
+    도킹 가능한 창을 열고, <code>ui.VStack</code>/<code>ui.HStack</code>으로 세로·가로 레이아웃을
+    잡은 뒤 <code>ui.Label</code>·<code>ui.Button</code> 같은 위젯을 파이썬 <code>with</code> 블록으로
+    중첩해 쌓는다. 버튼의 <code>clicked_fn</code>에 함수를 넘기면 그게 콜백이다. Phase 8에서 만든
+    UI Toolkit 대시보드가 <strong>UXML·USS</strong>로 구조와 스타일을 갈랐다면, omni.ui는 그 구조를
+    <strong>파이썬 코드로 직접 쌓는다</strong>는 점이 다르다.
+  </p>
+  <p>
+    "즉시 모드"라는 말이 낯설 수 있는데, 감각적으로는 <strong>레이아웃을 데이터가 아니라 코드 실행
+    순서로 그린다</strong>는 뜻이다. <code>with ui.VStack():</code> 블록 안에서 위젯을 만드는 <em>순서</em>가
+    곧 화면에 쌓이는 순서가 된다. 그래서 조건에 따라 다른 위젯을 그리는 UI를 <code>if</code> 문 하나로
+    자연스럽게 짤 수 있다 — 팹 뷰어라면 "차량이 선택됐을 때만 상세 패널을 그린다" 같은 로직이 그대로
+    파이썬 흐름으로 표현된다. 값이 바뀔 때마다 화면을 갱신하려면 <code>ui.Label</code> 같은 위젯의
+    핸들을 <code>self</code>에 보관해 두었다가 <code>.text</code>를 다시 써 주면 된다 — 아래
+    <code>_refresh</code>가 정확히 그 패턴이다.
+  </p>
+
+  <h2>omni.usd — 스테이지를 만진다</h2>
+  <p>
+    확장이 팹을 "그리는" 방법은 화면에 직접 픽셀을 찍는 게 아니라 <strong>USD 스테이지를 고치는</strong>
+    것이다 — 스테이지를 고치면 RTX 뷰포트가 알아서 다시 그린다. 현재 열린 스테이지는
+    <code>omni.usd.get_context().get_stage()</code>로 얻는다. 여기서부터는 Phase 11에서 배운 그
+    <strong>Prim·Property·Path</strong> 세계다. 프림을 경로로 찾아 속성 값을 바꾸면 그게 화면에 뜬다.
+    <code>omni.usd.get_context()</code>는 앱이 지금 열어 둔 <strong>USD 컨텍스트</strong>를 돌려주고,
+    그로부터 <code>get_stage()</code>로 현재 스테이지를 얻는다 — Phase 11에서 파이썬 스크립트가
+    <code>Usd.Stage.Open()</code>으로 파일을 직접 열던 것과 달리, 확장은 <strong>이미 앱이 화면에
+    띄워 둔 스테이지</strong>에 올라타는 셈이다. 그래서 스테이지가 <code>None</code>일 수 있다(아직 아무
+    파일도 안 연 상태). 실전 확장은 아래처럼 <strong>스테이지 존재부터 확인</strong>하고 시작한다.
+  </p>
+  <pre><code>import omni.usd
+from pxr import UsdGeom, Gf
+
+
+def _refresh(self):
+    stage = omni.usd.get_context().get_stage()
+    if stage is None:
+        self._status.text = "열린 스테이지가 없습니다"
+        return
+
+    # 팹 레이아웃 안의 OHT 비히클 프림을 경로로 집어 위치를 갱신
+    prim = stage.GetPrimAtPath("/World/Fab/OHT/vehicle_007")
+    if prim.IsValid():
+        xform = UsdGeom.XformCommonAPI(prim)
+        xform.SetTranslate(Gf.Vec3d(12.5, 0.0, 4.0))
+        self._status.text = "vehicle_007 위치 갱신"</code></pre>
+  <p>
+    이 한 조각이 우리 확장의 심장이다. 시뮬레이션(Phase 5)이나 실물 피드(Phase 8)가 "vehicle_007이
+    (12.5, 0, 4)로 갔다"고 알려 오면, 확장은 그 값을 <strong>대응하는 프림 속성에 쓰기만</strong> 하면
+    된다. 나머지 — 조명, 반사, 그림자 — 는 RTX가 맡는다.
+
+  </p>
+
+  <h2>예제 프로젝트 — omniverse-kit-ext</h2>
+  <p>
+    이 스테이션의 코드는 예제 <code>examples/omniverse-kit-ext/</code>에 완성된 형태로 있다. 확장은
+    <code>exts/dt1.fabsim.viz/</code> 아래에 <code>config/extension.toml</code>과
+    <code>dt1/fabsim/viz/extension.py</code>(omni.ui 창 + 스테이지 조작)로 놓여 있고, Phase 11에서
+    조립한 팹 USD 씬을 Omniverse에서 열어 이 확장으로 상태를 반영하는 흐름을 담았다. 설치·실행은
+    다음 실습 스테이션(06)에서 직접 밟는다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8에서 우리는 "같은 뷰를 두 소스가 구동한다"를 <code>IFleetSource</code> 뒤에서 증명했다.
+      Kit 확장은 그 뷰 자리에 <strong>Omniverse 스테이지</strong>를 꽂는 일이다 — 소스(시뮬/실물)가
+      만든 상태를 <strong>USD 속성에 쓰는 어댑터</strong>가 곧 이 확장이다. 뷰가 Unity에서 Omniverse로
+      바뀌었을 뿐, "상태를 받아 그린다"는 트윈의 골격은 그대로다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Kit에서 "앱"과 "확장"의 관계를 한 문장으로?</summary>
+      <div class="answer">
+        <p>
+          앱은 <strong>확장 목록</strong>이다. 기능은 전부 확장으로 존재하고, 앱(<code>.kit</code>)은
+          "어떤 확장을 켤지"를 고른 조립일 뿐이다. 그래서 기능 추가 = 새 확장을 만들어 켜기가 된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>extension.toml</code>의 <code>[dependencies]</code>를 빠뜨리면 무슨 일이?</summary>
+      <div class="answer">
+        <p>
+          Kit이 의존 확장(예: <code>omni.usd</code>·<code>omni.ui</code>)을 먼저 켜 주지 못한다.
+          <code>import</code>는 통과하더라도 런타임에 그 확장이 제공하는 서비스가 없어 스테이지 접근이나
+          창 생성이 무너진다. 의존은 "먼저 켜져 있어야 할 것"의 선언이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>on_shutdown</code>에서 자원을 놓아 주지 않으면 왜 문제가 되나?</summary>
+      <div class="answer">
+        <p>
+          Kit은 개발 중 확장을 껐다 켜는 <strong>핫 리로드</strong>를 한다. <code>on_startup</code>에서
+          만든 창·구독·핸들을 <code>on_shutdown</code>에서 되돌리지 않으면 리로드마다 유령 창과 누수가
+          누적된다. 생명 주기는 시작–종료가 짝을 이뤄야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>확장이 팹을 "그리는" 실제 메커니즘은?</summary>
+      <div class="answer">
+        <p>
+          화면에 직접 픽셀을 찍는 게 아니라 <code>omni.usd.get_context().get_stage()</code>로 얻은
+          <strong>USD 스테이지의 프림 속성을 바꾼다</strong>. 속성이 바뀌면 RTX 뷰포트가 그 변화를 다시
+          렌더한다. 확장은 상태를 스테이지에 <strong>쓰기만</strong> 하고 렌더는 엔진이 맡는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>omni.ui의 창 구성이 Phase 8의 UI Toolkit과 다른 점은?</summary>
+      <div class="answer">
+        <p>
+          UI Toolkit은 구조(<strong>UXML</strong>)와 스타일(<strong>USS</strong>)을 파일로 갈라 선언한다.
+          omni.ui는 <code>with</code> 블록으로 <code>VStack</code>·<code>Button</code> 같은 위젯을
+          <strong>파이썬 코드에서 직접 쌓는</strong> 즉시 모드 방식이다. 목적(운영자 UI)은 같지만 조립하는
+          손놀림이 다르다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <p>
+    더 깊은 내용은 NVIDIA 공식 문서를 본다 —
+    <a href="https://docs.omniverse.nvidia.com/kit/docs/kit-manual/latest/">Kit 매뉴얼(확장 개발)</a>,
+    <a href="https://docs.omniverse.nvidia.com/kit/docs/omni.ui/latest/">omni.ui 문서</a>.
+  </p>
+
+  <nav class="pager">
+    <a href="03-usd-interop.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">USD 상호운용 — Phase 11 씬을 Omniverse에서 열기</span>
+    </a>
+    <a class="next" href="05-omnigraph-physics.html">
+      <span class="dir">NEXT — STATION 05 →</span>
+      <span class="title">고급 — OmniGraph · 물리 · 실시간 데이터 바인딩</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 12 — NVIDIA Omniverse</div>
+</footer>
+
+</body>
+</html>

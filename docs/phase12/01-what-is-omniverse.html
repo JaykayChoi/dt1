@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 NVIDIA Omniverse란 — USD 기반 산업 디지털 트윈 플랫폼 — DT1 Phase 12</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 12 Omniverse<span class="sep">/</span>01 Omniverse란
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 12 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-core-components.html" title="핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터">02</a></li>
+      <li><a href="03-usd-interop.html" title="USD 상호운용 — Phase 11 씬을 Omniverse에서 열기">03</a></li>
+      <li><a href="04-kit-extension.html" title="Kit 확장 개발 — Python · omni.ui · 스테이지 조작">04</a></li>
+      <li><a href="05-omnigraph-physics.html" title="고급 — OmniGraph · 물리 · 실시간 데이터 바인딩">05</a></li>
+      <li><a href="06-practice.html" title="실습 — Kit 확장으로 팹 상태 시각화">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 12 — NVIDIA OMNIVERSE</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 12 · Station 01</p>
+    <h1>NVIDIA Omniverse란 — USD 기반 산업 디지털 트윈 플랫폼</h1>
+    <p class="lede">
+      Phase 11에서 <strong>OpenUSD</strong>가 씬을 담는 <em>포맷·데이터 모델</em>이라는 것을 배웠다.
+      Omniverse는 그 위에 올라앉는 <strong>런타임·툴·협업 서버의 묶음</strong>이다 — USD가 뼈대라면
+      Omniverse는 그 뼈대를 실시간으로 <strong>렌더하고, 여럿이 함께 편집하고, 물리·데이터와
+      연결</strong>하는 살이다. 이 스테이션은 "Omniverse가 정확히 무엇인가"를, 특히 공장·물류
+      <strong>디지털 트윈</strong> 맥락에서 자리매김한다.
+    </p>
+  </div>
+
+  <h2>완제품 앱이 아니라 "앱을 만드는 플랫폼"</h2>
+  <p>
+    가장 흔한 오해가 "Omniverse = 3D 편집 프로그램 하나"다. 실제로는 그렇지 않다. Omniverse는
+    OpenUSD 기반 3D 애플리케이션과 파이프라인을 만들기 위한 <strong>API·SDK·서비스의 모음</strong>이다.
+    NVIDIA는 근래 Omniverse를 <strong>개발자용 라이브러리·SDK 중심</strong>으로 재편했고, 예전의 일부
+    앱 이름도 정리됐다. 그래서 "Omniverse를 켠다"보다 "Omniverse로 <strong>내 앱을 조립한다</strong>"가
+    더 정확한 표현이다. 이 조립의 중심 프레임워크가 다음 스테이션에서 다룰 <strong>Kit</strong>이다.
+  </p>
+  <p>
+    비유하자면 Omniverse는 <strong>완성된 게임</strong>이 아니라 Unity 같은 <strong>엔진·에디터 세트</strong>에
+    가깝다. Unity로 게임을 만들듯, Omniverse(Kit)로 씬 조립 앱·트윈 뷰어·검수 도구를 만든다. NVIDIA가
+    참고용으로 제공하는 <strong>USD Composer</strong> 같은 앱도 결국 이 Kit 위에서 만들어진 예시일 뿐이다.
+    이 구분이 왜 중요하냐면, "Omniverse를 배운다"는 말이 실제로는 "완제품 사용법"이 아니라 "이 플랫폼의
+    <strong>API·확장 구조·서비스</strong>를 익혀 내 목적에 맞는 앱을 짓는 법"을 뜻하기 때문이다. 그래서
+    이 페이즈는 버튼 위치 암기가 아니라, Kit·omni.ui·omni.usd·Nucleus가 각각 무엇을 책임지는지의
+    <strong>구조 이해</strong>에 무게를 둔다.
+  </p>
+  <p>
+    또 하나 붙잡아 둘 것은, 이 플랫폼이 <strong>OpenUSD를 중심에 놓고 설계됐다</strong>는 점이다. 앞선
+    3D 협업 도구들이 각자의 독점 씬 포맷을 쓰다 서로 데이터를 못 넘긴 문제를, Omniverse는 "모든 것을
+    USD로 표현한다"로 정면 돌파한다. 따라서 Phase 11에서 손에 익힌 <strong>스테이지·프림·컴포지션</strong>이
+    Phase 12에서 그대로 통용된다 — 새 개념을 처음부터 배우는 게 아니라, 이미 아는 USD 위에 <strong>런타임과
+    협업</strong>이라는 살을 얹는 여정이다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/hYCfUlTvI7s" title="Platform Overview Part 1: Introduction to NVIDIA Omniverse" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA가 직접 소개하는 Omniverse 플랫폼 개요 — 이 영상이 이 스테이션의 뼈대다. Omniverse가
+      완제품 앱이 아니라 <strong>OpenUSD 기반 앱·파이프라인을 만드는 플랫폼</strong>임을, 그리고 RTX
+      렌더링·협업이 어디에 얹히는지를 한눈에 보여 준다.
+      <a href="https://www.youtube.com/watch?v=hYCfUlTvI7s">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="계층도: 맨 아래 하드웨어(RTX GPU) 위에 OpenUSD 데이터 모델, 그 위에 Omniverse 플랫폼(Kit·RTX 렌더러·Nucleus·커넥터), 맨 위에 이들 위에서 만든 앱(USD Composer·팹 트윈 뷰어).">
+      <defs>
+        <marker id="ah12a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 앱 계층 -->
+      <rect class="d-node" x="120" y="24" width="230" height="46" rx="8"/>
+      <text class="d-label" x="235" y="46" text-anchor="middle">USD Composer (참고 앱)</text>
+      <text class="d-text" x="235" y="62" text-anchor="middle">NVIDIA 제공 예시</text>
+      <rect class="d-node" x="410" y="24" width="230" height="46" rx="8"/>
+      <text class="d-label" x="525" y="46" text-anchor="middle">팹 트윈 뷰어 (내가 만든 앱)</text>
+      <text class="d-text" x="525" y="62" text-anchor="middle">Phase 12 실습</text>
+      <!-- Omniverse 플랫폼 -->
+      <rect class="d-fill-accent" x="90" y="118" width="580" height="66" rx="8" opacity="0.16"/>
+      <rect x="90" y="118" width="580" height="66" rx="8" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="380" y="140" text-anchor="middle">Omniverse 플랫폼 (API · SDK · 서비스)</text>
+      <text class="d-text" x="380" y="164" text-anchor="middle">Kit · RTX 렌더러 · Nucleus(협업) · 커넥터 · omni.ui</text>
+      <!-- USD 계층 -->
+      <rect class="d-node" x="150" y="220" width="460" height="42" rx="8"/>
+      <text class="d-label" x="380" y="246" text-anchor="middle">OpenUSD — 씬 데이터 모델 (Phase 11)</text>
+      <!-- 하드웨어 -->
+      <rect x="220" y="286" width="320" height="26" rx="6" fill="none" class="d-soft" stroke-width="1.5"/>
+      <text class="d-text" x="380" y="303" text-anchor="middle">RTX GPU 하드웨어</text>
+      <!-- 연결선 -->
+      <line x1="380" y1="184" x2="380" y2="218" class="d-rail" stroke-width="2" marker-end="url(#ah12a)"/>
+      <line x1="380" y1="262" x2="380" y2="284" class="d-soft" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <line x1="235" y1="118" x2="235" y2="72" class="d-rail" stroke-width="2" marker-end="url(#ah12a)"/>
+      <line x1="525" y1="118" x2="525" y2="72" class="d-rail" stroke-width="2" marker-end="url(#ah12a)"/>
+    </svg>
+    <figcaption>
+      아래에서 위로: <strong>RTX GPU</strong> 위에 <strong>OpenUSD</strong> 데이터 모델이 놓이고, 그
+      위를 <strong>Omniverse 플랫폼</strong>(Kit·렌더러·협업 서버·커넥터)이 감싸며, 맨 위에서 우리가
+      만드는 <strong>앱</strong>이 그 플랫폼을 호출한다. Omniverse는 이 중간 층 전체를 가리킨다.
+    </figcaption>
+  </figure>
+
+  <h2>Omniverse가 쥐고 있는 세 가지</h2>
+  <p>
+    수많은 3D 도구 중에서 왜 하필 산업 디지털 트윈에서 이 이름이 반복해서 나올까. 이유를 셋으로 압축하면
+    이렇다 — <strong>공용 데이터 모델(USD)</strong>, <strong>물리 기반 실시간 렌더링(RTX)</strong>,
+    <strong>다중 사용자 협업(Nucleus)</strong>. 이 셋은 따로 놀지 않고 서로를 떠받친다: USD가 씬을
+    한데 모으니 RTX가 그 전체를 그릴 수 있고, RTX가 실시간으로 그리니 여러 사람이 Nucleus로 같은 씬을
+    동시에 들여다보는 협업이 의미를 갖는다.
+  </p>
+  <ul>
+    <li>
+      <strong>OpenUSD가 공용어</strong> — 모든 씬·자산·변경이 USD로 표현된다. 서로 다른 툴에서 온
+      데이터가 한 <strong>스테이지</strong>에서 만난다(Phase 11의 컴포지션이 여기서 실전이 된다).
+    </li>
+    <li>
+      <strong>RTX 실시간 렌더링</strong> — GPU의 하드웨어 레이트레이싱으로 경로추적(Path Tracing)
+      수준의 조명을 <strong>실시간</strong>에 근접해 그린다. Phase 3에서 Unity <strong>URP</strong>로
+      구운 라이팅과 목표는 같되, 여기선 물리 기반 광선 추적을 직접 돌린다.
+    </li>
+    <li>
+      <strong>실시간 협업</strong> — <strong>Nucleus</strong> 서버가 같은 USD 스테이지를 여러
+      클라이언트가 <strong>동시에</strong> 편집하게 한다(라이브 레이어). 3편 스테이션에서 실제로 다룬다.
+    </li>
+  </ul>
+
+  <h2>왜 공장·물류 디지털 트윈에서 이름이 나오나</h2>
+  <p>
+    산업 디지털 트윈은 두 가지를 동시에 요구한다 — (1) 서로 다른 벤더의 CAD·설비 모델을 <strong>한
+    씬으로 모으기</strong>, (2) 그 씬을 <strong>실물 데이터로 살아 움직이게</strong> 하기. 앞의 것은
+    OpenUSD의 컴포지션이, 뒤의 것은 Omniverse의 렌더링·데이터 연결이 맡는다. 그래서 대규모 공장 레이아웃,
+    창고 물류, 반송 라인 트윈에서 Omniverse가 자주 거론된다 — 수십만 프림 규모의 씬을 한데 모아 실시간에
+    가깝게 보여 주는 것이 이 플랫폼의 강점이기 때문이다.
+  </p>
+  <p>
+    구체적으로 그려 보자. 팹 하나에는 서로 다른 벤더가 만든 OHT 레일, 스토커, 로드포트, 설비 챔버가
+    뒤섞여 있고, 각각은 원래 Revit·CAD·Maya 같은 제각각의 툴에서 나왔다. Phase 11의 컴포지션은 이들을
+    한 스테이지로 <strong>레퍼런스</strong>해 하나의 팹으로 합치고, PointInstancer로 수천 대의 반송
+    차량을 가볍게 복제한다. 그렇게 합친 씬을 이제 <strong>실시간으로 비추고</strong>, MCS·시뮬레이션이
+    보내는 차량 위치를 프림 속성에 흘려 넣으면 — 팹이 화면 위에서 살아 움직이는 <strong>운영형 트윈</strong>이
+    된다. 앞 절반은 Phase 11이, 뒤 절반은 이 Phase 12가 담당하는 그림이다.
+  </p>
+  <p>
+    다만 현실적 조건이 하나 있다. Omniverse의 실시간 렌더링은 <strong>RTX GPU</strong>를 전제로 한다.
+    이 페이즈의 실습은 학습자가 <strong>직접 RTX 장비에서 실행</strong>하는 것을 가정하며, 문서는
+    개념·구조를 먼저 잡아 준다. 코드를 읽고 이해한 뒤, 장비가 준비되면 손으로 돌리는 순서다.
+  </p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>축</th>
+          <th>OpenUSD (Phase 11)</th>
+          <th>Omniverse (Phase 12)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">본질</td><td>씬 데이터 모델·파일 포맷·라이브러리</td><td>그 위의 런타임·툴·협업 플랫폼</td></tr>
+        <tr><td class="rowhead">누가 만드나</td><td>Pixar 발 개방형 표준(Alliance for OpenUSD)</td><td>NVIDIA</td></tr>
+        <tr><td class="rowhead">핵심 산출물</td><td>스테이지(.usd/.usda/.usdc)</td><td>Kit 앱·확장, RTX 렌더 결과</td></tr>
+        <tr><td class="rowhead">하는 일</td><td>씬을 기술·합성·질의</td><td>씬을 렌더·협업·물리·데이터 연결</td></tr>
+        <tr><td class="rowhead">하드웨어</td><td>거의 무관(파이썬으로 조작)</td><td>실시간 렌더는 RTX GPU 필요</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8에서 "누가 시간을 만드는가"로 시뮬레이션과 트윈을 갈랐다. Omniverse는 그 <strong>뷰 쪽의
+      상한선</strong>을 크게 올린다 — 외부 소스가 만든 시간(실물 피드)을 받아, 수십만 프림의 팹 씬을
+      RTX로 그리고 여럿이 함께 들여다본다. 시간의 출처는 여전히 외부지만, 그 시간을 <strong>얼마나
+      크고 사실적으로 비추느냐</strong>가 여기서 달라진다. Phase 5의 미니 팹이 이 플랫폼 위에서라면
+      어떻게 커질지를 이 페이즈 내내 상상하며 읽자.
+    </p>
+  </div>
+
+  <h2>공식 문서 — 여기서 확인한다</h2>
+  <p>
+    Omniverse는 재편이 잦아 앱 이름·구성이 바뀔 수 있다. 항상 1차 출처로 확인하는 습관이 중요하다.
+  </p>
+  <ul>
+    <li><strong>플랫폼 개요·개발자 포털</strong>: <a href="https://developer.nvidia.com/omniverse">developer.nvidia.com/omniverse</a></li>
+    <li><strong>제품·SDK 문서</strong>: <a href="https://docs.omniverse.nvidia.com">docs.omniverse.nvidia.com</a></li>
+    <li><strong>OpenUSD 자체</strong>: <a href="https://openusd.org">openusd.org</a> (Phase 11에서 다룬 표준)</li>
+  </ul>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>"Omniverse는 3D 편집 프로그램 하나"라는 말이 왜 부정확한가?</summary>
+      <div class="answer">
+        <p>
+          Omniverse는 완제품 앱이 아니라 <strong>OpenUSD 기반 앱을 만들기 위한 API·SDK·서비스의
+          모음</strong>이다. NVIDIA는 이를 개발자용 라이브러리 중심으로 재편했고, USD Composer 같은
+          것은 그 플랫폼(특히 Kit) 위에서 만들어진 <strong>참고 앱</strong>일 뿐이다. Unity가 게임이
+          아니라 엔진이듯, Omniverse도 트윈이 아니라 트윈을 만드는 판이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>OpenUSD와 Omniverse의 관계를 한 문장으로?</summary>
+      <div class="answer">
+        <p>
+          OpenUSD는 <strong>씬을 담는 데이터 모델·포맷</strong>(뼈대)이고, Omniverse는 그 위에서
+          씬을 <strong>렌더·협업·물리·데이터 연결</strong>하는 런타임·툴 층(살)이다. USD 없이는
+          Omniverse가 말할 대상이 없고, Omniverse 없이도 USD는 파일로 존재한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>산업 디지털 트윈이 요구하는 두 가지와, 각각을 무엇이 맡나?</summary>
+      <div class="answer">
+        <p>
+          (1) 서로 다른 벤더의 자산을 <strong>한 씬으로 모으기</strong> — OpenUSD의 컴포지션이 맡는다.
+          (2) 그 씬을 <strong>실물 데이터로 살아 움직이게</strong> 하기 — Omniverse의 렌더링·데이터
+          연결이 맡는다. 팹 트윈은 이 둘을 동시에 필요로 하므로 Omniverse가 자주 거론된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 페이즈 실습이 "직접 실행"을 전제하는 하드웨어 조건은?</summary>
+      <div class="answer">
+        <p>
+          Omniverse의 실시간 렌더링은 <strong>RTX GPU</strong>의 하드웨어 레이트레이싱을 쓴다. 그래서
+          문서는 개념·구조를 먼저 잡아 주고, 학습자는 RTX 장비가 준비되면 코드를 손으로 돌려 확인한다.
+          읽고 이해한 뒤 실행하는 순서다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Phase 3의 URP 라이팅과 Omniverse의 RTX 렌더링은 목표가 어떻게 같고 다른가?</summary>
+      <div class="answer">
+        <p>
+          목표는 같다 — <strong>물리적으로 그럴듯한 조명</strong>. 다르게 도달한다. URP는 비싼 간접광을
+          미리 <strong>구워(bake)</strong> 실시간엔 읽기만 하고, Omniverse RTX는 GPU 레이트레이싱으로
+          <strong>경로추적을 실시간에 근접</strong>해 직접 돌린다. 전자는 정적 씬에 강하고, 후자는
+          바뀌는 씬을 사실적으로 비추는 데 강하다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase11/06-advanced-performance.html">
+      <span class="dir">← PREV — PHASE 11</span>
+      <span class="title">고급 — 대규모 씬 성능</span>
+    </a>
+    <a class="next" href="02-core-components.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">핵심 구성요소 — Kit · USD Composer · Nucleus · RTX · 커넥터</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 12 — NVIDIA Omniverse</div>
+</footer>
+
+</body>
+</html>

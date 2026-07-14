@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 실습 — Kit 확장으로 팹 상태 시각화 — DT1 Phase 12</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 12 Omniverse<span class="sep">/</span>06 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 12 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-omniverse.html" title="NVIDIA Omniverse란">01</a></li>
+      <li><a href="02-core-components.html" title="핵심 구성요소 — Kit·USD Composer·Nucleus·RTX">02</a></li>
+      <li><a href="03-usd-interop.html" title="USD 상호운용 — Phase 11 씬을 Omniverse에서 열기">03</a></li>
+      <li><a href="04-kit-extension.html" title="Kit 확장 개발 — Python·omni.ui·스테이지 조작">04</a></li>
+      <li><a href="05-omnigraph-physics.html" title="고급 — OmniGraph·물리·실시간 데이터 바인딩">05</a></li>
+      <li class="current"><span class="st">06</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 12 — NVIDIA OMNIVERSE</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 12 · Station 06 · 실습</p>
+    <h1>실습 — Kit 확장으로 팹 상태 시각화</h1>
+    <p class="lede">
+      RTX 환경(자기 PC)에 Omniverse Kit 기반 앱을 설치하고, Phase 11에서 조립한 <strong>USD 팹 씬</strong>을
+      열고, 제공된 <strong>Kit 확장</strong>을 활성화해 팹 상태를 화면에 반영한다. <strong>커리큘럼의
+      종점</strong> — 읽고 코딩해 온 트윈의 조각들이 실제 산업용 렌더러 위에서 하나로 맞물리는 지점이다.
+    </p>
+  </div>
+
+  <div class="callout dt">
+    <span class="label">이 실습은 직접 설치·실행이다</span>
+    <p>
+      Omniverse는 <strong>RTX GPU와 대용량 설치</strong>가 필요하고, 이 환경에서 Claude가 대신 실행할 수
+      없다. 그래서 이 스테이션은 <strong>설치·실행 안내</strong>가 중심이고, 각 마일스톤의 완료는
+      <strong>사용자가 자기 환경에서 눈으로 확인</strong>한다. 실행 버튼은 없다 — 대신 아래 명령과 단계를
+      직접 밟는다.
+    </p>
+  </div>
+
+  <h2>실습 무대 — omniverse-kit-ext</h2>
+  <ul>
+    <li><strong>환경</strong>: RTX GPU가 있는 사용자 PC(Windows/Linux). NVIDIA <strong>RTX</strong> 계열 그래픽카드가 사실상 전제다.</li>
+    <li><strong>앱</strong>: Omniverse Kit 기반 앱 — USD 편집에는 <strong>USD Composer</strong>가 가장 무난하다. NVIDIA 공식 배포에서 받는다.</li>
+    <li><strong>확장</strong>: 예제 <code>examples/omniverse-kit-ext/</code> —
+      <code>exts/dt1.fabsim.viz/</code>(04에서 읽은 <code>extension.toml</code> + <code>extension.py</code>),
+      함께 열 USD 자산, 그리고 설치·실행을 안내하는 <code>README.md</code>.</li>
+    <li><strong>씬</strong>: Phase 11 실습 <code>examples/openusd-lab/</code>의 <code>build_fab_stage.py</code>가
+      만든 팹 USD(레이아웃 레이어 + OHT/차량 프림 + PointInstancer + 머티리얼), 또는 예제에 동봉된 USD 자산.</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/4RkR8YH6AaE" title="Build Your First Omniverse Extension With OpenUSD" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA의 <strong>첫 Omniverse 확장 만들기</strong> 튜토리얼 — 이 실습이 밟는 흐름(확장을 켜고,
+      OpenUSD 스테이지를 열고, 확장이 프림을 조작하는)을 처음부터 끝까지 보여 준다. M3~M4에서 막힐 때
+      먼저 돌려 볼 영상이다.
+      <a href="https://www.youtube.com/watch?v=4RkR8YH6AaE">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="실습 5단계: 환경 준비 → USD 씬 열기 → 확장 활성화 → 상태 반영 → 실시간 소스 연결.">
+      <line class="d-rail" x1="50" y1="60" x2="800" y2="60" stroke-width="3"/>
+      <g>
+        <circle cx="90" cy="60" r="11" class="d-node"/><text class="d-label" x="90" y="95" text-anchor="middle">M1 환경 준비</text>
+        <circle cx="260" cy="60" r="11" class="d-node"/><text class="d-label" x="260" y="95" text-anchor="middle">M2 씬 열기</text>
+        <circle cx="430" cy="60" r="11" class="d-node"/><text class="d-label" x="430" y="95" text-anchor="middle">M3 확장 활성화</text>
+        <circle cx="600" cy="60" r="11" class="d-node"/><text class="d-label" x="600" y="95" text-anchor="middle">M4 상태 반영</text>
+        <circle cx="770" cy="60" r="11" class="d-fill-accent"/><text class="d-label" x="770" y="95" text-anchor="middle">M5 소스 연결</text>
+      </g>
+      <text class="d-text" x="90" y="38" text-anchor="middle">Kit 앱 설치</text>
+      <text class="d-text" x="260" y="38" text-anchor="middle">Phase 11 USD</text>
+      <text class="d-text" x="430" y="38" text-anchor="middle">Extension Manager</text>
+      <text class="d-text" x="600" y="38" text-anchor="middle">프림 속성 갱신</text>
+      <text class="d-text" x="770" y="38" text-anchor="middle">시뮬/피드(선택)</text>
+    </svg>
+    <figcaption>환경 준비 → 씬 열기 → 확장 활성화 → 상태 반영 → 실시간 소스 연결. M3에서 확장이 켜지고 창이 뜨는지가 첫 관문, M4에서 스테이지가 실제로 바뀌는지가 핵심.</figcaption>
+  </figure>
+
+  <h2>확장을 앱에 물리는 법 (Extension Manager)</h2>
+  <p>
+    Kit 앱은 <strong>확장 검색 경로</strong>에 우리 <code>exts</code> 폴더를 더해 주면 그 안의 확장을
+    목록에서 찾는다. 앱 메뉴의 <strong>Window ▸ Extensions</strong>에서 Extension Manager를 열고,
+    설정(⚙)의 검색 경로에 예제의 <code>exts</code> 폴더 절대경로를 추가한 뒤 <code>dt1.fabsim.viz</code>를
+    <strong>Enabled</strong>로 켠다.
+  </p>
+  <pre><code># Extension Manager ▸ Settings ▸ Extension Search Paths 에 추가
+&lt;레포&gt;/examples/omniverse-kit-ext/exts
+
+# 목록에서 확장을 켜기
+dt1.fabsim.viz   →   [Enabled] 체크
+# 켜지면 04에서 읽은 omni.ui 창("DT1 FabSim")이 뜬다</code></pre>
+  <p>
+    창이 뜨면 04에서 읽은 그 확장이다 — <code>on_startup</code>이 창을 만들고, 버튼이
+    <code>omni.usd.get_context().get_stage()</code>로 스테이지를 집어 프림 속성을 갱신한다. 자세한
+    경로·옵션은 예제 <code>README.md</code>를 따른다.
+  </p>
+  <p>
+    검색 경로에서 흔히 걸리는 함정 하나를 미리 짚어 둔다 — 등록해야 하는 것은 확장 <em>하나</em>의
+    폴더(<code>dt1.fabsim.viz</code>)가 아니라 그 <strong>상위 <code>exts</code> 폴더</strong>다.
+    Kit은 검색 경로 아래를 훑어 그 안에 든 확장들을 찾으므로, 확장 폴더를 직접 가리키면 목록에 아무것도
+    뜨지 않는다. 경로를 절대경로로 넣고, 목록 새로고침 뒤에도 안 보이면 <code>extension.toml</code>이
+    <code>config/</code> 하위에 정확히 있는지, <code>[[python.module]]</code>의 <code>name</code>이
+    실제 파이썬 패키지 경로와 일치하는지를 순서대로 확인한다(04 참고).
+  </p>
+
+  <h2>마일스톤 — 목표 · 할 일 · 완료 기준</h2>
+  <ol>
+    <li>
+      <strong>M1 RTX 환경 준비</strong> — NVIDIA 공식 배포에서 Omniverse Kit 기반 앱(USD Composer 권장)을
+      설치하고 실행되는지 확인.
+      <br><strong>완료 기준</strong>: 앱이 열리고 빈 뷰포트에 RTX 렌더가 도는 것을 확인(GPU가 RTX 계열이어야 함).
+      <br><strong>막히면</strong>: 예제 <code>README.md</code>의 요구 사양·설치 링크와 NVIDIA 공식 문서.
+    </li>
+    <li>
+      <strong>M2 Phase 11 USD 팹 씬 열기</strong> — <code>openusd-lab</code>의 <code>build_fab_stage.py</code>가
+      만든 <code>.usd</code>(또는 예제 동봉 USD)를 <strong>File ▸ Open</strong>으로 연다.
+      <br><strong>완료 기준</strong>: 팹 레이아웃과 OHT/차량 프림이 뷰포트에 보이고, Stage 창의 프림 트리에서
+      경로(예: <code>/World/Fab/OHT/…</code>)가 확인된다.
+    </li>
+    <li>
+      <strong>M3 제공된 Kit 확장 활성화</strong> — Extension Manager에 예제의 <code>exts</code> 검색 경로를 더하고
+      <code>dt1.fabsim.viz</code>를 켠다.
+      <br><strong>완료 기준</strong>: 확장이 Enabled가 되고 <strong>omni.ui 창("DT1 FabSim")이 뜬다</strong>.
+      콘솔에 오류가 없다.
+      <br><strong>막히면</strong>: <code>extension.toml</code>의 <code>[dependencies]</code>·<code>[[python.module]]</code>가
+      맞는지(04), 검색 경로가 <code>exts</code> 폴더(그 하위의 확장 폴더가 아니라)를 가리키는지 확인.
+    </li>
+    <li>
+      <strong>M4 팹 상태를 스테이지에 반영</strong> — 확장 창의 버튼을 눌러 대상 프림의 속성(위치·상태색 등)을 갱신.
+      <br><strong>완료 기준</strong>: 버튼을 누르면 <strong>뷰포트의 해당 프림이 실제로 바뀐다</strong>
+      (예: vehicle 프림이 새 위치로 이동). 스테이지를 고치니 RTX가 다시 그린다는 04의 원리를 눈으로 확인.
+    </li>
+    <li>
+      <strong>M5 실시간 소스 연결 (선택·심화)</strong> — Phase 5 시뮬레이션 출력이나 Phase 8 NDJSON 피드를
+      읽어 매 틱 프림 속성에 흘려 넣도록 확장을 확장.
+      <br><strong>완료 기준</strong>: 외부 값의 변화가 <strong>지연·끊김 없이</strong> 뷰포트 움직임으로
+      이어진다. Phase 8의 플레이아웃 지연·스냅샷 개념을 여기에 적용해 본다.
+    </li>
+  </ol>
+
+  <h2>완주 체크표 (자기 환경에서 확인)</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>관문</th><th>확인할 것</th><th>확인 위치</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">M1 환경</td><td>앱 실행 · RTX 렌더 동작</td><td>앱 뷰포트</td></tr>
+        <tr><td class="rowhead">M2 씬</td><td>팹 프림 트리 · 경로 표시</td><td>Stage 창</td></tr>
+        <tr><td class="rowhead">M3 확장</td><td>Enabled · 창 표시 · 콘솔 무오류</td><td>Extension Manager · Console</td></tr>
+        <tr><td class="rowhead">M4 반영</td><td>버튼 → 프림 변화</td><td>뷰포트 · Property 창</td></tr>
+        <tr><td class="rowhead">M5 소스(선택)</td><td>외부 값 → 실시간 움직임</td><td>뷰포트</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>이 표는 수치가 아니라 <strong>관문 통과</strong>를 기록한다 — 각 칸을 자기 환경에서 눈으로 확인하고 체크한다.</p>
+
+  <div class="callout dt">
+    <span class="label">커리큘럼 종점 — 실시간 트윈 뷰의 골격 완성</span>
+    <p>
+      여기까지 오면 <strong>USD 씬을 실시간 트윈 뷰로 여는 골격</strong>이 완성된 것이다. Phase 11에서
+      팹을 <strong>USD</strong>로 조립했고, Phase 12에서 그것을 <strong>Omniverse</strong>로 열어
+      <strong>Kit 확장</strong>이 상태를 <strong>USD 속성에 바인딩</strong>하고 <strong>RTX</strong>가
+      실시간으로 그린다. 도메인(공장 물류·반송)에서 출발해 DES·렌더링·최적화·신뢰성·Fleet·트윈 브리지·대규모
+      성능·실자산 파이프라인을 지나, 마침내 산업 표준 씬 포맷과 산업용 디지털 트윈 플랫폼 위에 섰다.
+      DT개발팀이 다루는 바로 그 무대 — 그 문 앞까지 스스로 걸어온 것이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>이 실습을 Claude가 대신 돌려 주지 못하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          Omniverse는 <strong>RTX GPU와 대용량 설치</strong>가 전제다. 이 실행 환경에는 그 GPU·설치가 없어
+          Claude가 대신 렌더를 돌릴 수 없다. 그래서 완료 기준을 <strong>사용자가 자기 PC에서 눈으로 확인</strong>하는
+          형태로 잡았다 — 설치·실행은 직접 밟는다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>확장이 앱 목록에 안 뜨면 가장 먼저 볼 곳은?</summary>
+      <div class="answer">
+        <p>
+          Extension Manager의 <strong>검색 경로</strong>가 예제의 <code>exts</code> 폴더를 가리키는지 본다.
+          그 하위 확장 폴더(<code>dt1.fabsim.viz</code>)가 아니라 <strong>상위 <code>exts</code> 폴더</strong>를
+          등록해야 Kit이 그 안의 확장들을 스캔한다. 그다음 <code>extension.toml</code>의
+          <code>[[python.module]]</code> 이름이 실제 모듈 경로와 맞는지 확인한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M4에서 버튼을 눌러 프림이 바뀌는 걸 보는 것이 왜 결정적 확인인가?</summary>
+      <div class="answer">
+        <p>
+          "상태를 <strong>USD 속성에 쓰면</strong> 엔진이 다시 그린다"는 04·05의 원리를 눈으로 증명하기
+          때문이다. 확장은 픽셀을 직접 찍지 않고 스테이지를 고칠 뿐인데 화면이 바뀐다 — 이 인과가 곧
+          데이터 바인딩이고, 실시간 트윈 뷰의 심장이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>M5에서 Phase 8의 어떤 개념이 그대로 필요해지나?</summary>
+      <div class="answer">
+        <p>
+          외부 소스를 매 틱 읽어 속성에 흘려 넣으면 네트워크 지터가 그대로 화면에 튄다. Phase 8의
+          <strong>플레이아웃 지연</strong>·지터 버퍼로 흔들림을 흡수하고, <strong>스냅샷</strong>으로
+          재동기화하는 처리를 붙여야 매끄러워진다. 브리지의 출력이 도착하는 곳만 USD 스테이지로 바뀌었을 뿐이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>이 골격을 "완성된 트윈"이 아니라 "골격"이라 부르는 이유는?</summary>
+      <div class="answer">
+        <p>
+          미러링~섀도(관찰·기록)까지의 <strong>단방향 시각화</strong> 골격이기 때문이다. 화면에서의 판단이
+          실물로 <strong>되먹여지는</strong> 완전한 트윈은 안전·인증의 무게가 다른 세계다(Phase 8). 여기서는
+          USD·Omniverse로 그 골격을 실제 플랫폼 위에 세운 것 — 되먹임은 다음 여정으로 남는다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <p>
+    설치·실행의 정확한 절차와 요구 사양은 예제 <code>examples/omniverse-kit-ext/README.md</code>와
+    NVIDIA 공식 문서를 따른다 —
+    <a href="https://docs.omniverse.nvidia.com/">Omniverse 문서 허브</a>,
+    <a href="https://docs.omniverse.nvidia.com/kit/docs/kit-manual/latest/">Kit 매뉴얼</a>.
+  </p>
+
+  <nav class="pager">
+    <a href="05-omnigraph-physics.html">
+      <span class="dir">← PREV — STATION 05</span>
+      <span class="title">고급 — OmniGraph · 물리 · 실시간 데이터 바인딩</span>
+    </a>
+    <a class="next" href="../index.html">
+      <span class="dir">NEXT — 노선도 →</span>
+      <span class="title">커리큘럼 종점 — USD·Omniverse까지</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 12 — NVIDIA Omniverse</div>
+</footer>
+
+</body>
+</html>
