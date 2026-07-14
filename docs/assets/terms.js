@@ -603,6 +603,65 @@
     '오브젝트가 런타임에 움직이지 않음을 Unity에 알리는 표식. 정적 배칭·라이트맵·오클루전 컬링 같은 사전 계산 최적화의 대상이 된다.',
     'static은 그리스어 statikos(멈춰 선)에서 온 "고정된". flag는 깃발처럼 세워 두는 표식이라는 뜻이다.');
 
+  // OpenUSD · Omniverse (Phase 11·12)
+  T(['OpenUSD', 'USD'], 'Open Universal Scene Description',
+    'Pixar가 만들어 오픈소스로 공개한 3D 씬 기술(記述) 포맷이자 컴포지션 엔진. 여러 레이어의 의견(opinion)을 규칙에 따라 합성해 하나의 씬을 구성한다. 엔터·제조·로보틱스의 사실상 표준 씬 교환 포맷이 됐다.',
+    'universal(보편)+scene(장면)+description(기술) — "누구나 쓰는 장면 기술 규격". Open은 2023년 AOUSD(Alliance for OpenUSD) 출범과 함께 오픈 거버넌스로 넘어갔음을 가리킨다.');
+  T(['스테이지', 'Stage'], 'USD Stage',
+    '여러 레이어를 컴포지션 규칙으로 합성한 결과로 얻는, 순회 가능한 씬의 최종 뷰. 파일 자체가 아니라 "합성되어 나타난 장면"이다.',
+    'stage(무대)는 라틴어 stare(서다)에서 — 합성된 프림들이 함께 "올라서는" 무대라는 은유다.');
+  T(['프림', 'Prim'], 'primitive',
+    'USD 씬 트리를 이루는 노드 하나. 메시·라이트·카메라·그룹 등 무엇이든 될 수 있고, SdfPath(예: /World/Fab/OHT_01)로 가리킨다.',
+    'primitive(기본 요소)의 준말 — 씬을 이루는 "기본 단위"라는 뜻 그대로다.');
+  T(['컴포지션 아크', '컴포지션'], 'composition arc',
+    '레이어를 다른 레이어에 끌어와 합성하는 연결. sublayer·inherit·variantSet·reference·payload·specialize 여섯 종이 있고, 이 강도 순서(LIVRPS)로 의견 충돌을 해소한다.',
+    'compose는 라틴어 componere(함께 놓다), arc(호)는 그래프에서 노드를 잇는 방향 간선을 가리킨다 — 레이어들을 잇는 "합성의 간선"이다.');
+  T(['LIVRPS'], 'Local-Inherits-VariantSets-References-Payload-Specializes',
+    'USD가 여러 레이어의 의견을 합성할 때 적용하는 강도 순서. 앞설수록 강해 최종 값을 결정한다 — 로컬 오파니언이 가장 세고 specialize가 가장 약하다.',
+    '여섯 아크의 머리글자를 강도 순으로 늘어놓은 약어다 — 이름이 곧 우선순위표다.');
+  T(['레퍼런스', 'reference'], 'reference (arc)',
+    '다른 USD 자산(레이어)을 프림 아래로 끌어와 재사용하는 컴포지션 아크. 같은 OHT 자산을 팹 여러 자리에 붙일 때 쓴다.',
+    'refer는 라틴어 referre(re 다시 + ferre 나르다)로 "도로 가져오다" — 만들어 둔 자산을 "다시 끌어오는" 참조라는 뜻이다.');
+  T(['페이로드', 'payload'], 'payload (arc)',
+    '레퍼런스와 비슷하되 기본은 언로드 상태로 두었다가 필요할 때만 불러오는 지연 로드 아크. 무거운 지오메트리를 대규모 씬에서 켜고 끌 수 있다.',
+    'pay(싣다)+load(짐)에서 온 "실은 짐" — 로켓·화물의 "적재물"을 뜻하던 말이, 필요할 때 실어 오는 무거운 데이터로 옮겨졌다.');
+  T(['배리언트셋', 'VariantSet', '배리언트'], 'variant set',
+    '한 프림이 가질 수 있는 여러 변형(예: 장비 상태 idle/busy/error)을 묶고, 선택 하나로 스위칭하게 하는 컴포지션 아크.',
+    'variant는 라틴어 variare(바꾸다)에서 — 하나의 프림이 갖는 "여러 갈래"를 한 세트로 묶는다는 뜻이다.');
+  T(['PointInstancer'], 'UsdGeomPointInstancer',
+    '프로토타입 하나를 수많은 위치에 인스턴스로 흩뿌려, 개별 프림 없이 대량 오브젝트를 표현하는 USD 스키마. 동일 OHT 수백 대에 이상적이다.',
+    'point(점)+instancer(인스턴스 생성기) — "점 위치마다 인스턴스를 찍는 것". Unity의 GPU 인스턴싱과 같은 발상이다.');
+  T(['UsdShade', 'UsdPreviewSurface'], 'UsdShade · UsdPreviewSurface',
+    'USD의 머티리얼·셰이더 네트워크 스키마(UsdShade)와, 렌더러 간 이식성을 위한 표준 PBR 셰이더(UsdPreviewSurface).',
+    'shade(음영)는 표면의 빛 반응을, preview(미리 보기)는 "어느 렌더러에서나 대략 같게 보이는 기준 셰이더"라는 목적을 담았다.');
+  T(['MaterialX'], 'MaterialX',
+    '머티리얼 그래프를 툴·렌더러 사이에서 주고받는 개방 표준. USD와 결합해 이식 가능한 룩(look)을 기술한다.',
+    'material(재질)+X — 재질을 "교환(exchange)"하는 표준이라는 뜻을 X에 담았다.');
+  T(['Hydra', '하이드라'], 'Hydra',
+    'USD 씬을 다양한 렌더러(Storm·RTX 등)로 그려 내는 USD의 렌더링 추상 계층. 씬 데이터와 렌더러를 분리한다.',
+    '머리 여럿 달린 그리스 신화의 물뱀 히드라에서 — 하나의 씬을 여러 렌더러 "머리"로 그린다는 은유다.');
+  T(['Omniverse', '옴니버스'], 'NVIDIA Omniverse',
+    'OpenUSD를 뼈대로 삼는 NVIDIA의 3D 협업·시뮬레이션 개발 플랫폼(SDK·라이브러리 모음). RTX 실시간 렌더링과 Kit 확장으로 산업용 디지털 트윈을 만든다.',
+    'omni(라틴어 omnis, 모든)+universe(우주) — "모든 것의 우주", 온갖 3D 도구와 데이터가 USD로 모이는 공간이라는 뜻이다.');
+  T(['Kit'], 'Omniverse Kit',
+    '확장(extension) 조립으로 앱을 만드는 Omniverse의 애플리케이션 프레임워크. USD Composer 같은 앱도 Kit 위에 확장을 얹어 구성된다.',
+    'kit(조립 세트) — 부품(확장)을 끼워 맞춰 앱을 짜는 "조립 키트"라는 뜻 그대로다.');
+  T(['omni.ui'], 'omni.ui',
+    'Kit 확장에서 창·버튼·패널 같은 UI를 그리는 Omniverse의 UI 툴킷 모듈.',
+    'omni(모든)+ui(사용자 인터페이스) — Omniverse 네임스페이스(omni.*)에 속한 UI 모듈이라는 뜻이다.');
+  T(['Nucleus', '뉴클리어스'], 'Omniverse Nucleus',
+    '여러 클라이언트가 같은 USD 스테이지를 실시간으로 공유·편집(라이브 레이어)하게 하는 Omniverse의 협업 데이터 서버.',
+    'nucleus는 라틴어로 "핵(씨앗)" — 모든 협업이 모여드는 데이터의 "중심핵"이라는 뜻이다.');
+  T(['OmniGraph'], 'OmniGraph',
+    '노드를 이어 계산·데이터 흐름을 짜는 Omniverse의 비주얼 스크립팅·실행 그래프 시스템. 액션 그래프로 이벤트에 반응하고 푸시 그래프로 데이터를 흘린다.',
+    'omni(모든)+graph(그래프) — Omniverse의 노드 그래프라는 뜻. graph는 그리스어 graphein(그리다)에서.');
+  T(['RTX'], 'NVIDIA RTX',
+    '실시간 레이 트레이싱·경로 추적을 가속하는 NVIDIA GPU 기술. Omniverse가 USD 씬을 물리적으로 정확한 빛으로 실시간 렌더하는 바탕이다.',
+    'RT(ray tracing, 광선 추적)에 세대·브랜드 표기 X를 붙인 이름이다.');
+  T(['USD Composer'], 'USD Composer',
+    'USD 씬을 조립·편집하는 Omniverse의 대표 저작 앱(구 Create). Kit 위에 세워진 앱으로, 레이아웃·머티리얼·라이팅을 RTX로 미리 본다.',
+    'compose(함께 놓다)+-er — 여러 USD 레이어를 "합성해 놓는" 저작 도구라는 뜻이다.');
+
   // ---------- 본문 주석(annotation) ----------
   var EXCLUDE = 'a, code, pre, h1, h2, h3, svg, script, style, summary, .en, .term, .eyebrow, .rail-legend, .brand, .crumb';
 
