@@ -1,0 +1,4 @@
+# Phase 11 OpenUSD 랩 — Python 의존성
+# usd-core 는 Pixar USD 의 파이썬 바인딩(pxr)만 담은 경량 배포판이다.
+# 렌더링(usdview 등)은 포함하지 않으며, 데이터 모델·컴포지션 학습에 충분하다.
+usd-core>=25.0

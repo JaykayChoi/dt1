@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 USD 데이터 모델 — Stage · Prim · Property · Path — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>02 데이터 모델
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-openusd.html" title="OpenUSD란 — 산업 표준 씬 교환 포맷">01</a></li>
+      <li class="current"><span class="st">02</span></li>
+      <li><a href="03-composition.html" title="컴포지션 아크 — LIVRPS">03</a></li>
+      <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼">04</a></li>
+      <li><a href="05-practice.html" title="실습 — usd-core로 팹 씬 조립하기">05</a></li>
+      <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·툴체인">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 02</p>
+    <h1>USD 데이터 모델 — Stage · Prim · Property · Path</h1>
+    <p class="lede">
+      컴포지션(다음 스테이션)을 이해하려면 먼저 <strong>합성되고 난 결과</strong>가 어떤 모양인지 알아야
+      한다. USD 씬은 <strong>Stage</strong>라는 무대 위에 <strong>Prim</strong>들이 네임스페이스
+      트리로 놓이고, 각 Prim이 <strong>Property</strong>(값과 관계)를 갖는 구조다. 모든 것에는
+      <code>/World/Fab/OHT_01</code> 같은 <strong>Path</strong> 주소가 붙는다. 이 스테이션은 그
+      기본 어휘를 <code>usd-core</code> 코드로 직접 만져 본다.
+    </p>
+  </div>
+
+  <h2>Stage — 합성된 씬이라는 무대</h2>
+  <p>
+    <strong>Stage</strong>는 루트 레이어를 열었을 때 컴포지션 엔진이 만들어 낸 <strong>최종 씬 그래프</strong>다.
+    디스크의 어느 파일 하나가 아니라, 여러 레이어를 겹쳐 계산해 낸 "지금 이 순간의 씬 전체"를 가리키는
+    런타임 관점의 대상이다. 프로그램은 늘 Stage를 열고(<code>Usd.Stage.Open</code>) 그 위를 순회하며
+    Prim을 읽고 쓴다. Stage에는 <strong>편집 대상 레이어</strong>(Edit Target)라는 개념이 있어, 같은
+    Stage를 보되 "지금 내 편집은 어느 레이어에 쓰인다"를 정할 수 있다 — 비파괴 협업의 입구다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/vFxytzQlOEs" title="Five Things to Know About USD | NVIDIA Omniverse Tutorials" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA의 짧은 개념 정리 — Stage·Prim·Property·Path·컴포지션이라는 USD의 <strong>다섯 기둥</strong>을
+      한 번에 훑는다. 이 스테이션이 다루는 데이터 모델 어휘가 바로 그 다섯 중 넷이다.
+      <a href="https://www.youtube.com/watch?v=vFxytzQlOEs">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <p>
+    비유하자면 Stage는 연극 무대다 — 파일(<code>.usda</code>)은 대본이고, Stage는 그 대본들(여러 레이어)을
+    합쳐 지금 <strong>실제로 무대 위에 서 있는 장면</strong>이다. 그래서 같은 파일을 열어도 어떤 레이어를
+    함께 물리느냐, 어떤 배리언트를 골랐느냐에 따라 Stage의 모습이 달라진다. 프로그래밍 관점에서 놓치기
+    쉬운 점 하나 — <code>Usd.Stage.Open()</code>이 돌려주는 것은 디스크의 바이트가 아니라 <strong>메모리에
+    올라간 합성 결과</strong>다. 그래서 Stage를 순회하며 읽는 값은 "이 레이어의 원본 값"이 아니라 "모든
+    레이어를 합성한 뒤의 최종 값"(resolved value)이다. 원본이 어느 레이어에서 왔는지 알고 싶으면
+    <code>PrimStack</code>·<code>GetPropertyStack</code> 같은 API로 의견의 출처를 따로 캐야 한다.
+  </p>
+
+  <h2>Prim · Path — 트리의 노드와 그 주소</h2>
+  <p>
+    <strong>Prim</strong>(primitive)은 씬 그래프를 이루는 기본 노드다. 팹으로 치면 하나의
+    <strong>OHT</strong>, 하나의 로드포트, 하나의 그룹이 각각 Prim이다. Prim은 네임스페이스 트리로
+    중첩되고, 각 Prim에는 유일한 주소인 <strong>Path</strong>(<code>SdfPath</code>)가 붙는다. Prim
+    경로는 슬래시로 계층을 잇고(<code>/World/Fab/OHT_01</code>), <strong>Property</strong>는 점으로
+    이어 가리킨다(<code>/World/Fab/OHT_01.status</code>). 이 문법 하나로 씬 안의 무엇이든 정확히
+    지목할 수 있다.
+  </p>
+  <p>
+    <code>SdfPath</code>는 그냥 문자열이 아니라 USD의 <strong>주소 체계 그 자체</strong>다. 파일 경로가
+    파일시스템의 주소이듯, <code>SdfPath</code>는 씬 그래프의 주소다 — 그래서 컴포지션 아크(reference·
+    payload)가 "저쪽 레이어의 <code>/OHT</code> Prim을 이쪽 <code>/World/Fab/OHT_01</code> 자리에
+    붙여라"라고 말할 때 쓰는 언어도 결국 이 Path다. 실무에서 자주 부딪히는 규칙 몇 가지: Prim 이름은
+    알파벳·숫자·밑줄만 되고 <strong>숫자로 시작할 수 없다</strong>(그래서 <code>OHT_01</code>이지
+    <code>01_OHT</code>가 아니다). 절대 경로는 <code>/</code>로 시작하고, <code>&lt;/World/Fab&gt;</code>
+    같은 홑화살괄호 표기는 <code>.usda</code> 텍스트에서 Path를 가리키는 문법이다. 팹으로 옮기면 이
+    트리는 곧 <strong>물리적 포함 관계</strong>와 맞아떨어진다 — 베이가 OHT를 품고, OHT가 캐리어를
+    품는 계층을 Path의 슬래시가 그대로 반영한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="팹 씬의 Prim 트리: 루트 아래 World, 그 아래 Fab, 그 아래 OHT_01과 LoadPort_A. OHT_01 옆에 translate·status 두 Property가 붙는다.">
+      <defs>
+        <marker id="ah11b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 트리 노드 -->
+      <rect class="d-node" x="300" y="20" width="120" height="34" rx="6"/>
+      <text class="d-label" x="360" y="42" text-anchor="middle">/World</text>
+      <rect class="d-node" x="300" y="90" width="120" height="34" rx="6"/>
+      <text class="d-label" x="360" y="112" text-anchor="middle">/World/Fab</text>
+      <rect class="d-fill-accent" x="180" y="170" width="150" height="34" rx="6" opacity="0.18"/>
+      <rect x="180" y="170" width="150" height="34" rx="6" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="255" y="192" text-anchor="middle">…/OHT_01</text>
+      <rect class="d-node" x="400" y="170" width="150" height="34" rx="6"/>
+      <text class="d-label" x="475" y="192" text-anchor="middle">…/LoadPort_A</text>
+      <!-- 트리 간선 -->
+      <line x1="360" y1="54" x2="360" y2="88" class="d-rail" stroke-width="2" marker-end="url(#ah11b)"/>
+      <line x1="330" y1="124" x2="255" y2="168" class="d-rail" stroke-width="2" marker-end="url(#ah11b)"/>
+      <line x1="390" y1="124" x2="475" y2="168" class="d-rail" stroke-width="2" marker-end="url(#ah11b)"/>
+      <!-- Property -->
+      <text class="d-label-strong" x="255" y="238" text-anchor="middle">Property</text>
+      <rect class="d-node" x="120" y="250" width="130" height="30" rx="6"/>
+      <text class="d-text" x="185" y="270" text-anchor="middle">.translate (Attr)</text>
+      <rect class="d-node" x="266" y="250" width="130" height="30" rx="6"/>
+      <text class="d-text" x="331" y="270" text-anchor="middle">.status (Attr)</text>
+      <line x1="230" y1="204" x2="195" y2="248" class="d-soft" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line x1="280" y1="204" x2="320" y2="248" class="d-soft" stroke-width="1.5" stroke-dasharray="4 3"/>
+    </svg>
+    <figcaption>
+      Prim은 슬래시로 계층을 이루는 트리 노드(실선), Property는 그 Prim에 점으로 매달리는 값·관계(점선).
+      <code>/World/Fab/OHT_01.status</code>가 곧 "Fab 아래 OHT_01 Prim의 status 속성"을 가리키는 완전한
+      주소다.
+    </figcaption>
+  </figure>
+
+  <h2>Property — Attribute와 Relationship</h2>
+  <p>
+    Prim이 실제로 담는 데이터는 <strong>Property</strong>이고, 종류가 둘이다.
+    <strong>Attribute</strong>는 <strong>타입이 있는 값</strong>이다 — 위치(<code>float3</code>),
+    상태 토큰(<code>token</code>), 표시 색(<code>color3f</code>) 같은 것. Attribute는
+    <strong>시간 샘플</strong>을 가질 수 있어, "0초엔 이 위치, 2초엔 저 위치"처럼 값이 시간에 따라
+    변하는 애니메이션을 그대로 담는다 — 반송차의 이동을 표현하기에 딱 맞다.
+    <strong>Relationship</strong>은 값이 아니라 <strong>다른 Path를 가리키는 관계</strong>다. 예를
+    들어 <code>OHT_01</code>이 "지금 향하는 목적지"로 <code>/World/Fab/LoadPort_A</code>를 가리키게
+    하는 것. 값은 Attribute, 연결은 Relationship — 이 이분법이 USD 데이터의 뼈대다.
+  </p>
+  <p>
+    왜 굳이 둘을 가를까. 값과 연결은 <strong>합성·오버라이드되는 방식이 다르기</strong> 때문이다.
+    Attribute 값은 레이어마다 다른 의견이 쌓여 강도 순으로 하나가 이기지만, Relationship은 "가리키는
+    대상 목록"이라 추가·삭제·재정렬이라는 다른 편집 의미를 갖는다. 팹에서 이 구분은 직관적이다 —
+    OHT의 <em>현재 위치</em>·<em>상태 색</em>·<em>속도</em>는 값이니 Attribute, "이 OHT가 배정된
+    <em>목적지 로드포트</em>"·"이 캐리어가 실린 <em>레일 구간</em>"은 다른 Prim을 가리키는 연결이니
+    Relationship이다. 흔한 초보 실수 — 목적지를 <code>token</code> Attribute에 이름 문자열로 박아
+    두는 것. 그러면 그 로드포트 Prim이 이름을 바꾸거나 옮겨져도 참조가 끊긴 줄 모른다. Relationship으로
+    두면 대상이 Path로 묶이므로 씬 구조와 함께 살아 움직인다.
+  </p>
+
+  <h2>Metadata와 Kind — 데이터에 붙는 꼬리표</h2>
+  <p>
+    <strong>Metadata</strong>는 Prim·Property·Stage에 붙는, 시간에 따라 변하지 않는 부가 정보다.
+    문서 문자열, 타입 이름, 그리고 <strong>Kind</strong> 같은 것이 여기 담긴다. <strong>Kind</strong>는
+    Prim이 모델 계층에서 어떤 역할인지를 분류하는 메타데이터다 — 조립 가능한 완성 애셋
+    (<code>component</code>), 그것들을 묶는 그룹(<code>group</code>), 최상위 조립체
+    (<code>assembly</code>) 등. 팹 씬에서 <code>OHT_01</code>을 <code>component</code>로,
+    <code>Fab</code>을 <code>assembly</code>로 표시해 두면, 도구가 "무엇이 하나의 완결된 장비인지"를
+    알고 그 단위로 선택·인스턴싱·순회를 할 수 있다.
+  </p>
+  <p>
+    Metadata와 Attribute를 헷갈리지 않는 기준은 "<strong>시간에 따라 변하는가</strong>"다. OHT의
+    위치는 프레임마다 바뀌니 Attribute(시간 샘플 가능), 그 OHT가 <code>component</code>라는 사실이나
+    문서 설명은 씬을 여는 내내 고정이니 Metadata다. Kind가 실무에서 중요한 이유는 도구의 <strong>선택
+    단위</strong>를 정해 주기 때문이다 — 뷰어에서 팹을 클릭했을 때 밑바닥 삼각형 하나가 아니라 "OHT 한
+    대 통째"가 잡히길 원한다면, 그 경계가 되는 Prim에 <code>component</code> Kind를 박아 둔다. Kind는
+    <code>assembly</code> ⊃ <code>group</code> ⊃ <code>component</code> ⊃ <code>subcomponent</code>의
+    포함 규칙을 가지며, 이 <strong>모델 계층(model hierarchy)</strong>이 뒤 스테이션의 인스턴싱·순회
+    최적화에서 다시 등장한다.
+  </p>
+
+  <h2>코드로 만져 보기 — usd-core (pxr)</h2>
+  <p>
+    이 개념들은 Python 패키지 <code>usd-core</code>(<code>pip install usd-core</code>, 모듈 이름은
+    <code>pxr</code>)로 그대로 만질 수 있다. 새 Stage를 만들고 Prim을 정의하고 Attribute를 채운 뒤
+    저장하면, 사람이 읽을 수 있는 <code>.usda</code> 텍스트가 떨어진다.
+  </p>
+  <pre><code>from pxr import Usd, UsdGeom, Sdf, Gf
+
+# 1) Stage 생성 (루트 레이어를 새로 만든다)
+stage = Usd.Stage.CreateNew("fab.usda")
+
+# 2) Prim 정의 — 트리를 슬래시 Path로 쌓는다
+UsdGeom.Xform.Define(stage, "/World")
+UsdGeom.Xform.Define(stage, "/World/Fab")
+oht = UsdGeom.Xform.Define(stage, "/World/Fab/OHT_01")
+
+# 3) Attribute 설정 — 위치는 xformOp로
+move = oht.AddTranslateOp()
+move.Set(Gf.Vec3d(12.0, 3.5, 0.0))
+
+# 4) 커스텀 Attribute와 Relationship
+prim = oht.GetPrim()
+status = prim.CreateAttribute("status", Sdf.ValueTypeNames.Token)
+status.Set("moving")                       # 값 → Attribute
+
+port = stage.DefinePrim("/World/Fab/LoadPort_A", "Xform")
+dest = prim.CreateRelationship("destination")
+dest.SetTargets([port.GetPath()])          # 연결 → Relationship
+
+# 5) Kind 메타데이터
+Usd.ModelAPI(prim).SetKind("component")
+
+# 6) 저장 → fab.usda 텍스트가 떨어진다
+stage.GetRootLayer().Save()</code></pre>
+  <p>
+    실행하면 <code>/World/Fab/OHT_01</code> Prim이 <code>translate</code>·<code>status</code> Attribute와
+    <code>destination</code> Relationship을 갖고, <code>component</code> Kind로 표시된 <code>.usda</code>가
+    만들어진다. 이 흐름을 팹 씬 규모로 확장한 예제가 실습 프로젝트
+    <code>examples/openusd-lab/build_fab_stage.py</code>이고, 만든 Stage를 다시 순회·질의하는 쪽이
+    <code>inspect_stage.py</code>다. 두 스크립트로 "쓰기 → 되읽기"를 왕복하며 데이터 모델을 몸에
+    익힌다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Attribute의 <strong>시간 샘플</strong>은 트윈과 자연스럽게 만난다. Phase 8의 이벤트 스트림이
+      "0.0초 OHT_01이 여기, 2.3초 저기"를 흘려보냈다면, 그 값을 <code>translate</code> Attribute의
+      시간 샘플로 찍는 순간 USD 씬은 <strong>재생 가능한 이력</strong>이 된다 — 리플레이와 스냅샷이
+      데이터 모델 차원에서 이미 준비돼 있는 셈이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>Stage는 특정 파일 하나인가?</summary>
+      <div class="answer">
+        <p>
+          아니다. Stage는 루트 레이어를 열었을 때 컴포지션 엔진이 여러 레이어를 겹쳐 계산해 낸
+          <strong>최종 씬 그래프</strong>다. 디스크의 파일이 아니라 "지금 합성된 씬 전체"를 가리키는
+          런타임 대상이며, 프로그램은 늘 이 Stage 위를 순회한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Path에서 슬래시(/)와 점(.)은 무엇을 가른다?</summary>
+      <div class="answer">
+        <p>
+          슬래시는 <strong>Prim의 계층</strong>을 잇고(<code>/World/Fab/OHT_01</code>), 점은 그 Prim의
+          <strong>Property</strong>를 가리킨다(<code>/World/Fab/OHT_01.status</code>). 앞부분은 트리
+          경로, 점 뒤는 그 노드에 매달린 속성 이름이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Attribute와 Relationship은 각각 무엇을 담나?</summary>
+      <div class="answer">
+        <p>
+          Attribute는 <strong>타입이 있는 값</strong>(위치·색·상태 토큰 등)이고 시간 샘플을 가질 수
+          있다. Relationship은 값이 아니라 <strong>다른 Path를 가리키는 관계</strong>다. "값이면
+          Attribute, 연결이면 Relationship"으로 기억하면 된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>반송차의 이동을 USD로 표현한다면 무엇을 쓰나?</summary>
+      <div class="answer">
+        <p>
+          위치 Attribute(<code>translate</code>)에 <strong>시간 샘플</strong>을 찍는다. "0초 위치,
+          2초 위치"처럼 시각별 값을 넣으면 USD가 그 사이를 애니메이션으로 다룬다. Phase 5의 보간이
+          데이터 모델 안으로 들어온 형태다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>어떤 정보를 Attribute가 아니라 Metadata에 담아야 하나?</summary>
+      <div class="answer">
+        <p>
+          <strong>시간에 따라 변하지 않는</strong> 부가 정보다 — 문서 문자열, 타입 이름,
+          <code>Kind</code> 같은 것. 반대로 위치·색·상태처럼 시간 샘플로 애니메이션될 수 있는 값은
+          Attribute다. "프레임마다 바뀔 수 있나?"가 갈림 기준이며, 잘못 담으면 트윈에서 실시간 갱신
+          대상이 어긋난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Kind 메타데이터를 팹 씬에 붙이면 무엇이 좋아지나?</summary>
+      <div class="answer">
+        <p>
+          도구가 "무엇이 하나의 완결된 장비(<code>component</code>)이고 무엇이 묶음(<code>group</code>·
+          <code>assembly</code>)인지"를 알게 된다. 그 단위로 선택·인스턴싱·순회를 할 수 있어, OHT
+          한 대를 통째로 다루거나 복제하기 쉬워진다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="01-what-is-openusd.html">
+      <span class="dir">← PREV — STATION 01</span>
+      <span class="title">OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가</span>
+    </a>
+    <a class="next" href="03-composition.html">
+      <span class="dir">NEXT — STATION 03 →</span>
+      <span class="title">컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>

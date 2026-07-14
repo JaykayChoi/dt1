@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가 — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>01 OpenUSD란
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li class="current"><span class="st">01</span></li>
+      <li><a href="02-data-model.html" title="USD 데이터 모델 — Stage·Prim·Property·Path">02</a></li>
+      <li><a href="03-composition.html" title="컴포지션 아크 — LIVRPS">03</a></li>
+      <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼">04</a></li>
+      <li><a href="05-practice.html" title="실습 — usd-core로 팹 씬 조립하기">05</a></li>
+      <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·툴체인">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 01</p>
+    <h1>OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가</h1>
+    <p class="lede">
+      <strong>OpenUSD</strong>(Universal Scene Description)는 Pixar가 자사 애니메이션
+      파이프라인을 굴리려고 만들어 2016년에 오픈소스로 공개한 씬 기술 체계다. 핵심 한 줄로 요약하면
+      <strong>"USD는 씬을 담는 파일 포맷이자, 여러 조각을 비파괴로 합쳐 주는 컴포지션 엔진"</strong>이다.
+      이 페이즈는 그 두 얼굴을 차례로 뜯어보고, 왜 이것이 엔터테인먼트를 넘어 제조·로보틱스의 표준
+      <strong>씬 교환 포맷</strong>이 됐는지, 그리고 <strong>디지털 트윈</strong>에서 어떤 자리를
+      차지하는지를 짚는다.
+    </p>
+  </div>
+
+  <h2>Pixar는 왜 이걸 만들었나</h2>
+  <p>
+    장편 애니메이션 한 편의 씬은 수만 개의 오브젝트로 이루어지고, 모델링·셰이딩·레이아웃·애니메이션·
+    라이팅 부서가 <strong>동시에</strong> 같은 씬을 만진다. 파일을 통째로 넘겨 가며 순차로 작업하면
+    한 부서가 손대는 동안 나머지는 멈춰야 한다. Pixar가 원한 것은 "각 부서가 자기 <strong>레이어</strong>에만
+    의견을 쓰고, 최종 씬은 그 레이어들을 <strong>겹쳐서</strong> 계산해 내는" 구조였다 — 원본을
+    덮어쓰지 않는 <strong>비파괴 협업</strong>. 이 요구가 곧 USD의 설계를 결정했다. USD는 단순히
+    지오메트리를 저장하는 포맷이 아니라, "여러 의견을 강도 순으로 합쳐 하나의 씬을 만드는 규칙"까지
+    포함한다. 그래서 USD는 파일 포맷인 동시에 <strong>컴포지션 엔진</strong>이다.
+  </p>
+  <p>
+    이 발상은 소프트웨어 엔지니어에게 낯익다. Git이 파일을 통째로 복사·덮어쓰지 않고 커밋을 쌓아
+    "누가 무엇을 언제 바꿨는지"를 비파괴로 보존하듯, USD는 씬을 레이어로 쌓아 각 부서의 의견을
+    보존한다. 다만 Git이 <strong>텍스트 diff</strong>를 다룬다면 USD는 <strong>씬 그래프의 의견</strong>을
+    다룬다는 점이 다르다. 그래서 USD를 "3D를 위한 버전 관리·합성 시스템"으로 읽으면 첫 인상을
+    잡기 쉽다. 흔한 오해 하나 — "USD는 그냥 FBX·glTF 같은 3D 파일 포맷의 하나"라는 생각이다.
+    그렇게 보면 뒷얼굴(컴포지션 엔진)을 통째로 놓친다. FBX·glTF가 "완성된 씬을 한 덩어리로
+    담는 상자"라면, USD는 "여러 상자를 규칙대로 겹쳐 씬을 <em>계산</em>하는 기계"까지 포함한다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/6FMUIzHF8-0" title="Introduction to OpenUSD for Physical AI" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA가 정리한 <strong>OpenUSD 입문</strong> — USD가 왜 단순한 파일 포맷을 넘어 로보틱스·제조
+      같은 <strong>피지컬 AI</strong>와 디지털 트윈의 공통 씬 기반이 됐는지, 이 스테이션의 큰 그림과
+      정확히 겹친다.
+      <a href="https://www.youtube.com/watch?v=6FMUIzHF8-0">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="USD의 두 얼굴: 왼쪽은 여러 레이어 파일(.usd/.usda/.usdc/.usdz), 오른쪽은 그것을 겹쳐 하나의 Stage로 합성하는 컴포지션 엔진.">
+      <defs>
+        <marker id="ah11a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 레이어 파일들 -->
+      <text class="d-label-strong" x="140" y="28" text-anchor="middle">레이어 파일들</text>
+      <rect class="d-node" x="60" y="44" width="160" height="34" rx="6"/>
+      <text class="d-text" x="140" y="66" text-anchor="middle">fab_layout.usda — 팹 배치</text>
+      <rect class="d-node" x="60" y="90" width="160" height="34" rx="6"/>
+      <text class="d-text" x="140" y="112" text-anchor="middle">vendor_oht.usd — 장비</text>
+      <rect class="d-node" x="60" y="136" width="160" height="34" rx="6"/>
+      <text class="d-text" x="140" y="158" text-anchor="middle">geo.usdc — 무거운 지오</text>
+      <rect class="d-node" x="60" y="182" width="160" height="34" rx="6"/>
+      <text class="d-text" x="140" y="204" text-anchor="middle">live.usda — 실시간 상태</text>
+      <!-- 컴포지션 엔진 -->
+      <rect class="d-fill-accent" x="330" y="90" width="150" height="80" rx="10" opacity="0.18"/>
+      <rect x="330" y="90" width="150" height="80" rx="10" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="405" y="124" text-anchor="middle">컴포지션</text>
+      <text class="d-label-strong" x="405" y="144" text-anchor="middle">엔진</text>
+      <!-- 결과 Stage -->
+      <rect class="d-node" x="560" y="96" width="120" height="68" rx="10"/>
+      <text class="d-label" x="620" y="126" text-anchor="middle">Stage</text>
+      <text class="d-text" x="620" y="146" text-anchor="middle">(합성된 씬)</text>
+      <!-- 화살표 -->
+      <line x1="222" y1="130" x2="326" y2="130" class="d-rail" stroke-width="2" marker-end="url(#ah11a)"/>
+      <line x1="482" y1="130" x2="556" y2="130" class="d-rail" stroke-width="2" marker-end="url(#ah11a)"/>
+    </svg>
+    <figcaption>
+      왼쪽의 여러 레이어 파일이 <strong>원본 그대로</strong> 남은 채, 컴포지션 엔진이 이들을 강도 순으로
+      겹쳐 하나의 <strong>Stage</strong>(최종 씬)를 만든다. "파일 포맷 + 컴포지션 엔진"이라는 두 얼굴이
+      한 그림에 있다.
+    </figcaption>
+  </figure>
+
+  <h2>파일 포맷의 세 얼굴 — .usda / .usdc / .usdz</h2>
+  <p>
+    USD의 "파일" 쪽은 하나의 포맷이 아니라 같은 데이터 모델을 담는 여러 인코딩이다. 사람이 읽고 고치는
+    텍스트 형식 <code>.usda</code>, 대용량을 빠르게 읽는 바이너리 <code>.usdc</code>(Crate), 그리고
+    이 둘을 자동으로 골라 주는 컨테이너 확장자 <code>.usd</code>가 있다. 여기에 애셋 하나를 통째로
+    묶어 배포·교환하기 좋은 <strong>zip 패키지</strong> <code>.usdz</code>가 더해진다. 어느 인코딩이든
+    <strong>같은 씬 그래프</strong>를 표현하므로, 텍스트로 열어 배우고 바이너리로 운영하는 식으로
+    자유롭게 오갈 수 있다.
+  </p>
+  <p>
+    실무 감각으로는 이렇게 나눠 잡으면 된다. 학습·리뷰·디버깅은 <code>.usda</code>로 한다 — 텍스트라
+    에디터로 열어 읽고, Git diff로 변경을 눈으로 확인하고, "무엇이 왜 이렇게 합성됐나"를 추적할 수
+    있다. 반대로 수십만 Prim이 든 운영 씬을 텍스트로 열면 파싱이 느리고 파일이 부풀므로, 이때는
+    <code>.usdc</code> Crate 바이너리가 답이다. <code>.usdz</code>는 성격이 조금 다르다 — 편집용이
+    아니라 <strong>배포·교환용 봉투</strong>다. 무압축 zip이라 안의 텍스처·메시를 스트리밍으로 바로
+    읽을 수 있어, 완성된 자산을 한 파일로 넘길 때 쓴다(Apple의 AR Quick Look이 <code>.usdz</code>를
+    표준으로 채택한 이유이기도 하다). 흔한 함정 하나 — 확장자로 인코딩을 단정하지 말 것. <code>.usd</code>는
+    텍스트일 수도 바이너리일 수도 있어, 안을 열어 보기 전엔 알 수 없다. 그리고 이 <strong>파일들을
+    눈으로 여는 뷰어</strong>는 <code>usd-core</code>(pip)에 들어 있지 않다 — 설치와 사용법은
+    <a href="05-practice.html">Station 05 실습</a>에서 따로 다룬다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>확장자</th><th>인코딩</th><th>쓰임새</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">.usda</td><td>ASCII 텍스트</td><td>사람이 읽고 편집·학습, diff/리뷰</td></tr>
+        <tr><td class="rowhead">.usdc</td><td>Crate 바이너리</td><td>대용량 씬의 빠른 로드, 운영</td></tr>
+        <tr><td class="rowhead">.usd</td><td>텍스트 또는 바이너리</td><td>인코딩을 가리지 않는 일반 확장자</td></tr>
+        <tr><td class="rowhead">.usdz</td><td>무압축 zip 패키지</td><td>텍스처까지 묶은 단일 파일 교환·배포</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>왜 산업 표준 씬 교환 포맷이 됐나</h2>
+  <p>
+    현장에는 Maya·Houdini·Blender·Unreal·Unity 같은 도구가 저마다의 씬 포맷을 갖고 있다. 도구가 늘수록
+    "A에서 B로 변환"의 경우의 수가 폭발한다. USD는 그 사이에 놓이는 <strong>공통 교환 언어</strong>가
+    되어, 각 도구가 USD로 내보내고 USD로 읽어 들이기만 하면 되게 만들었다. 게다가 단순 변환을 넘어
+    <strong>비파괴 레이어링</strong>을 그대로 실어 나르므로, "누가 무엇을 언제 바꿨는지"의 구조가
+    도구를 건너도 살아남는다. 이 두 성질 — <strong>중립적 교환</strong>과 <strong>비파괴 합성</strong> —
+    덕분에 USD는 영화·게임을 넘어 제조·건축·로보틱스로 번져 사실상의 표준이 됐다.
+  </p>
+  <p>
+    구체적으로 그려 보면 이렇다. USD가 없다면 Maya·Houdini·Blender·Unreal·Unity 사이를 잇는 변환기가
+    도구 쌍마다 필요하다 — 5개 도구면 방향까지 따져 최대 20개, 도구가 늘 때마다 조합이 제곱으로
+    폭발한다(이른바 <strong>N&times;N 문제</strong>). USD는 그 한가운데 놓이는 <strong>허브</strong>가 되어
+    각 도구가 USD 하나와만 주고받게 만든다 — 필요한 변환기가 2N개로 줄어든다. 반도체·자동차 제조에서
+    USD가 빠르게 받아들여진 배경이 여기 있다. 장비 벤더, 레이아웃 설계, 시뮬레이션, 렌더링 팀이 저마다
+    다른 도구를 쓰지만, 팹 씬이라는 <strong>단일 진실</strong>을 USD로 주고받으면 각자의 도구에서
+    같은 씬을 열어 자기 몫만 얹을 수 있다. 흔한 오해 — "USD는 NVIDIA 것"이라는 인식이다. USD는 Pixar가
+    만들어 오픈소스로 공개했고, 지금은 아래의 AOUSD가 관리한다. NVIDIA는 USD를 자사 Omniverse의
+    기반으로 <em>채택</em>해 확산에 크게 기여한 주요 참여자이지, 소유자가 아니다.
+  </p>
+  <p>
+    표준화에 무게를 실은 사건이 <strong>AOUSD</strong>(Alliance for OpenUSD)의 출범이다. Pixar, Adobe,
+    Apple, Autodesk, NVIDIA가 창립 멤버로 참여해 Linux Foundation 산하 Joint Development Foundation에서
+    USD 규격을 문서화·표준화하는 연합체다. "한 회사의 내부 포맷"이 "업계가 함께 관리하는 개방 표준"으로
+    자리를 옮겼다는 신호다. 자세한 규격과 코어 구현은
+    <a href="https://openusd.org/">openusd.org</a>와
+    <a href="https://graphics.pixar.com/usd/">Pixar USD 문서</a>에서 확인할 수 있다.
+  </p>
+
+  <h2>팹 트윈에서의 USD — Phase 12로 가는 뼈대</h2>
+  <p>
+    이 커리큘럼의 관심사인 <a href="../phase8/01-twin-vs-sim.html">디지털 트윈</a>에서 USD는
+    <strong>씬의 단일 진실</strong> 자리를 노린다. 팹 <strong>레이아웃</strong>은 base 레이어에, 벤더가
+    납품한 <strong>OHT</strong>·차량 장비는 각자의 애셋 레이어에, 실시간으로 흐르는 상태는 또 다른
+    레이어에 담고, 이들을 컴포지션으로 겹쳐 하나의 팹 Stage를 만든다. Phase 5의 미니 팹이 코드 안에
+    좌표를 박아 두던 것을, USD는 <strong>레이어로 조립되는 데이터</strong>로 바꾼다. 그리고 이 USD 씬을
+    실시간 RTX로 렌더링하고 협업·시뮬레이션까지 얹는 플랫폼이 <strong>NVIDIA Omniverse</strong>다 —
+    Omniverse의 뼈대가 바로 USD이며, 그것이 다음 Phase 12의 주제다.
+  </p>
+  <p>
+    이 대비를 한 번 더 못 박아 두면 나머지 스테이션이 편해진다. Phase 5의 미니 팹에서 OHT의 위치·레일
+    좌표는 C# 코드나 Unity 씬 파일 안에 <strong>박제</strong>돼 있었다 — 배치를 바꾸려면 코드를 고치거나
+    에디터를 열어야 했다. USD로 옮기면 그 좌표들은 <code>.usda</code> 레이어의 <strong>데이터</strong>가
+    되어, 코드를 건드리지 않고 레이어만 갈아 끼워 배치를 바꾼다. "레이아웃은 base 레이어, 벤더 장비는
+    애셋 레이어, 실시간 상태는 live 레이어"라는 이 분리가 Phase 11 전체를 관통하는 실.
+    Station 02는 그 레이어 <em>안에</em> 무엇이 들어 있는지(Stage·Prim·Property)를,
+    Station 03은 그것들이 <em>어떻게</em> 합쳐지는지(컴포지션)를 파고든다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8에서 우리는 "같은 뷰를 여러 소스가 구동한다"를 배웠다. USD는 그 발상을 <strong>씬
+      데이터</strong> 차원으로 끌어올린다 — 레이아웃·장비·실시간 상태가 각자 레이어로 분리돼 있으니,
+      실물 피드 레이어만 갈아 끼우면 같은 팹 씬이 시뮬레이션도 되고 트윈도 된다. 소스 추상화가
+      코드에서 데이터로 내려온 셈이다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>"USD는 파일 포맷이자 컴포지션 엔진"이라는 말의 뜻은?</summary>
+      <div class="answer">
+        <p>
+          USD는 씬을 <strong>저장</strong>하는 포맷(.usda/.usdc/.usdz)이면서, 동시에 여러 레이어의
+          의견을 <strong>강도 순으로 겹쳐 하나의 씬으로 합성</strong>하는 규칙과 런타임까지 포함한다.
+          앞쪽만 보면 그냥 3D 파일 같지만, 진짜 힘은 "여러 조각을 비파괴로 합쳐 준다"는 뒤쪽에 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Pixar가 USD를 만든 근본 동기는 무엇이었나?</summary>
+      <div class="answer">
+        <p>
+          여러 부서가 <strong>동시에</strong> 거대한 씬을 만지되 서로의 작업을 덮어쓰지 않는
+          <strong>비파괴 협업</strong>이다. 각 부서가 자기 레이어에만 의견을 쓰고 최종 씬은 레이어를
+          겹쳐 계산한다는 요구가 곧 컴포지션 엔진이라는 설계로 이어졌다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>USD가 "산업 표준 교환 포맷"이 된 두 성질은?</summary>
+      <div class="answer">
+        <p>
+          <strong>중립적 교환</strong>(도구마다 다른 포맷 대신 공통 언어로 오감)과 <strong>비파괴
+          합성</strong>(누가 무엇을 바꿨는지의 레이어 구조가 도구를 건너도 살아남음)이다. 단순 변환
+          포맷이 이 둘을 함께 갖추긴 어렵다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>.usda와 .usdc는 무엇이 다르고, 왜 둘 다 있나?</summary>
+      <div class="answer">
+        <p>
+          <code>.usda</code>는 사람이 읽고 고치는 ASCII 텍스트, <code>.usdc</code>는 빠르게 읽는 Crate
+          바이너리다. <strong>같은 씬 그래프</strong>를 다른 방식으로 인코딩한 것이라, 텍스트로 배우고
+          바이너리로 운영하는 식으로 오갈 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>USD는 FBX·glTF 같은 3D 파일 포맷과 무엇이 다른가?</summary>
+      <div class="answer">
+        <p>
+          FBX·glTF는 <strong>완성된 씬을 한 덩어리로 담는 상자</strong>다. USD도 씬을 담지만, 여기에
+          더해 여러 상자(레이어)를 강도 순으로 <strong>겹쳐 씬을 계산하는 컴포지션 엔진</strong>까지
+          포함한다. 이 뒷얼굴이 비파괴 협업·중립 교환을 가능케 하며, "USD는 그냥 또 하나의 3D 포맷"이라는
+          오해가 놓치는 핵심이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>AOUSD의 출범이 갖는 의미는?</summary>
+      <div class="answer">
+        <p>
+          Pixar 한 회사의 내부 포맷이 <strong>업계가 함께 관리하는 개방 표준</strong>으로 옮겨갔다는
+          신호다. Pixar·Adobe·Apple·Autodesk·NVIDIA가 창립 멤버로 Linux Foundation 산하에서 규격을
+          문서화·표준화한다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="../phase10/03-practice.html">
+      <span class="dir">← PREV — PHASE 10</span>
+      <span class="title">실습 — 임포트 자동화 직접 만들기</span>
+    </a>
+    <a class="next" href="02-data-model.html">
+      <span class="dir">NEXT — STATION 02 →</span>
+      <span class="title">USD 데이터 모델 — Stage · Prim · Property · Path</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>

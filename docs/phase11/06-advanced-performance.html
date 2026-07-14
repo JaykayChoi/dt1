@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인 — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>06 고급 — 대규모 씬 성능
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-openusd.html" title="OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가">01</a></li>
+      <li><a href="02-data-model.html" title="USD 데이터 모델 — Stage·Prim·Property·Path">02</a></li>
+      <li><a href="03-composition.html" title="컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)">03</a></li>
+      <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade">04</a></li>
+      <li><a href="05-practice.html" title="실습 — usd-core로 팹 씬 조립하기">05</a></li>
+      <li class="current"><span class="st">06</span></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 06</p>
+    <h1>고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인</h1>
+    <p class="lede">
+      팹 씬은 결국 <strong>수천 대</strong>로 자란다. 그 규모에서 USD를 여는 시간, 도는 메모리,
+      순회 비용이 병목이 된다. 이 스테이션은 그 규모를 견디게 하는 도구들 — <strong>페이로드</strong>로
+      지연 로드, <strong>인스턴싱</strong> 두 갈래, <strong>플랫튼</strong>의 트레이드오프,
+      <strong>드로우 모드</strong>, 그리고 <strong>순회 최적화</strong>와 커맨드라인 툴체인을 다룬다.
+      Phase 9의 대규모 성능을 씬 데이터 층에서 되짚는 셈이다.
+    </p>
+  </div>
+
+  <h2>페이로드 — 무거운 것을 나중에 켠다</h2>
+  <p>
+    03에서 references와 payloads를 나란히 봤다. 규모가 커지면 이 둘의 차이가 성능을 가른다.
+    <strong>reference는 항상 합성·로드</strong>되지만, <strong>payload는 "로드 경계"</strong>다 —
+    스테이지를 열 때 <strong>켜지 않고 미뤄 둘</strong> 수 있다. 팹 전체를 열되 벤더 OHT의 무거운
+    하이폴리 메시는 페이로드로 걸어 두면, 필요한 구역만 <code>Load()</code>하고 나머지는
+    <code>Unload()</code>로 꺼 둔 채 구조만 순회한다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/LWCU_HXXzck" title="Beyond the Basics: OpenUSD for Advanced Physical AI Simulation" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA Omniverse의 <strong>심화편</strong> — 대규모 씬을 시뮬레이션·트윈에서 굴릴 때의 페이로드·
+      인스턴싱·성능 전략을 다룬다. 이 스테이션이 데이터 층에서 짚는 규모 대응이 실제 파이프라인에서
+      어떻게 쓰이는지를 확장해 보여 준다.
+      <a href="https://www.youtube.com/watch?v=LWCU_HXXzck">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <p>
+    페이로드와 <code>active</code>·<code>visibility</code>를 헷갈리지 않는 것이 중요하다. 셋 다 "안
+    보이게/안 돌게" 만들 수 있지만 <strong>비용을 아끼는 지점이 다르다</strong>. <code>visibility</code>는
+    렌더에서만 빼되 데이터는 이미 <strong>메모리에 올라와</strong> 있고, <code>active=false</code>는
+    합성 결과에서 가지를 접지만 역시 씬을 여는 시점엔 파일을 읽는다. 오직 <strong>payload</strong>만이
+    "<strong>디스크에서 읽는 것 자체</strong>를 미룬다" — 그래서 열기 시간과 메모리를 실제로 아끼는
+    유일한 손잡이다. 팹이 수천 대로 자랄 때 오픈 시간이 폭발하는 병목의 첫 처방이 "무거운 지오를
+    payload로 감싸고 <code>LoadNone</code>으로 열기"인 이유가 여기 있다.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="페이로드 지연 로드: 스테이지에 Bay A·B·C가 있고, 열 때 payload가 언로드 상태(점선)이며 필요한 Bay만 로드(채움)로 켜진다.">
+      <!-- 스테이지 루트 -->
+      <rect class="d-fill-accent" x="300" y="20" width="160" height="46" rx="8" opacity="0.16"/>
+      <rect x="300" y="20" width="160" height="46" rx="8" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="380" y="48" text-anchor="middle">Stage /World</text>
+      <!-- Bay들 -->
+      <rect class="d-node" x="80" y="140" width="180" height="60" rx="8"/>
+      <text class="d-label" x="170" y="166" text-anchor="middle">Bay_A (로드)</text>
+      <text class="d-text" x="170" y="185" text-anchor="middle">payload 켜짐 · 메시 상주</text>
+      <rect x="290" y="140" width="180" height="60" rx="8" fill="none" class="d-soft" stroke-width="1.6" stroke-dasharray="6 4"/>
+      <text class="d-label" x="380" y="166" text-anchor="middle">Bay_B (언로드)</text>
+      <text class="d-text" x="380" y="185" text-anchor="middle">구조만 · 메시 안 읽음</text>
+      <rect x="500" y="140" width="180" height="60" rx="8" fill="none" class="d-soft" stroke-width="1.6" stroke-dasharray="6 4"/>
+      <text class="d-label" x="590" y="166" text-anchor="middle">Bay_C (언로드)</text>
+      <text class="d-text" x="590" y="185" text-anchor="middle">필요할 때 Load()</text>
+      <!-- 연결 -->
+      <line x1="360" y1="66" x2="200" y2="138" class="d-rail" stroke-width="2"/>
+      <line x1="380" y1="66" x2="380" y2="138" class="d-soft" stroke-width="2" stroke-dasharray="5 4"/>
+      <line x1="400" y1="66" x2="560" y2="138" class="d-soft" stroke-width="2" stroke-dasharray="5 4"/>
+    </svg>
+    <figcaption>
+      스테이지는 전체 구조를 알되(실선·점선 모두), 페이로드가 걸린 가지는 <strong>언로드 상태</strong>로
+      두면 무거운 메시를 읽지 않는다(점선). 카메라가 다가가는 구역만 <code>Load()</code>로 켠다 —
+      Phase 9의 애디티브 씬 스트리밍을 USD 층에서 하는 것.
+    </figcaption>
+  </figure>
+  <pre><code>from pxr import Usd
+
+# 무거운 씬은 페이로드를 끈 채로 연다 — 구조만, 메시는 나중에
+stage = Usd.Stage.Open("fab_full.usda", load=Usd.Stage.LoadNone)
+
+bay_a = stage.GetPrimAtPath("/World/Bay_A")
+bay_a.Load()          # 이 구역만 켠다(Unload()로 다시 끈다)</code></pre>
+
+  <h2>인스턴싱 두 갈래 — PointInstancer vs instanceable</h2>
+  <p>
+    "같은 것 수천 개"를 USD로 가볍게 두는 길은 <strong>둘</strong>이고, 목적이 다르다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>축</th><th>PointInstancer</th><th>instanceable + prototypes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">방식</td><td>인스턴서 한 Prim이 위치/인덱스 배열로 뿌림</td><td>Prim에 <code>instanceable=true</code> → 공유 프로토타입(네이티브 인스턴싱)</td></tr>
+        <tr><td class="rowhead">인스턴스 정체</td><td>개별 Prim 없음(배열 원소)</td><td>각 인스턴스가 Prim 경로를 가짐(인스턴스 프록시)</td></tr>
+        <tr><td class="rowhead">알맞은 것</td><td>동일 OHT 수백 대처럼 <strong>점군형</strong> 대량 배치</td><td>구조를 가진 자산(로드포트+장비)을 <strong>여러 번 참조</strong>해 배치</td></tr>
+        <tr><td class="rowhead">개별 편집</td><td>어려움(배열이라)</td><td>프로토타입은 공유·불변, 오버라이드는 인스턴스 밖에서</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <code>instanceable</code>은 reference 등으로 같은 내용을 여러 번 들여온 Prim을 <strong>공유
+    프로토타입 하나</strong>로 접어, 씬 그래프는 여러 개로 보이되 메모리·순회 비용은 한 벌만
+    치르게 한다. 규모 전략의 실전은 "완전 동일한 대량 → PointInstancer, 구조 있는 반복 자산 →
+    instanceable"로 나눠 쓰는 것이다.
+  </p>
+  <p>
+    핵심 차이를 한 문장으로 못 박으면 — <strong>PointInstancer는 인스턴스가 "데이터"</strong>(위치
+    배열의 원소)이고, <strong>instanceable은 인스턴스가 "구조"</strong>(각자 Path를 가진 인스턴스
+    프록시)다. 그래서 관제 화면에서 "이 장비 클릭 → 경로 하이라이트"처럼 <strong>개별 선택·상호작용</strong>이
+    필요하면 각 인스턴스가 Path로 잡히는 instanceable이 유리하고, "레일 위 수백 캐리어를 그냥 빽빽이
+    보여만 주면 되는" 순수 대량 표시에는 PointInstancer가 가볍다. 둘 다 프로토타입은 <strong>한 벌만
+    메모리에 상주</strong>시키므로 "같은 것 수천 개"의 메모리 폭발을 막는다는 목적은 공유한다 — 다만
+    인스턴스에 <em>정체성</em>을 얼마나 줄지가 갈림길이다. Phase 4의 GPU Instancing과 Phase 9의 대량
+    Transform 갱신이 런타임에서 하던 절약을, 여기서는 <strong>씬 데이터 모델</strong>이 미리 구조로
+    담아 두는 셈이다.
+  </p>
+
+  <h2>플랫튼 — 합성을 접어 하나로</h2>
+  <p>
+    03의 컴포지션은 열 때마다 여러 레이어를 규칙(LIVRPS)대로 <strong>합성</strong>한다. 이 합성은
+    편집 유연성을 주지만 <strong>여는 비용</strong>이 든다. <code>UsdStage.Flatten()</code>(또는
+    <code>usdcat --flatten</code>)은 합성 결과를 <strong>단일 레이어로 구워</strong> 낸다 — 여는
+    속도는 빨라지고 배포는 단순해지지만, <strong>레이어 구조와 편집 가능성을 잃고</strong> 파일이
+    커진다. 최종 납품·렌더 팜 전달처럼 "더 안 고칠 스냅샷"에는 유리하고, 작업 원본에는 불리하다.
+    Phase 3의 라이트 <strong>베이킹</strong>과 정확히 같은 트레이드오프다 — 미리 구우면 빠르지만
+    다시 못 바꾼다.
+  </p>
+
+  <h2>드로우 모드 · 카드 — 먼 것은 판때기로</h2>
+  <p>
+    Phase 4의 <strong>LOD</strong>를 씬 데이터 층에서 하는 장치가 <strong>draw mode</strong>다.
+    <code>UsdGeomModelAPI</code>를 적용한 모델 Prim에 <code>model:drawMode</code>를 주면, 먼 거리에서는
+    지오메트리 전체 대신 <strong>바운딩 박스</strong>(bounds)나 <strong>텍스처를 입힌 판때기</strong>
+    (cards)로 대체해 그린다. 수천 대의 원거리 OHT를 풀 메시로 그리지 않고 카드로 눌러, 씬을 열지
+    않고도(페이로드 언로드 상태) 위치감을 유지한다.
+  </p>
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      관제 탑다운 뷰(직교 투영)에서 팹 전체를 한눈에 볼 때, 개별 장비의 하이폴리 형상은 대부분
+      불필요하다. 페이로드 언로드 + 카드 드로우 모드를 조합하면 <strong>수천 대 규모의 트윈</strong>을
+      가볍게 조망하다가, 특정 구역을 클릭해 다가가면 그 구역만 <code>Load()</code>해 실체를 드러낸다 —
+      Phase 8 대시보드의 "전체 조망 ↔ 상세 진입" 흐름을 USD가 데이터로 뒷받침한다.
+    </p>
+  </div>
+
+  <h2>순회 최적화 — Usd.PrimRange와 프레디킷</h2>
+  <p>
+    수천 Prim을 매번 전부 도는 것은 낭비다. <code>Usd.PrimRange</code>(파이썬 <code>Stage.Traverse()</code>)에
+    <strong>프레디킷</strong>을 걸어 필요한 것만 훑는다 — 정의된 것만(<code>UsdPrimIsDefined</code>),
+    활성만(<code>UsdPrimIsActive</code>), 로드된 것만(<code>UsdPrimIsLoaded</code>), 추상 제외
+    (<code>!UsdPrimIsAbstract</code>). 기본 순회(<code>Stage.Traverse()</code>)가 이미 이
+    "기본 프레디킷"을 쓴다. 인스턴스 내부까지 보려면 인스턴스 프록시 순회를 따로 켠다.
+  </p>
+  <pre><code>from pxr import Usd
+
+# 기본 순회는 정의·활성·로드·비추상만 훑는다(가장 흔한 필요)
+for prim in stage.Traverse():
+    ...
+
+# 프레디킷을 명시해 좁히기 — 로드된 정의 Prim만
+pred = Usd.PrimIsDefined &amp; Usd.PrimIsLoaded
+for prim in Usd.PrimRange.Stage(stage, pred):
+    ...</code></pre>
+
+  <h2>USD 툴체인 — 커맨드라인 다섯 자루</h2>
+  <p>
+    규모가 커질수록 GUI보다 <strong>커맨드라인 툴</strong>이 실무의 손발이 된다. 이 다섯 자루는 USD
+    설치(옵션 2의 소스 빌드나 NVIDIA 배포)에 함께 딸려 오며 — <code>usd-core</code>(pip)에는 들어 있지
+    않다 — CI 파이프라인에 그대로 걸어 자동 검증·패키징·썸네일 생성을 무인으로 돌릴 수 있다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>툴</th><th>하는 일</th><th>대표 용도</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">usdcat</td><td>USD를 텍스트로 출력·포맷 변환</td><td><code>usdcat --flatten a.usd &gt; flat.usda</code>로 합성 결과 확인</td></tr>
+        <tr><td class="rowhead">usdchecker</td><td>규칙·usdz 호환성 검사</td><td>납품 전 유효성 검증(깨진 참조·잘못된 스키마)</td></tr>
+        <tr><td class="rowhead">usdzip</td><td>자산을 <code>.usdz</code> 패키지로 묶기</td><td>텍스처까지 한 파일로 배포</td></tr>
+        <tr><td class="rowhead">usdrecord</td><td>Hydra로 스테이지를 이미지 렌더</td><td>썸네일·리포트용 오프라인 캡처</td></tr>
+        <tr><td class="rowhead">usdview</td><td>대화형 뷰어(순회·컴포지션·인스턴싱 확인)</td><td>05 실습의 육안 검증 도구</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <pre><code># 합성을 평탄화해 텍스트로 — 무엇이 최종 값이 됐는지 눈으로
+usdcat --flatten fab_full.usda -o fab_flat.usda
+
+# 납품 전 유효성 검사
+usdchecker fab_flat.usda
+
+# 텍스처까지 한 파일로 패키징
+usdzip fab_delivery.usdz fab_flat.usda textures/</code></pre>
+  <p class="note">
+    툴·API의 정확한 옵션은 OpenUSD 공식 문서에서 확인한다 —
+    <a href="https://openusd.org/release/toolset.html">USD Toolset</a>,
+    <a href="https://openusd.org/release/api/class_usd_prim_range.html">Usd.PrimRange</a>.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>reference와 payload는 규모에서 왜 성능이 갈리나?</summary>
+      <div class="answer">
+        <p>
+          reference는 스테이지를 열 때 <strong>항상 합성·로드</strong>되지만, payload는
+          <strong>로드 경계</strong>라 열 때 미뤄 둘 수 있다. 무거운 메시를 payload로 걸면 전체 구조는
+          알되 데이터는 안 읽으므로, 필요한 구역만 <code>Load()</code>해 메모리·오픈 시간을 아낀다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>열기 시간·메모리를 실제로 아끼려면 payload·visibility·active 중 무엇을 쓰나?</summary>
+      <div class="answer">
+        <p>
+          <strong>payload</strong>다. <code>visibility</code>는 렌더에서만 빼고 데이터는 이미 메모리에
+          올라와 있고, <code>active=false</code>도 씬을 열 때 파일은 읽는다. payload만이 <strong>디스크에서
+          읽는 것 자체</strong>를 미루므로, 무거운 지오를 payload로 감싸고 <code>LoadNone</code>으로 열면
+          오픈 시간·메모리를 진짜로 절약한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>PointInstancer와 instanceable을 각각 언제 쓰나?</summary>
+      <div class="answer">
+        <p>
+          완전히 동일한 것을 <strong>대량으로 점처럼</strong> 뿌릴 때(OHT 수백 대)는 PointInstancer가,
+          <strong>구조를 가진 자산을 여러 번 반복</strong>해 배치하되 각 인스턴스가 Prim 경로를 갖길
+          원할 때(장비+로드포트 세트를 곳곳에)는 <code>instanceable</code> 네이티브 인스턴싱이 맞다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Flatten의 이득과 손실은 무엇이며 무엇에 비유되나?</summary>
+      <div class="answer">
+        <p>
+          이득은 <strong>여는 속도·배포 단순화</strong>, 손실은 <strong>레이어 구조·편집 가능성</strong>과
+          커진 파일이다. Phase 3의 라이트 <strong>베이킹</strong>과 같다 — 미리 구우면 런타임은 빠르지만
+          다시 못 바꾼다. 그래서 작업 원본이 아니라 최종 스냅샷에 쓴다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>draw mode의 cards가 Phase 4의 어떤 기법에 대응하나?</summary>
+      <div class="answer">
+        <p>
+          거리별로 표현을 낮추는 <strong>LOD</strong>다. 먼 모델을 풀 메시 대신 바운딩 박스나 텍스처
+          카드로 대체해, 수천 대의 원거리 장비에 폴리곤을 낭비하지 않는다. 페이로드 언로드와 겹쳐 쓰면
+          "안 읽고도 위치는 보이는" 조망이 된다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>Stage.Traverse()에 프레디킷을 거는 것이 왜 순회 최적화인가?</summary>
+      <div class="answer">
+        <p>
+          수천 Prim을 전부 도는 대신 <strong>필요한 부분집합만</strong> 훑기 때문이다. 정의·활성·로드·
+          비추상 같은 조건(<code>UsdPrimIsDefined</code> 등)으로 가지치기하면 언로드·비활성 가지를 건너뛴다.
+          기본 <code>Traverse()</code>가 이미 합리적 기본 프레디킷을 쓴다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="05-practice.html">
+      <span class="dir">← PREV — STATION 05</span>
+      <span class="title">실습 — usd-core로 팹 씬 조립하기</span>
+    </a>
+    <a class="next" href="../phase12/01-what-is-omniverse.html">
+      <span class="dir">NEXT — PHASE 12 →</span>
+      <span class="title">NVIDIA Omniverse란</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>

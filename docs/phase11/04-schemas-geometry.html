@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>04 스키마·지오메트리·머티리얼
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-openusd.html" title="OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가">01</a></li>
+      <li><a href="02-data-model.html" title="USD 데이터 모델 — Stage·Prim·Property·Path">02</a></li>
+      <li><a href="03-composition.html" title="컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)">03</a></li>
+      <li class="current"><span class="st">04</span></li>
+      <li><a href="05-practice.html" title="실습 — usd-core로 팹 씬 조립하기">05</a></li>
+      <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 04</p>
+    <h1>스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade</h1>
+    <p class="lede">
+      02~03에서 배운 것은 씬의 <strong>골격</strong>이었다 — Prim은 이름 붙은 그릇이고,
+      Property는 그 안의 값이며, 컴포지션은 그릇들을 합성한다. 이 스테이션은 그 그릇에
+      <strong>의미</strong>를 주는 층을 다룬다. "이 Prim은 메시다", "이 표면은 강철이다",
+      "동일한 OHT 300대다" — 이 모든 약속을 지탱하는 것이 <strong>스키마</strong>다.
+    </p>
+  </div>
+
+  <h2>스키마 — Prim에 타입과 뜻을 주는 계약</h2>
+  <p>
+    빈 Prim은 <code>typeName</code>이 없는 <code>over</code>거나 이름만 있는 그릇이다. 여기에
+    "이건 메시다"라는 <strong>타입</strong>을 붙이고, "여기엔 <code>points</code>·<code>faceVertexIndices</code>
+    같은 속성이 있다"는 <strong>약속</strong>을 강제하는 것이 스키마다. USD 스키마는 두 종류로 갈린다 —
+    Prim의 <strong>정체(무엇인가)</strong>를 정하는 것과, 정체 위에 <strong>능력(무엇을 더 할 수 있나)</strong>을
+    덧대는 것.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/1RnTSZK9SwM" title="Universal Scene Description (OpenUSD): 4 Superpowers to Get You Started" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA Developer가 꼽는 <strong>USD의 네 가지 초능력</strong> — 스키마·인스턴싱을 포함해 실제 씬을
+      조립할 때 손에 잡히는 기능들을 짚는다. 이 스테이션이 다루는 UsdGeom·PointInstancer·UsdShade가
+      그 초능력들이 몸을 얻는 자리다.
+      <a href="https://www.youtube.com/watch?v=1RnTSZK9SwM">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <p>
+    스키마를 프로그래밍의 <strong>타입 시스템</strong>에 빗대면 감이 온다. IsA 스키마는 클래스
+    상속(<code>class Mesh : Boundable, Imageable</code>)처럼 "이 객체는 <em>무엇인가</em>"를 한 줄기로
+    정하고, API 스키마는 인터페이스·믹스인(<code>implements MaterialBinding</code>)처럼 "이 객체에
+    <em>어떤 능력을 더 섞을까</em>"를 여러 개 얹는다. 타입이 있어야 도구가 Prim을 열고 <code>UsdGeom.Mesh(prim)</code>
+    처럼 <strong>스키마 클래스로 감싸(cast)</strong> 정해진 속성을 안전하게 읽는다. 스키마가 없으면
+    <code>points</code>가 있는지, 이름이 맞는지 매번 손으로 확인해야 한다 — 스키마는 그 약속을 코드가
+    아니라 <strong>데이터에 새겨</strong> 도구 사이에서 흔들리지 않게 한다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="스키마 두 종류: 가운데 Prim에 IsA 스키마(타입 Mesh)가 몸통으로 붙고, 그 위에 MaterialBindingAPI·CollectionAPI 같은 API 스키마가 덧붙는 클립온 구조.">
+      <defs>
+        <marker id="ah11d" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 몸통: IsA 스키마 -->
+      <rect class="d-fill-accent" x="270" y="120" width="220" height="70" rx="10" opacity="0.18"/>
+      <rect x="270" y="120" width="220" height="70" rx="10" fill="none" class="d-accent" stroke-width="1.6"/>
+      <text class="d-label-strong" x="380" y="150" text-anchor="middle">Prim "/Bay_A/OHT_01"</text>
+      <text class="d-text" x="380" y="172" text-anchor="middle">IsA 스키마 · typeName = Mesh</text>
+      <!-- 덧붙는 API 스키마들 -->
+      <rect class="d-node" x="80" y="30" width="200" height="46" rx="8"/>
+      <text class="d-label" x="180" y="52" text-anchor="middle">MaterialBindingAPI</text>
+      <text class="d-text" x="180" y="68" text-anchor="middle">단일 적용 · 표면에 재질을</text>
+      <rect class="d-node" x="480" y="30" width="200" height="46" rx="8"/>
+      <text class="d-label" x="580" y="52" text-anchor="middle">CollectionAPI:zone</text>
+      <text class="d-text" x="580" y="68" text-anchor="middle">다중 적용 · 인스턴스 이름</text>
+      <rect class="d-node" x="280" y="245" width="200" height="46" rx="8"/>
+      <text class="d-label" x="380" y="267" text-anchor="middle">UsdGeomModelAPI</text>
+      <text class="d-text" x="380" y="283" text-anchor="middle">draw mode·extents hint</text>
+      <!-- 화살표(덧붙음) -->
+      <line x1="180" y1="76" x2="290" y2="118" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah11d)"/>
+      <line x1="580" y1="76" x2="470" y2="118" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah11d)"/>
+      <line x1="380" y1="245" x2="380" y2="192" class="d-soft" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah11d)"/>
+    </svg>
+    <figcaption>
+      Prim의 <strong>몸통은 하나</strong>다 — IsA 스키마(여기선 <code>Mesh</code>)가 "무엇인가"를 정한다.
+      그 위로 API 스키마가 <strong>여러 개</strong> 덧붙어(점선) 재질 바인딩·컬렉션·모델 정보 같은
+      능력을 얹는다. 클립온 액세서리처럼.
+    </figcaption>
+  </figure>
+
+  <h2>IsA 스키마 vs API 스키마</h2>
+  <p>
+    <strong>IsA 스키마(타입 스키마)</strong>는 Prim의 <code>typeName</code>이 된다. 한 Prim은
+    IsA 스키마를 <strong>정확히 하나</strong> 갖는다 — <code>Xform</code>이거나 <code>Mesh</code>거나
+    <code>Scope</code>이거나. 이 중 실제로 씬에 찍을 수 있는 것이 <em>concrete</em>(예:
+    <code>Mesh</code>)이고, 직접 못 찍고 공통 인터페이스로만 존재하는 것이 <em>abstract</em>(예:
+    <code>Imageable</code>, <code>Boundable</code>)다.
+  </p>
+  <p>
+    <strong>API 스키마</strong>는 타입을 바꾸지 않는다. 대신 Prim에 <strong>속성 묶음과 동작</strong>을
+    덧댄다. Prim 메타데이터 <code>apiSchemas</code>에 이름이 쌓인다. 세 결이 있다 — 코드 편의만 주고
+    씬에 흔적을 안 남기는 <em>non-applied</em>, 한 번만 붙는 <em>single-apply</em>(예:
+    <code>MaterialBindingAPI</code>, <code>UsdGeomModelAPI</code>), 그리고 인스턴스 이름을 붙여
+    <strong>여러 번</strong> 붙는 <em>multiple-apply</em>(예: <code>CollectionAPI:zoneA</code>,
+    <code>CollectionAPI:zoneB</code>).
+  </p>
+  <p>
+    왜 이렇게 갈라 두는가. 한 Prim은 "OHT이면서 동시에 벽"일 수 없으니 정체(IsA)는 하나여야 하지만,
+    "재질도 바인딩되고, 존에도 속하고, 모델 정보도 갖는" 능력은 얼마든지 겹칠 수 있기 때문이다. 팹으로
+    옮기면 이렇다 — OHT Prim의 IsA는 <code>Xform</code>(또는 <code>Mesh</code>) 하나로 고정하고, 그
+    위에 "A 구역 소속"(<code>CollectionAPI:zoneA</code>), "강철 재질"(<code>MaterialBindingAPI</code>),
+    "운영 상태 커스텀 속성"을 API로 겹겹이 얹는다. multiple-apply에 <strong>인스턴스 이름</strong>이
+    필요한 이유도 분명해진다 — 한 Prim이 <code>zoneA</code>와 <code>zoneB</code> 두 컬렉션에 동시에
+    속하려면 이름이 없으면 둘이 충돌한다. 흔한 함정 — API 스키마는 <code>Apply()</code>로 <strong>등록</strong>해야
+    <code>apiSchemas</code> 메타데이터에 남는다. 속성만 손으로 만들고 <code>Apply()</code>를 빼먹으면
+    도구가 "이 Prim이 그 능력을 갖췄다"는 것을 알지 못한다.
+  </p>
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8의 소스 추상화가 떠오른다면 정확하다. IsA는 "이 노드가 <strong>무엇</strong>인가"(OHT냐
+      벽이냐), API는 "이 노드에 <strong>무슨 데이터를 더</strong> 실을까"(존 소속·재질·상태)다. 트윈에서
+      실물 상태를 얹을 때, 지오메트리 타입은 그대로 두고 <strong>API 스키마로 커스텀 속성</strong>을
+      덧붙이는 것이 USD다운 방식이다 — 원본 자산을 건드리지 않고 상태만 오버레이한다.
+    </p>
+  </div>
+
+  <h2>UsdGeom — 지오메트리와 계층의 스키마들</h2>
+  <p>
+    씬 그래프의 뼈대는 <code>UsdGeom</code> 스키마 무리다. 자주 만지는 것들:
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>스키마</th><th>결</th><th>역할</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">Xform</td><td>concrete</td><td>변환(위치·회전·스케일)을 갖는 그룹 노드. 팹 레이아웃의 뼈대.</td></tr>
+        <tr><td class="rowhead">Scope</td><td>concrete</td><td><strong>변환이 없는</strong> 순수 정리용 그룹. <code>/World/Looks</code>처럼 폴더 역할만.</td></tr>
+        <tr><td class="rowhead">Mesh</td><td>concrete</td><td>폴리곤 메시. <code>points</code>·<code>faceVertexCounts</code>·<code>faceVertexIndices</code>로 형상을 담는다.</td></tr>
+        <tr><td class="rowhead">Boundable</td><td>abstract</td><td>바운딩 박스(<code>extent</code>)를 갖는다는 약속. Mesh가 이를 상속한다.</td></tr>
+        <tr><td class="rowhead">Imageable</td><td>abstract</td><td>"렌더 가능"이라는 공통 인터페이스. <code>visibility</code>·<code>purpose</code>를 준다.</td></tr>
+        <tr><td class="rowhead">PointInstancer</td><td>concrete</td><td>동일 프로토타입을 수많은 위치에 인스턴스로 뿌리는 특수 노드(아래).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>Xform과 Scope의 차이</strong>가 실전에서 중요하다. 둘 다 자식을 묶지만, <code>Scope</code>는
+    변환 능력이 없어 "여기부터 재질 모음", "여기부터 차량들" 같은 <strong>순수 조직화</strong>에 쓴다.
+    좌표를 옮길 일이 없는 그룹을 Xform으로 만들면 불필요한 변환 계산이 붙는다.
+  </p>
+  <pre><code>from pxr import Usd, UsdGeom, Sdf, Gf
+
+stage = Usd.Stage.CreateNew("fab_layout.usda")
+UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.y)
+
+world = UsdGeom.Xform.Define(stage, "/World")          # 변환 있는 루트
+bay   = UsdGeom.Scope.Define(stage, "/World/Bay_A")    # 정리용 그룹(변환 없음)
+oht   = UsdGeom.Mesh.Define(stage, "/World/Bay_A/OHT_01")
+
+oht.CreatePointsAttr([Gf.Vec3f(-1,0,-1), Gf.Vec3f(1,0,-1),
+                      Gf.Vec3f(1,0,1),  Gf.Vec3f(-1,0,1)])
+oht.CreateFaceVertexCountsAttr([4])
+oht.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+stage.GetRootLayer().Save()</code></pre>
+
+  <h2>UsdGeomPointInstancer — 같은 OHT 수백 대를 하나의 Prim으로</h2>
+  <p>
+    팹에는 <strong>똑같은</strong> OHT가 수백 대 달린다. 이를 각각 Mesh Prim으로 두면 씬 그래프가
+    수백 노드로 부풀고, 순회·편집·전송이 모두 무거워진다. <code>PointInstancer</code>는 이 문제를
+    정면으로 푼다 — <strong>프로토타입 하나</strong>를 정의하고, 나머지는 <code>positions</code>·
+    <code>orientations</code>·<code>scales</code>·<code>protoIndices</code> <strong>배열</strong>로만
+    표현한다. 300대가 노드 300개가 아니라 <strong>Prim 한 개 + 배열</strong>이 된다.
+  </p>
+  <p>
+    수치로 감을 잡아 보자. OHT를 개별 Mesh Prim 300개로 두면 씬 그래프에 노드 300개 + 각자의 변환·
+    바운딩·재질 바인딩이 붙어 순회·직렬화가 300배로 든다. PointInstancer로 두면 프로토타입 메시는
+    <strong>한 벌</strong>이고, 나머지는 길이 300짜리 <code>positions</code>·<code>orientations</code>·
+    <code>protoIndices</code> 배열뿐이다 — 값이 <em>구조</em>가 아니라 <em>배열 원소</em>로 사니, 대량
+    데이터가 촘촘한 배열로 담겨 읽기도 빠르다. 대신 <strong>트레이드오프</strong>가 있다. 인스턴스
+    각각은 독립 Prim이 아니라 배열 인덱스라, "3번 인스턴스만 색을 바꾸기" 같은 개별 편집이 번거롭다
+    (그 인덱스의 배열 원소를 직접 건드려야 한다). 그래서 "완전히 동일하고 대량이면 PointInstancer,
+    구조를 갖고 개별성이 필요하면 다른 방식"이라는 갈림이 생기고, 그 다른 방식(<code>instanceable</code>
+    네이티브 인스턴싱)을 Station 06에서 나란히 비교한다.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PointInstancer: 왼쪽 프로토타입 OHT 하나가 prototypes 관계로 연결되고, protoIndices와 positions 배열이 오른쪽 레일 위 여러 인스턴스로 펼쳐진다.">
+      <!-- 프로토타입 -->
+      <rect class="d-node" x="40" y="70" width="150" height="60" rx="8"/>
+      <text class="d-label" x="115" y="96" text-anchor="middle">Prototypes/OHT</text>
+      <text class="d-text" x="115" y="114" text-anchor="middle">Mesh 한 벌</text>
+      <!-- 배열 -->
+      <rect class="d-fill-accent" x="240" y="60" width="180" height="80" rx="8" opacity="0.16"/>
+      <rect x="240" y="60" width="180" height="80" rx="8" fill="none" class="d-accent" stroke-width="1.4"/>
+      <text class="d-label-strong" x="330" y="86" text-anchor="middle">PointInstancer</text>
+      <text class="d-text" x="330" y="106" text-anchor="middle">protoIndices[ 0,0,0,… ]</text>
+      <text class="d-text" x="330" y="124" text-anchor="middle">positions[ … ]</text>
+      <!-- 인스턴스가 펼쳐진 레일 -->
+      <line class="d-rail" x1="470" y1="100" x2="730" y2="100" stroke-width="3"/>
+      <circle cx="500" cy="100" r="9" class="d-fill-accent"/>
+      <circle cx="560" cy="100" r="9" class="d-fill-accent"/>
+      <circle cx="620" cy="100" r="9" class="d-fill-accent"/>
+      <circle cx="680" cy="100" r="9" class="d-fill-accent"/>
+      <text class="d-text" x="600" y="140" text-anchor="middle">같은 프로토타입, 다른 위치</text>
+      <!-- 연결 -->
+      <line x1="190" y1="100" x2="238" y2="100" class="d-soft" stroke-width="2"/>
+      <line x1="420" y1="100" x2="468" y2="100" class="d-soft" stroke-width="2"/>
+    </svg>
+    <figcaption>
+      프로토타입은 <strong>한 번</strong> 정의되고(<code>prototypes</code> 관계), 인스턴스는 인덱스와
+      위치 배열로만 산다. Phase 4의 <strong>GPU 인스턴싱</strong>이 런타임에서 하던 일 — "같은 메시를
+      한 벌만 두고 위치만 바꿔 여러 번" — 을 씬 <strong>데이터 모델</strong> 차원에서 하는 것이다.
+    </figcaption>
+  </figure>
+  <pre><code>pi = UsdGeom.PointInstancer.Define(stage, "/World/OHTs")
+
+# 프로토타입 후보들(여러 종을 두고 인덱스로 고를 수 있다)
+pi.CreatePrototypesRel().AddTarget("/World/OHTs/Prototypes/OHT")
+
+# 인스턴스별 데이터 — 세 대를 레일에 4m 간격으로
+pi.CreateProtoIndicesAttr([0, 0, 0])
+pi.CreatePositionsAttr([Gf.Vec3f(0, 3, 0),
+                        Gf.Vec3f(4, 3, 0),
+                        Gf.Vec3f(8, 3, 0)])</code></pre>
+  <p>
+    <code>protoIndices</code>가 각 인스턴스가 어느 프로토타입을 쓰는지 가리키므로, OHT·AGV 여러 종을
+    프로토타입으로 두고 한 인스턴서에서 섞어 뿌릴 수 있다. (Station 06에서 이것이 개별 Prim 방식,
+    <code>instanceable</code> 네이티브 인스턴싱과 어떻게 갈리는지 비교한다.)
+  </p>
+
+  <h2>UsdShade — 재질과 셰이더의 그래프</h2>
+  <p>
+    표면의 색·금속성·거칠기는 <code>UsdShade.Material</code>과 <code>UsdShade.Shader</code>로 정의한다.
+    Material은 <strong>바인딩의 접점</strong>이고(<code>surface</code>·<code>displacement</code>·
+    <code>volume</code> 출력을 가짐), 실제 계산은 Shader 노드들이 <code>inputs</code>/<code>outputs</code>로
+    엮여 수행한다. 이식성을 위해 표준 셰이더 <code>UsdPreviewSurface</code>를 쓰면 뷰어·DCC·엔진이
+    같은 룩을 낸다 — Phase 3의 PBR 파라미터(알베도·metallic·roughness)가 그대로 입력으로 들어간다.
+  </p>
+  <p>
+    구조를 한 번 더 뜯으면, USD의 재질은 <strong>노드 그래프</strong>다. <code>Material</code>은 바깥과
+    닿는 <strong>단자함</strong>이고(지오메트리는 이 Material만 알면 된다), 그 안에서 여러 <code>Shader</code>
+    노드가 <code>ConnectToSource</code>로 입력·출력을 이어 최종 <code>surface</code> 출력을 만든다 —
+    텍스처 읽기 노드 → 색 보정 노드 → PreviewSurface로 흐르는 식이다. 이 간접층 덕에 지오메트리는
+    셰이더 내부를 몰라도 되고, 재질만 통째로 바꿔 끼울 수 있다. 왜 하필 <code>UsdPreviewSurface</code>를
+    표준으로 미나 하면, USD 자체는 <strong>렌더러가 아니기</strong> 때문이다. USD는 룩을 <em>기술</em>할
+    뿐 픽셀은 각 렌더러(Storm/Hydra, RTX 등)가 그린다. 모두가 알아듣는 공통 셰이더가 있어야 "한 번
+    정의한 룩을 어느 뷰어·엔진에서 열어도 비슷하게" 볼 수 있고, 그 공통어가 PreviewSurface다. 더
+    정교한 룩이 필요하면 아래 MaterialX로 넘어간다.
+  </p>
+  <pre><code>from pxr import UsdShade
+
+mat = UsdShade.Material.Define(stage, "/World/Looks/Steel")
+shd = UsdShade.Shader.Define(stage, "/World/Looks/Steel/PBR")
+shd.CreateIdAttr("UsdPreviewSurface")
+shd.CreateInput("metallic",  Sdf.ValueTypeNames.Float).Set(1.0)
+shd.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.35)
+
+mat.CreateSurfaceOutput().ConnectToSource(shd.ConnectableAPI(), "surface")
+
+# 메시에 재질을 바인딩 — MaterialBindingAPI(단일 적용 API 스키마)
+UsdShade.MaterialBindingAPI.Apply(oht.GetPrim())
+UsdShade.MaterialBindingAPI(oht).Bind(mat)</code></pre>
+  <p>
+    더 정교한 룩은 <strong>MaterialX</strong>로 표현한다. MaterialX는 노드 기반 셰이딩 그래프의
+    업계 표준 교환 포맷이고, USD는 <code>UsdMtlx</code>를 통해 이를 <code>UsdShade</code> 네트워크로
+    읽어들인다. "룩을 한 번 정의하고 여러 렌더러가 같게 그린다"는 USD의 이식성 철학이 재질까지
+    이어지는 지점이다.
+  </p>
+
+  <h2>UsdGeomSubset — 한 메시에 재질 여럿</h2>
+  <p>
+    벤더 CAD의 OHT 한 덩어리는 보통 <strong>여러 재질</strong>(강철 프레임·유리 커버·경고 마킹)을
+    쓴다. USD는 이를 <code>UsdGeomSubset</code>으로 표현한다 — 메시의 <strong>면 일부</strong>를
+    이름 붙은 부분집합으로 묶고, 각 부분집합에 다른 재질을 바인딩한다. Phase 10의 <strong>서브메시</strong>가
+    바로 이 개념의 엔진 쪽 대응물이다: 재질 수 = 부분집합 수 = <strong>드로우콜</strong> 하한.
+  </p>
+  <pre><code>from pxr import UsdGeom
+
+# 3~5번 면만 "glass" 부분집합으로 — 여기에 유리 재질을 따로 바인딩
+glass = UsdGeom.Subset.CreateGeomSubset(
+    oht, "glass", UsdGeom.Tokens.face, [3, 4, 5])
+UsdShade.MaterialBindingAPI(glass.GetPrim()).Bind(glass_mat)</code></pre>
+  <p>
+    이 모든 조각 — Xform/Scope 계층, Mesh, PointInstancer, Material, Subset — 을 하나의 스크립트로
+    엮어 팹 씬을 조립하는 것이 예제 <code>examples/openusd-lab/build_fab_stage.py</code>이고, 다음
+    스테이션(05 실습)에서 직접 만든다.
+  </p>
+
+  <p class="note">
+    스키마·API 레퍼런스는 OpenUSD 공식 문서에서 확인할 수 있다 —
+    <a href="https://openusd.org/release/api/index.html">OpenUSD C++/Python API</a>,
+    <a href="https://openusd.org/release/user_guides/schemas/usdgeom/usdGeom_overview.html">UsdGeom 개요</a>.
+  </p>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>한 Prim이 가질 수 있는 IsA 스키마와 API 스키마의 개수는 각각 몇 개인가?</summary>
+      <div class="answer">
+        <p>
+          IsA 스키마(타입)는 <strong>정확히 하나</strong>다 — Prim의 <code>typeName</code>이 곧 그것이다.
+          API 스키마는 <strong>여럿</strong> 붙을 수 있고 <code>apiSchemas</code> 메타데이터에 쌓인다.
+          "무엇인가"는 하나, "무엇을 더 할 수 있나"는 여럿이라는 비대칭이 핵심이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>변환이 필요 없는 순수 그룹을 만들 때 Xform 대신 Scope를 쓰는 이유는?</summary>
+      <div class="answer">
+        <p>
+          <code>Scope</code>는 변환 능력이 없는 정리용 그룹이라, 좌표를 옮길 일이 없는 폴더성 노드
+          (<code>/World/Looks</code>, 재질·프로토타입 모음 등)에 알맞다. Xform으로 만들면 불필요한
+          변환 속성과 계산이 따라붙는다. 의도(변환 없음)를 타입으로 못 박는 것이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>동일한 OHT 300대를 PointInstancer로 두면 개별 Mesh 300개 대비 무엇이 달라지나?</summary>
+      <div class="answer">
+        <p>
+          씬 그래프가 노드 300개가 아니라 <strong>인스턴서 Prim 하나 + 위치/인덱스 배열</strong>이 된다.
+          프로토타입은 한 벌만 저장되고 인스턴스는 값 배열로만 존재하므로 순회·편집·전송·메모리가 모두
+          가벼워진다. Phase 4 GPU 인스턴싱을 데이터 모델 차원에서 하는 셈이다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>PointInstancer의 대가(트레이드오프)는 무엇인가?</summary>
+      <div class="answer">
+        <p>
+          가벼움을 얻는 대신 <strong>개별 편집이 번거롭다</strong>. 인스턴스는 독립 Prim이 아니라
+          배열 인덱스라, "3번만 색을 바꾸기" 같은 일은 그 인덱스의 배열 원소를 직접 손대야 한다.
+          그래서 완전히 동일한 대량 배치엔 알맞지만, 각 인스턴스에 개별성·구조가 필요하면
+          <code>instanceable</code> 네이티브 인스턴싱이 더 맞는다(Station 06 비교).
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>UsdShade에서 Material과 Shader의 역할은 어떻게 나뉘는가?</summary>
+      <div class="answer">
+        <p>
+          <code>Material</code>은 <strong>바인딩의 접점</strong>으로 <code>surface</code> 등 출력을 갖고
+          지오메트리에 붙는다. 실제 색·금속성·거칠기 계산은 <code>Shader</code> 노드들이 입력/출력으로
+          엮여 수행하며, 표준 <code>UsdPreviewSurface</code>를 쓰면 여러 렌더러가 같은 룩을 낸다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>UsdGeomSubset이 Phase 10의 "서브메시 = 드로우콜 하한"과 이어지는 지점은?</summary>
+      <div class="answer">
+        <p>
+          <code>UsdGeomSubset</code>은 한 메시의 면 일부를 부분집합으로 묶어 서로 다른 재질을 바인딩하는
+          장치다. 부분집합(재질) 수가 곧 엔진의 <strong>서브메시</strong> 수이고, 서브메시 하나가 최소
+          드로우콜 하나가 된다. USD 단계의 재질 분할이 그대로 런타임 드로우콜 예산으로 번역된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="03-composition.html">
+      <span class="dir">← PREV — STATION 03</span>
+      <span class="title">컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)</span>
+    </a>
+    <a class="next" href="05-practice.html">
+      <span class="dir">NEXT — STATION 05 →</span>
+      <span class="title">실습 — usd-core로 팹 씬 조립하기</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>

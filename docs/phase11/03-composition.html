@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS) — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>03 컴포지션
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-openusd.html" title="OpenUSD란 — 산업 표준 씬 교환 포맷">01</a></li>
+      <li><a href="02-data-model.html" title="USD 데이터 모델 — Stage·Prim·Property·Path">02</a></li>
+      <li class="current"><span class="st">03</span></li>
+      <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼">04</a></li>
+      <li><a href="05-practice.html" title="실습 — usd-core로 팹 씬 조립하기">05</a></li>
+      <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·툴체인">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 03</p>
+    <h1>컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)</h1>
+    <p class="lede">
+      USD의 진짜 심장은 <strong>컴포지션</strong>이다. 하나의 Prim에 여러 곳에서 온
+      <strong>의견</strong>(opinion)이 쌓이고, USD는 정해진 <strong>강도 순서</strong>로 그것을 풀어
+      최종 값을 정한다. 의견을 끌어오는 통로가 <strong>컴포지션 아크</strong> — sublayers, inherits,
+      variantSets, references, payloads, specializes 여섯이다. 이 순서의 머리글자가
+      <strong>LIVRPS</strong>다.
+    </p>
+  </div>
+
+  <h2>레이어 스택 · 의견 · 강도</h2>
+  <p>
+    루트 레이어와 그것이 <strong>sublayer</strong>로 불러들인 레이어들이 모여 하나의
+    <strong>레이어 스택</strong>을 이룬다. 같은 Prim의 같은 Property에 대해 여러 레이어가 서로 다른
+    값을 말할 수 있는데, USD는 이 각각을 <strong>의견</strong>(opinion)이라 부른다. 최종 값은 "가장
+    강한 의견이 이긴다"로 정해진다 — 덮어쓰는 게 아니라 <strong>약한 의견 위에 강한 의견을
+    얹는</strong> 방식이라, 강한 의견을 걷어내면 아래에 깔린 약한 의견이 그대로 되살아난다. 이것이
+    비파괴의 핵심 기제다.
+  </p>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/zRyKI55qEZY" title="Universal Scene Description (OpenUSD): Composition and Layering" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      NVIDIA Developer의 <strong>컴포지션·레이어링</strong> 해설 — 여러 레이어의 의견이 어떻게 쌓이고
+      강도 순으로 풀리는지를 시각적으로 보여 준다. 이 스테이션의 LIVRPS를 영상으로 다시 훑기에 좋다.
+      <a href="https://www.youtube.com/watch?v=zRyKI55qEZY">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <p>
+    이 "얹기"의 감각을 포토샵 <strong>레이어</strong>에 비유하면 빠르다. 배경 위에 반투명 레이어를
+    얹어 색을 바꿔도 배경 픽셀은 그대로 남고, 위 레이어를 끄면 배경이 되돌아온다. USD도 똑같다 —
+    다만 픽셀이 아니라 <strong>Property 값</strong>을 얹는다. 여기서 중요한 함정 하나: 컴포지션은
+    Property 값을 <strong>병합(merge)하지 않는다</strong>. 강한 의견 하나가 통째로 이기는
+    <strong>전부-아니면-전무</strong> 방식이라, 위 레이어가 위치 <code>x</code>만 말해도 그 Attribute의
+    최종값은 위 레이어 것이 된다(아래 레이어의 다른 성분과 섞이지 않는다). "레이어를 겹치면 값이
+    평균되거나 합쳐진다"는 오해를 여기서 털어야 뒤의 LIVRPS가 정확히 읽힌다.
+  </p>
+
+  <h2>여섯 컴포지션 아크</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>아크</th><th>하는 일</th><th>팹 씬에서의 쓰임</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">sublayers</td><td>여러 레이어를 겹쳐 레이어 스택을 구성</td><td>base 레이아웃 위에 실시간 상태 레이어를 얹기</td></tr>
+        <tr><td class="rowhead">references</td><td>다른 곳의 Prim을 이 자리에 끌어와 붙임</td><td>벤더 OHT 애셋을 팹의 여러 자리에 배치</td></tr>
+        <tr><td class="rowhead">payloads</td><td>reference와 비슷하되 <strong>지연 로드</strong> 가능</td><td>무거운 지오메트리를 필요할 때만 로드</td></tr>
+        <tr><td class="rowhead">inherits</td><td>클래스 Prim의 의견을 물려받음(연동)</td><td>모든 OHT의 공통 속성을 한 클래스로 관리</td></tr>
+        <tr><td class="rowhead">variantSets</td><td>이름 붙은 변형 묶음에서 하나를 선택</td><td>장비 상태(idle/moving/error)를 스위치</td></tr>
+        <tr><td class="rowhead">specializes</td><td>기반 의견을 물려받되 <strong>가장 약하게</strong></td><td>공통 기본값을 두되 로컬이 늘 이기게</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>references</strong>와 <strong>payloads</strong>는 "남을 데려온다"는 점에서 형제지만,
+    payload는 <strong>언로드해 둘 수 있다</strong>는 결정적 차이가 있다 — 팹 전체를 열되 무거운 장비
+    내부 지오는 필요할 때만 로드한다. <strong>inherits</strong>와 <strong>specializes</strong>는
+    둘 다 "클래스에서 물려받기"지만 강도가 정반대다 — inherits는 강한 쪽, specializes는 가장 약한 쪽에
+    선다. <strong>variantSets</strong>는 "이 Prim은 idle/moving/error 중 하나"처럼 <strong>스위치</strong>를
+    씬에 박아 두는 장치다.
+  </p>
+  <p>
+    이 여섯을 한 문장으로 성격 지어 두면 헷갈릴 일이 준다. <strong>sublayers</strong>는 "이 레이어들을
+    한 스택으로 함께 본다"(같은 파일 안 팀 작업), <strong>references</strong>는 "저 자산을 이 자리에
+    복제해 붙인다"(재사용), <strong>payloads</strong>는 "붙이되 무거우면 미뤄 켠다"(성능),
+    <strong>inherits</strong>는 "이 클래스를 강하게 따른다"(공통 규칙 강제),
+    <strong>variantSets</strong>는 "여러 구성 중 하나를 고르는 스위치"(옵션),
+    <strong>specializes</strong>는 "이 기반을 약하게 따른다"(기본값 깔기)다. 초보가 가장 자주 헷갈리는
+    쌍이 <strong>reference vs sublayer</strong>인데, 기준은 "<strong>이름을 바꿔 붙이나</strong>"다.
+    sublayer는 같은 Path 구조를 그대로 겹치지만, reference는 저쪽의 <code>defaultPrim</code>을 이쪽의
+    <em>다른 이름</em>(<code>/World/Fab/OHT_01</code>) 자리에 <strong>재배치</strong>한다 — 그래서 같은
+    OHT 자산을 이름만 바꿔 수백 자리에 붙일 수 있다.
+  </p>
+
+  <h2>LIVRPS — 강도 순서</h2>
+  <p>
+    한 Prim에 여러 아크로 의견이 쏟아질 때, USD는 <strong>LIVRPS</strong> 순서로 강한 것부터 약한 것을
+    줄 세워 값을 정한다. <strong>L</strong>ocal(이 레이어 스택의 직접 의견) →
+    <strong>I</strong>nherits → <strong>V</strong>ariantSets → <strong>R</strong>eferences →
+    <strong>P</strong>ayloads → <strong>S</strong>pecializes. 왼쪽일수록 세다. 그래서 로컬 레이어에
+    직접 쓴 값은 reference로 끌어온 값을 늘 이기고, specializes로 깔아 둔 기본값은 무엇에게든 진다 —
+    "공통 기본은 깔아 두되 개별 조정이 항상 우선"이라는 파이프라인이 이 순서 하나로 성립한다.
+  </p>
+  <p>
+    LIVRPS를 외울 때 흔히 빠지는 두 함정이 있다. 첫째, "가장 <strong>강한</strong>(왼쪽) 의견이
+    이긴다"이지 "가장 <strong>나중에</strong> 쓴 의견이 이긴다"가 아니다 — 강도는 아크의 종류로
+    정해지지, 편집 시각순이 아니다. 둘째, LIVRPS는 <strong>한 Prim의 여러 아크 사이</strong> 순서다.
+    같은 아크 <em>안</em>(예: sublayer 스택 안의 여러 레이어)에서는 또 그들끼리의 순서 규칙(위 레이어가
+    강함)이 따로 적용되고, reference가 다시 자기 레이어 스택을 품는 식으로 <strong>재귀적</strong>으로
+    풀린다. 실전에서 "왜 내 값이 안 먹지?"의 90%는 이 강도 사다리에서 자기 의견이 더 강한 아크에 눌린
+    경우다. 그래서 USD 디버깅의 첫 수는 늘 "이 값이 <strong>어느 레이어·어느 아크</strong>에서 왔나"를
+    되짚는 것 — <code>usdview</code>의 컴포지션 패널이나 <code>PrimStack</code> API가 그 답을 준다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LIVRPS 강도 스택: 위에서 아래로 Local, Inherits, VariantSets, References, Payloads, Specializes 여섯 층이 쌓이고, 위쪽일수록 강한 의견이다.">
+      <defs>
+        <marker id="ah11c" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" class="d-fill-rail"/>
+        </marker>
+      </defs>
+      <!-- 강도 축 화살표 -->
+      <line x1="60" y1="40" x2="60" y2="290" class="d-rail" stroke-width="2" marker-end="url(#ah11c)"/>
+      <text class="d-label-strong" x="60" y="28" text-anchor="middle">강함</text>
+      <text class="d-text" x="60" y="308" text-anchor="middle">약함</text>
+      <!-- 여섯 층 -->
+      <rect class="d-fill-accent" x="140" y="40" width="440" height="36" rx="6" opacity="0.20"/>
+      <rect x="140" y="40" width="440" height="36" rx="6" fill="none" class="d-accent" stroke-width="1.5"/>
+      <text class="d-label-strong" x="360" y="63" text-anchor="middle">L — Local (로컬 레이어 스택의 직접 의견)</text>
+      <rect class="d-node" x="140" y="84" width="440" height="34" rx="6"/>
+      <text class="d-label" x="360" y="106" text-anchor="middle">I — Inherits (클래스 상속, 강한 쪽)</text>
+      <rect class="d-node" x="140" y="126" width="440" height="34" rx="6"/>
+      <text class="d-label" x="360" y="148" text-anchor="middle">V — VariantSets (선택된 변형)</text>
+      <rect class="d-node" x="140" y="168" width="440" height="34" rx="6"/>
+      <text class="d-label" x="360" y="190" text-anchor="middle">R — References (끌어온 Prim)</text>
+      <rect class="d-node" x="140" y="210" width="440" height="34" rx="6"/>
+      <text class="d-label" x="360" y="232" text-anchor="middle">P — Payloads (지연 로드 reference)</text>
+      <rect class="d-node d-soft" x="140" y="252" width="440" height="34" rx="6" opacity="0.75"/>
+      <text class="d-label" x="360" y="274" text-anchor="middle">S — Specializes (기반 의견, 가장 약함)</text>
+    </svg>
+    <figcaption>
+      같은 Prim에 쌓인 의견을 USD는 이 순서로 풀어 값을 정한다. 위(Local)일수록 세고 아래(Specializes)일수록
+      약하다 — 로컬에 직접 쓴 값이 언제나 최종 결정권을 쥔다.
+    </figcaption>
+  </figure>
+
+  <h2>팹 레이아웃을 레이어로 합성하기</h2>
+  <p>
+    이 여섯 아크를 팹 씬 하나에 엮으면 이렇게 읽힌다. <code>base_layout.usda</code>가 통로·베이·레일의
+    골격을 <strong>sublayer</strong>로 깔고, 각 자리에는 벤더가 납품한 <code>vendor_oht.usd</code>를
+    <strong>reference</strong>로 끌어와 OHT를 배치한다. 장비 내부의 무거운 지오메트리는
+    <strong>payload</strong>로 감싸 필요할 때만 로드하고, 모든 OHT의 공통 속성(색·라벨 규칙)은 한
+    클래스에서 <strong>inherits</strong>로 물려받게 한다. 그리고 각 장비의 운영 상태는
+    <strong>variantSet</strong> "state = {idle, moving, error}"로 두어, 선택 한 번으로 표시를
+    바꾼다. 실시간 트윈 피드는 맨 위 로컬 레이어에 의견을 써 <strong>가장 강하게</strong> 덮어씌운다 —
+    LIVRPS의 L이 실물 상태를 늘 이기게 만드는 배치다.
+  </p>
+  <p>
+    이 배치가 실무에서 왜 강력한지 한 걸음 더 들어가 보자. 벤더가 <code>vendor_oht.usd</code>를 새
+    버전으로 교체해도, 팹 레이아웃 레이어는 그 파일을 <strong>reference로 가리키기만</strong> 하므로
+    자리·개수 정보를 다시 짤 필요가 없다 — 참조 대상만 갈리면 300대가 한 번에 갱신된다. 반대로 특정
+    한 대만 색을 바꾸고 싶으면, 그 Prim에 <strong>로컬 의견</strong>을 얹으면 된다. reference로 온
+    공통 색을 로컬(L)이 이기므로 그 한 대만 달라지고, 벤더 자산 원본은 <strong>한 글자도 건드리지
+    않는다</strong>. 이것이 "공통은 공유하되 예외는 국소적으로"라는 대규모 씬 관리의 정석이고, Phase 9에서
+    본 대량 인스턴스 관리의 데이터 버전이다. 한 가지 유의할 규칙 — <code>subLayers</code> 목록은
+    <strong>먼저 나온 레이어가 더 강하다</strong>. 그래서 실시간 상태 레이어를 정적 골격보다 강하게
+    얹으려면 목록의 <strong>앞쪽</strong>에 두거나, 아예 루트 레이어(가장 강함)에 직접 델타를 쓴다.
+  </p>
+  <pre><code># base_layout.usda (개념 스케치)
+#usda 1.0
+(
+    subLayers = [
+        @live_state.usda@,        # 실시간 상태 (앞쪽 = 더 강함)
+        @equipment_layer.usda@    # 장비 배치 (아래로 깔림)
+    ]
+)
+
+def Xform "World"
+{
+    def Xform "Fab"
+    {
+        def "OHT_01" (
+            references = @vendor_oht.usd@   # 벤더 애셋을 끌어옴
+            payload = @oht_heavy_geo.usdc@  # 무거운 지오는 지연 로드
+        )
+        {
+            variantSet "state" = {
+                "idle"   { }
+                "moving" { }
+                "error"  { }
+            }
+            string state = "idle"           # 현재 선택
+        }
+    }
+}</code></pre>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      Phase 8의 <strong>스냅샷+델타</strong>가 컴포지션과 만난다. 팹의 정적 골격(레이아웃·장비)은 아래
+      레이어에 한 번만 깔고, 실시간 트윈 피드는 <strong>맨 위 로컬 레이어에 델타로만</strong> 얹으면
+      된다. LIVRPS 덕에 그 델타가 늘 이기므로, "정적 씬 + 흐르는 상태"가 데이터 차원에서 깔끔하게
+      분리된다 — 소스를 Sim ↔ Twin으로 바꾸는 일이 "맨 위 레이어를 갈아 끼우는 일"로 환원된다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>USD에서 "의견(opinion)"과 "강도"란?</summary>
+      <div class="answer">
+        <p>
+          같은 Property에 대해 여러 레이어·아크가 저마다 말하는 값 하나하나가 <strong>의견</strong>이다.
+          USD는 이 의견들을 정해진 <strong>강도 순서</strong>로 줄 세워 "가장 강한 의견"을 최종 값으로
+          삼는다. 덮어쓰는 게 아니라 얹는 것이라, 강한 의견을 걷으면 약한 의견이 되살아난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>references와 payloads의 결정적 차이는?</summary>
+      <div class="answer">
+        <p>
+          payload는 <strong>언로드해 둘 수 있다</strong>(지연 로드). 팹 전체를 열되 무거운 장비 내부
+          지오는 필요할 때만 로드해 메모리와 로드 시간을 아낀다. reference는 항상 함께 합성된다. 강도
+          순서로도 R이 P보다 세다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>inherits와 specializes는 왜 둘 다 있나?</summary>
+      <div class="answer">
+        <p>
+          둘 다 "클래스에서 물려받기"지만 강도가 반대다. <strong>inherits</strong>는 강한 쪽(I)이라
+          공통 의견이 로컬을 압도할 수 있고, <strong>specializes</strong>는 가장 약한 쪽(S)이라 기반
+          기본값을 깔아 두되 <strong>로컬이 늘 이기게</strong> 한다. 목적이 정반대라 둘 다 필요하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>LIVRPS의 순서와 뜻을 말해 보라.</summary>
+      <div class="answer">
+        <p>
+          강한 것부터: <strong>L</strong>ocal → <strong>I</strong>nherits →
+          <strong>V</strong>ariantSets → <strong>R</strong>eferences → <strong>P</strong>ayloads →
+          <strong>S</strong>pecializes. 로컬에 직접 쓴 값이 가장 세고, specializes로 깔아 둔 기반값이
+          가장 약하다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>레이어를 겹치면 같은 Attribute 값이 병합·평균되나?</summary>
+      <div class="answer">
+        <p>
+          아니다. 컴포지션은 값을 섞지 않는다 — 가장 강한 의견 <strong>하나가 통째로</strong> 이기는
+          전부-아니면-전무 방식이다. 위 레이어가 위치 <code>x</code>만 말해도 그 Attribute의 최종값은
+          위 레이어 것이 되고 아래 성분과 섞이지 않는다. 이 점을 놓치면 LIVRPS가 왜 "줄 세우기"인지
+          이해가 어긋난다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>실시간 트윈 상태를 왜 맨 위 로컬 레이어에 쓰나?</summary>
+      <div class="answer">
+        <p>
+          LIVRPS의 <strong>L(Local)이 가장 강하기</strong> 때문이다. 정적 골격은 아래 레이어에 두고
+          실물 피드를 로컬에 델타로 얹으면, 그 값이 무엇에게든 이겨 항상 최신 실물 상태가 화면에
+          반영된다. "정적 씬 + 흐르는 상태"가 강도 순서 하나로 분리된다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="02-data-model.html">
+      <span class="dir">← PREV — STATION 02</span>
+      <span class="title">USD 데이터 모델 — Stage · Prim · Property · Path</span>
+    </a>
+    <a class="next" href="04-schemas-geometry.html">
+      <span class="dir">NEXT — STATION 04 →</span>
+      <span class="title">스키마 · 지오메트리 · 머티리얼 — UsdGeom · PointInstancer · UsdShade</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>

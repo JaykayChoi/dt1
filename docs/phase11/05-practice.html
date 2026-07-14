@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 실습 — usd-core로 팹 씬 조립하기 — DT1 Phase 11</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/media.js" defer></script>
+<script src="../assets/terms.js" defer></script>
+<script src="../assets/launch.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">DT1<span class="tick">//</span>FAB-LOGISTICS</a>
+    <span class="crumb">
+      <a href="../index.html">노선도</a><span class="sep">/</span>
+      Phase 11 OpenUSD<span class="sep">/</span>05 실습
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="rail-nav" aria-label="Phase 11 스테이션">
+    <ul class="rail-track">
+      <li><a href="01-what-is-openusd.html" title="OpenUSD란 — 왜 산업 표준 씬 교환 포맷인가">01</a></li>
+      <li><a href="02-data-model.html" title="USD 데이터 모델 — Stage·Prim·Property·Path">02</a></li>
+      <li><a href="03-composition.html" title="컴포지션 아크 — 레이어로 씬을 합성한다 (LIVRPS)">03</a></li>
+      <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade">04</a></li>
+      <li class="current"><span class="st">05</span></li>
+      <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인">06</a></li>
+    </ul>
+    <p class="rail-legend">PHASE 11 — OPENUSD</p>
+  </nav>
+
+  <div class="page-head">
+    <p class="eyebrow">Phase 11 · Station 05 · 실습</p>
+    <h1>실습 — usd-core로 팹 씬 조립하기</h1>
+    <p class="lede">
+      01~04에서 읽어 온 것 — Stage·Prim·Path, 컴포지션 아크, 스키마·PointInstancer·UsdShade — 을
+      한 스크립트로 엮어 <strong>팹 씬 USD를 자기 손으로 조립</strong>한다. 이 페이즈는 Unity가 아니라
+      <strong>Python 랩</strong>이다. <code>usd-core</code>(pxr)로 씬을 쌓고, <code>usdview</code>와
+      <code>inspect_stage.py</code>로 컴포지션과 인스턴싱을 눈으로 확인하면 완주다.
+    </p>
+  </div>
+
+  <h2>실습 무대 — 두 폴더, 정답과 스켈레톤</h2>
+  <ul>
+    <li><strong>무대</strong>: Python 3.x + <code>usd-core</code>(<code>pip install usd-core</code>).
+      <code>usd-core</code>는 파이썬 바인딩(<code>pxr</code>)만 담은 경량 배포판이라 GUI 뷰어
+      <code>usdview</code>는 <strong>포함하지 않는다</strong> — 확인은 <code>inspect_stage.py</code>로
+      한다(눈으로 보고 싶으면 전체 USD 빌드나 NVIDIA USD View를 따로 설치).</li>
+    <li><strong>정답</strong>: <code>examples/openusd-lab/</code> — <code>build_fab_stage.py</code>(팹 씬 조립),
+      <code>inspect_stage.py</code>(스테이지 순회·질의), <code>requirements.txt</code>, <code>README.md</code>.</li>
+    <li><strong>스켈레톤</strong>: <code>examples/openusd-lab-practice/</code> — 같은 파일 구조에 컴포지션
+      단계가 <code>TODO</code>로 비어 있는 <strong>실습용 뼈대</strong>. 도우미와 자산 생성은 채워져 있고,
+      reference·PointInstancer·variantSet 세 단계를 직접 채운다.</li>
+  </ul>
+
+  <figure class="media">
+    <div class="frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/i-bGVUjh8NU" title="USDView" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    </div>
+    <figcaption>
+      <strong>usdview</strong>로 USD 씬을 눈으로 여는 데모 — 트리·뷰포트·컴포지션 패널로 씬을 탐색하는
+      모습이다. <code>usd-core</code>(pip)에는 이 뷰어가 <strong>들어 있지 않으므로</strong>, 아래
+      "USD 씬을 눈으로 — 뷰어 설치" 절에서 usdview를 따로 얹는 법을 다룬다.
+      <a href="https://www.youtube.com/watch?v=i-bGVUjh8NU">YouTube에서 보기</a>
+    </figcaption>
+  </figure>
+
+  <p>
+    이 실습에는 "프로젝트 열기" 버튼이 없다 — 유니티 씬이 아니라 <strong>터미널에서 돌리는 파이썬</strong>이다.
+    아래 명령이 실습의 실행 손잡이다.
+  </p>
+  <pre><code># 1) 랩 환경 준비
+cd examples/openusd-lab-practice
+pip install -r requirements.txt          # usd-core
+
+# 2) 스켈레톤을 그대로 한 번 돌려 본다(자산·뼈대만 생기고 합성은 비어 있다)
+python build_fab_stage.py                # -&gt; oht_asset.usda, fab_layout.usda 생성
+
+# 3) TODO(M2~M4)를 채운 뒤 다시 생성하고 순회로 검증(인자 없음)
+python build_fab_stage.py
+python inspect_stage.py                   # 트리·컴포지션·인스턴스·배리언트 출력</code></pre>
+  <p class="note">
+    정답을 보고 싶을 땐 같은 명령을 <code>examples/openusd-lab/</code>에서 돌린다(정답은
+    스토커 <code>payload</code>까지 포함한다). 막히면 그 파일의 해당 함수를 열어 대조하라 —
+    <strong>먼저 스스로 채우고, 그다음 대조</strong>가 이 랩의 규칙이다.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 860 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="실습 5단계: 자산 레이어 → reference 합성 → PointInstancer → VariantSet → 순회 검증.">
+      <line class="d-rail" x1="50" y1="60" x2="810" y2="60" stroke-width="3"/>
+      <g>
+        <circle cx="90" cy="60" r="11" class="d-node"/><text class="d-label" x="90" y="95" text-anchor="middle">M1 자산</text>
+        <circle cx="270" cy="60" r="11" class="d-node"/><text class="d-label" x="270" y="95" text-anchor="middle">M2 reference</text>
+        <circle cx="450" cy="60" r="11" class="d-node"/><text class="d-label" x="450" y="95" text-anchor="middle">M3 인스턴서</text>
+        <circle cx="630" cy="60" r="11" class="d-node"/><text class="d-label" x="630" y="95" text-anchor="middle">M4 VariantSet</text>
+        <circle cx="780" cy="60" r="11" class="d-fill-accent"/><text class="d-label" x="780" y="95" text-anchor="middle">M5 검증</text>
+      </g>
+      <text class="d-text" x="90" y="38" text-anchor="middle">oht_asset.usda</text>
+      <text class="d-text" x="270" y="38" text-anchor="middle">OHT_01 ← 자산</text>
+      <text class="d-text" x="450" y="38" text-anchor="middle">차량 24대</text>
+      <text class="d-text" x="630" y="38" text-anchor="middle">idle/busy/error</text>
+      <text class="d-text" x="780" y="38" text-anchor="middle">inspect_stage.py</text>
+    </svg>
+    <figcaption>자산 레이어 → reference 합성 → PointInstancer → VariantSet → 순회 검증. 각 마일스톤이 앞 스테이션 하나씩에 대응한다.</figcaption>
+  </figure>
+
+  <h2>스켈레톤 (그대로 실행, 컴포지션은 TODO)</h2>
+  <pre><code>"""build_fab_stage.py — 팹 씬 USD를 조립한다(실습 스켈레톤)."""
+from pxr import Usd, UsdGeom, UsdShade, Sdf, Gf, Vt, Kind
+
+
+def build_oht_asset():
+    """M1: 재사용 OHT 캐리어 자산(oht_asset.usda) — reference 대상. (완성 제공)"""
+    stage = Usd.Stage.CreateNew("oht_asset.usda")
+    oht = UsdGeom.Xform.Define(stage, "/OHT")
+    stage.SetDefaultPrim(oht.GetPrim())
+    body = UsdGeom.Mesh.Define(stage, "/OHT/Body")   # _make_box 로 박스 메시
+    # ... UsdPreviewSurface 재질 바인딩 ...
+    stage.GetRootLayer().Save()
+    return "oht_asset.usda"
+
+
+def build_fab_layout(oht_asset):
+    stage = Usd.Stage.CreateNew("fab_layout.usda")
+    world = UsdGeom.Xform.Define(stage, "/World")
+    stage.SetDefaultPrim(world.GetPrim())
+    UsdGeom.Xform.Define(stage, "/World/Fab")
+
+    # TODO(M2 · reference): /World/Fab/OHT_01 Xform 정의 후
+    #   GetReferences().AddReference(oht_asset) 로 자산을 합성
+
+    # TODO(M3 · PointInstancer): /World/Fab/Vehicles 인스턴서 —
+    #   프로토타입 1종 + positions/protoIndices 로 24대 배치
+
+    # TODO(M4 · variantSet): /World/Fab/OHT_01 에 "status" variantSet
+    #   idle/busy/error 배리언트마다 Body 의 displayColor 를 다르게
+
+    stage.GetRootLayer().Save()
+
+
+if __name__ == "__main__":
+    build_fab_layout(build_oht_asset())</code></pre>
+
+  <h2>마일스톤 — 목표 · 할 일 · 완료 기준</h2>
+  <ol>
+    <li>
+      <strong>M1 자산 레이어 이해</strong> — <code>build_oht_asset()</code>(완성 제공)이 만드는
+      <code>oht_asset.usda</code>를 확인. OHT <code>Xform</code> + <code>Body</code> <code>Mesh</code> +
+      <code>UsdPreviewSurface</code> 재질이 담긴 <strong>재사용 자산</strong>이다.
+      <br><strong>완료 기준</strong>: 실행하면 <code>oht_asset.usda</code>가 생성되고 열어 읽을 수 있다.
+    </li>
+    <li>
+      <strong>M2 reference 합성</strong> — <code>/World/Fab/OHT_01</code> Xform을 정의하고
+      <code>GetReferences().AddReference(oht_asset)</code>로 자산을 끌어온다(03의 references).
+      <br><strong>완료 기준</strong>: 순회 출력에서 <code>OHT_01</code>에 <code>[ref]</code> 태그가 붙고
+      그 아래 <code>Body</code>가 딸려 온다.
+    </li>
+    <li>
+      <strong>M3 PointInstancer</strong> — <code>/World/Fab/Vehicles</code>에 인스턴서를 만들어 프로토타입
+      <code>Mesh</code> 1종을 <code>prototypes</code>로 걸고, <code>protoIndices</code>·<code>positions</code>로
+      24대를 배치(04의 PointInstancer).
+      <br><strong>완료 기준</strong>: 순회 출력에 <strong>인스턴스 24개 / 프로토타입 1종</strong>으로 찍힌다.
+      <br><strong>막히면</strong>: 정답 <code>build_fab_stage.py</code>의 인스턴서 구성 부분.
+    </li>
+    <li>
+      <strong>M4 VariantSet</strong> — <code>/World/Fab/OHT_01</code>에 <code>status</code> VariantSet
+      (idle/busy/error)을 얹고, 각 배리언트가 <code>Body</code>의 <code>displayColor</code>를 다르게
+      옵션하게 한다.
+      <br><strong>완료 기준</strong>: 순회의 배리언트 순회에서 <code>status</code>를 바꾸면
+      <code>displayColor</code>가 배리언트마다 달라진다.
+    </li>
+    <li>
+      <strong>M5 순회로 검증</strong> — <code>inspect_stage.py</code>(인자 없이)로 스테이지를 순회해
+      Prim 경로·타입·컴포지션 아크·인스턴스 수·배리언트 색을 출력한다.
+      <br><strong>완료 기준</strong>: 아래 체크표가 채워진다 — 스크립트가 "에러 없이 돌았다"가 아니라
+      <strong>구조가 의도대로</strong>인지가 완주의 기준이다.
+    </li>
+  </ol>
+
+  <h2>inspect_stage.py — 순회로 확인하는 법</h2>
+  <pre><code>"""inspect_stage.py — fab_layout.usda 를 순회해 구조를 출력한다."""
+from pxr import Usd, UsdGeom
+
+# payload 까지 포함해 완전히 로드한 상태로 연다
+stage = Usd.Stage.Open("fab_layout.usda", load=Usd.Stage.LoadAll)
+for prim in stage.Traverse():                       # Usd.PrimRange 순회
+    arcs = []
+    if prim.HasAuthoredReferences(): arcs.append("ref")
+    if prim.HasPayload():            arcs.append("payload")
+    if prim.HasVariantSets():        arcs.append("variants")
+    print(prim.GetPath(), prim.GetTypeName(), arcs)
+    if prim.IsA(UsdGeom.PointInstancer):
+        pi = UsdGeom.PointInstancer(prim)
+        print("   인스턴스 수 =", len(pi.GetProtoIndicesAttr().Get() or []))</code></pre>
+
+  <h2>완주 체크표 (직접 확인해 채운다)</h2>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>확인 항목</th><th>기대</th><th>내 결과</th><th>확인 도구</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">defaultPrim</td><td>/World</td><td>___</td><td>inspect_stage.py</td></tr>
+        <tr><td class="rowhead">OHT_01 컴포지션 아크</td><td>[ref variants]</td><td>___</td><td>inspect_stage.py</td></tr>
+        <tr><td class="rowhead">Vehicles 인스턴스 수</td><td>24</td><td>___</td><td>inspect_stage.py</td></tr>
+        <tr><td class="rowhead">status variant</td><td>idle/busy/error 색 전환</td><td>___</td><td>inspect_stage.py</td></tr>
+        <tr><td class="rowhead">바인딩된 재질</td><td>UsdPreviewSurface</td><td>___</td><td>.usda 열어 읽기</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>빈칸(<code>___</code>)은 자기 관측치로 채운다 — Phase 6의 "출력 기록" 습관과 같은 형식이다.</p>
+
+  <h2>USD 씬을 눈으로 — 뷰어 설치</h2>
+  <p>
+    <code>inspect_stage.py</code>는 구조를 <strong>수치·텍스트</strong>로 확인한다. 하지만 레일 배치가
+    실제로 어떻게 놓였는지, PointInstancer로 뿌린 24대가 눈에 어떻게 도열하는지, <code>status</code>
+    배리언트를 idle↔error로 바꿀 때 색이 어떻게 뒤집히는지는 <strong>눈으로</strong> 봐야 실감이 온다.
+    그 창구가 GUI 뷰어 <code>usdview</code>다 — 씬 트리·3D 뷰포트·컴포지션 패널·타임라인을 갖춘 USD의
+    표준 뷰어다. 문제는 <strong><code>usd-core</code>(pip)에는 usdview가 들어 있지 않다</strong>는
+    것. <code>usd-core</code>는 파이썬 바인딩(<code>pxr</code> 모듈)만 담은 경량 배포판이라, GUI에
+    필요한 PySide6·PyOpenGL과 뷰어 앱이 빠져 있다. 그래서 씬을 눈으로 열려면 아래 중 하나를 <strong>따로
+    설치</strong>한다.
+  </p>
+
+  <h3>옵션 1 — NVIDIA 배포 usdview (가장 간편)</h3>
+  <p>
+    NVIDIA의 <strong>Learn OpenUSD</strong>가 미리 빌드된 usdview 패키지와 설치 안내를 제공한다.
+    PySide6·PyOpenGL 의존까지 함께 챙겨 주므로, 직접 컴파일하지 않고 가장 빠르게 뷰어를 얻는 길이다.
+    안내 문서의 단계를 그대로 따르면 된다.
+  </p>
+  <pre><code># NVIDIA "Learn OpenUSD"의 usdview 설치 안내를 따른다(prebuilt).
+# PySide6 / PyOpenGL 포함 패키지를 받아 PATH를 잡은 뒤:
+usdview fab_layout.usda</code></pre>
+  <p class="note">
+    설치 안내:
+    <a href="https://docs.nvidia.com/learn-openusd/latest/usdview-install-instructions.html">docs.nvidia.com/learn-openusd — usdview install instructions</a>
+  </p>
+
+  <h3>옵션 2 — OpenUSD 소스 빌드 (툴체인까지 통째로)</h3>
+  <p>
+    Pixar의 OpenUSD 저장소를 받아 <code>build_usd.py</code>로 빌드하면 usdview는 물론
+    <code>usdcat</code>·<code>usdchecker</code>·<code>usdzip</code> 같은 커맨드라인 툴셋(Station 06)까지
+    한꺼번에 얻는다. usdview 실행에는 <strong>PySide6</strong>와 <strong>PyOpenGL</strong>이 필요하니,
+    빌드 시 이 파이썬 의존을 포함하도록 옵션을 켠다.
+  </p>
+  <pre><code># 1) 저장소 클론
+git clone https://github.com/PixarAnimationStudios/OpenUSD
+cd OpenUSD
+
+# 2) usdview 포함 빌드 (PySide6·PyOpenGL 필요)
+python build_scripts/build_usd.py /path/to/usd-install
+
+# 3) 빌드 산출물의 bin/lib를 PATH·PYTHONPATH에 잡고 실행
+usdview fab_layout.usda</code></pre>
+  <p class="note">
+    저장소: <a href="https://github.com/PixarAnimationStudios/OpenUSD">github.com/PixarAnimationStudios/OpenUSD</a> ·
+    툴셋 개요: <a href="https://openusd.org/release/toolset.html">openusd.org/release/toolset.html</a>
+  </p>
+
+  <h3>옵션 3 — NVIDIA USD View 앱 / Omniverse USD Composer</h3>
+  <p>
+    별도 앱으로 <code>.usda</code>를 여는 길도 있다. <strong>NVIDIA USD View</strong>는 usdview 계열의
+    독립 실행 뷰어이고, <strong>Omniverse USD Composer</strong>(Phase 12)는 RTX 실시간 렌더링으로 같은
+    씬을 훨씬 사실적으로 연다(RTX GPU 필요). 팹 씬을 Omniverse에서 여는 상호운용은 Phase 12에서 직접
+    확인하므로, Phase 11 단계에서는 옵션 1·2의 usdview로 충분하다.
+  </p>
+  <p>
+    어느 뷰어든 목표는 같다 — <code>usdview fab_layout.usda</code>를 열어 뷰포트에서 <strong>레일 배치</strong>,
+    PointInstancer로 뿌린 <strong>차량 24대</strong>, 그리고 <code>status</code> <strong>배리언트 스위칭</strong>
+    (idle/busy/error 색 전환)을 눈으로 확인하는 것이다. 텍스트(<code>inspect_stage.py</code>)로
+    수치를 잡고, 뷰어로 형상을 확인하면 이 랩의 "됐다"가 양쪽에서 성립한다.
+  </p>
+
+  <div class="callout dt">
+    <span class="label">DIGITAL TWIN 관점</span>
+    <p>
+      방금 조립한 <code>fab_layout.usda</code>는 Phase 5의 미니 팹, Phase 8의 트윈이 <strong>공유할 수 있는
+      단일 씬 원본</strong>이다. 자산은 레이어로 분리돼 있고, 차량은 인스턴서로 가벼우며, 상태는
+      VariantSet으로 표현된다 — 실물 피드가 오면 이 Prim들의 속성만 갱신하면 화면이 따라 변한다. 다음
+      Phase 12에서 이 씬을 <strong>NVIDIA Omniverse에서 그대로 열어</strong> 상호운용을 확인한다.
+    </p>
+  </div>
+
+  <h2>핵심 확인 질문</h2>
+  <div class="selfcheck">
+    <details>
+      <summary>이 실습에 "프로젝트 열기" 버튼이 없는 이유는?</summary>
+      <div class="answer">
+        <p>
+          Phase 11은 유니티 씬이 아니라 <strong>Python 랩</strong>이기 때문이다. 실행은 터미널에서
+          <code>python build_fab_stage.py</code>로 하고, 확인은 <code>inspect_stage.py</code>로 한다.
+          산출물은 <code>.usda</code> 텍스트 파일이라 에디터로 열어 직접 읽을 수도 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>OHT를 개별 Mesh가 아니라 PointInstancer로 배치했는지 어떻게 확인하나?</summary>
+      <div class="answer">
+        <p>
+          <code>inspect_stage.py</code>의 순회 출력에서 OHT들이 <strong>개별 Mesh 노드로 늘어나지 않고</strong>,
+          <code>PointInstancer</code> Prim 하나 + "인스턴스 수 = 24"로 잡히면 성공이다.
+          씬 트리는 인스턴서 한 노드뿐인데 24대가 표현된다는 대비가 증거다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>OHT를 자산 레이어로 분리해 reference로 붙이면 무엇이 좋은가?</summary>
+      <div class="answer">
+        <p>
+          03의 컴포지션 원리대로, 자산(<code>oht_asset.usda</code>)을 <strong>별도 레이어</strong>로 두고
+          reference로 끌어오면 자산을 한 번 고쳐 여러 자리에 반영할 수 있고, 레이아웃과 자산 원본이
+          서로를 오염시키지 않는다. 여러 사람이 동시에 다른 레이어를 편집하고, 트윈이 상태만 실시간으로
+          덮어쓸 수 있다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>status VariantSet과 스크립트로 매 프레임 속성을 바꾸는 것의 차이는?</summary>
+      <div class="answer">
+        <p>
+          VariantSet은 <strong>미리 정의된 몇 가지 구성</strong> 중 하나를 고르는 스위치다(idle/busy 같은
+          이산 상태). 연속적으로 변하는 위치는 속성값으로 갱신하는 게 맞고, "이 장비가 지금 어느 상태
+          구성인가"처럼 <strong>택일적</strong>인 것에 VariantSet이 어울린다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary><code>pip install usd-core</code>만 하면 usdview로 씬을 볼 수 있나?</summary>
+      <div class="answer">
+        <p>
+          없다. <code>usd-core</code>는 파이썬 바인딩(<code>pxr</code>)만 담은 경량 배포판이라 GUI
+          뷰어 <code>usdview</code>와 그 의존(PySide6·PyOpenGL)이 빠져 있다. 눈으로 보려면 NVIDIA 배포
+          usdview(옵션 1), OpenUSD 소스 빌드(옵션 2), 또는 NVIDIA USD View / Omniverse USD Composer
+          (옵션 3) 중 하나를 <strong>따로 설치</strong>해야 한다.
+        </p>
+      </div>
+    </details>
+    <details>
+      <summary>완주를 usdview/inspect로 판정하는 이유는?</summary>
+      <div class="answer">
+        <p>
+          "스크립트가 에러 없이 돌았다"는 씬이 <strong>의도대로 조립됐다</strong>는 증거가 못 된다.
+          <code>inspect_stage.py</code>로 컴포지션 아크·타입·인스턴스 수·배리언트 색을 <strong>수치로</strong>
+          확인해야 "됐다"가 성립한다(눈으로 보려면 별도 뷰어에서 <code>.usda</code>를 연다) — Phase 6의
+          검증(V&amp;V) 태도와 같다.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <nav class="pager">
+    <a href="04-schemas-geometry.html">
+      <span class="dir">← PREV — STATION 04</span>
+      <span class="title">스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade</span>
+    </a>
+    <a class="next" href="06-advanced-performance.html">
+      <span class="dir">NEXT — STATION 06 →</span>
+      <span class="title">고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인</span>
+    </a>
+  </nav>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">DT1 // PHASE 11 — OpenUSD</div>
+</footer>
+
+</body>
+</html>
