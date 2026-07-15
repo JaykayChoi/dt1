@@ -32,6 +32,7 @@
       <li><a href="04-schemas-geometry.html" title="스키마·지오메트리·머티리얼 — UsdGeom·PointInstancer·UsdShade">04</a></li>
       <li class="current"><span class="st">05</span></li>
       <li><a href="06-advanced-performance.html" title="고급 — 대규모 씬 성능·페이로드/인스턴싱·툴체인">06</a></li>
+      <li><a href="07-fabsim-to-usd.html" title="FabSim → USD 익스포트">07</a></li>
     </ul>
     <p class="rail-legend">PHASE 11 — OPENUSD</p>
   </nav>
@@ -87,9 +88,11 @@ python build_fab_stage.py                # -&gt; oht_asset.usda, fab_layout.usda
 python build_fab_stage.py
 python inspect_stage.py                   # 트리·컴포지션·인스턴스·배리언트 출력</code></pre>
   <p class="note">
-    정답을 보고 싶을 땐 같은 명령을 <code>examples/openusd-lab/</code>에서 돌린다(정답은
-    스토커 <code>payload</code>까지 포함한다). 막히면 그 파일의 해당 함수를 열어 대조하라 —
-    <strong>먼저 스스로 채우고, 그다음 대조</strong>가 이 랩의 규칙이다.
+    정답을 보고 싶을 땐 같은 명령을 <code>examples/openusd-lab/</code>에서 돌린다(정답은 핵심 3단계에
+    더해 스토커 <code>payload</code>와 Phase 12 캡스톤용 이름 붙은 함대 <code>OHT_02</code>·<code>AGV_01</code>·
+    <code>AGV_02</code>까지 포함한다). 막히면 그 파일의 해당 함수를 열어 대조하라 — <strong>먼저 스스로
+    채우고, 그다음 대조</strong>가 이 랩의 규칙이다. 정답 폴더에는 <code>pytest</code>로 계약을 검사하는
+    <code>test_fab_stage.py</code>도 있다 — Phase 6의 "숫자를 책임진다"를 이 랩에도 적용한 것이다.
   </p>
 
   <figure class="diagram">

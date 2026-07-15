@@ -187,6 +187,43 @@ class FabSimVizExtension(omni.ext.IExt):
     <code>_refresh</code>가 정확히 그 패턴이다.
   </p>
 
+  <figure class="diagram">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="omni.ui 창 개념도: 제목 표시줄 'DT1 FabSim Viz' 아래 안내 라벨, '팹 프림 스캔'·'상태색 적용' 두 버튼, 구분선, 그리고 스캔 결과를 보여 주는 상태 라벨이 세로로 쌓인 창.">
+      <!-- 창 프레임 -->
+      <rect class="d-node" x="210" y="26" width="300" height="238" rx="10"/>
+      <!-- 제목 표시줄 -->
+      <rect class="d-fill-accent" x="210" y="26" width="300" height="34" rx="10" opacity="0.20"/>
+      <line x1="210" y1="60" x2="510" y2="60" class="d-soft" stroke-width="1"/>
+      <text class="d-label-strong" x="228" y="48" text-anchor="start">DT1 FabSim Viz</text>
+      <!-- 안내 라벨 (ui.Label) -->
+      <text class="d-text" x="230" y="86" text-anchor="start">USD 팹 스테이지의 OHT/AGV 프림을</text>
+      <text class="d-text" x="230" y="102" text-anchor="start">스캔하고 상태색을 칠합니다.</text>
+      <!-- 버튼 1 (ui.Button) -->
+      <rect class="d-node" x="230" y="118" width="260" height="30" rx="6"/>
+      <text class="d-label" x="360" y="138" text-anchor="middle">팹 프림 스캔</text>
+      <!-- 버튼 2 -->
+      <rect class="d-node" x="230" y="156" width="260" height="30" rx="6"/>
+      <text class="d-label" x="360" y="176" text-anchor="middle">상태색 적용</text>
+      <!-- 구분선 (ui.Separator) -->
+      <line x1="230" y1="200" x2="490" y2="200" class="d-soft" stroke-width="1.5"/>
+      <!-- 상태 라벨 (self._status_label) -->
+      <text class="d-text" x="230" y="224" text-anchor="start">스캔 완료 — 반송 장비 8개 발견.</text>
+      <text class="d-text" x="230" y="242" text-anchor="start">'상태색 적용'으로 칠하세요.</text>
+      <!-- with 블록 대응 주석 -->
+      <text class="d-label" x="120" y="86" text-anchor="middle">ui.Window</text>
+      <text class="d-label" x="120" y="135" text-anchor="middle">ui.VStack</text>
+      <line x1="150" y1="90" x2="206" y2="90" class="d-soft" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line x1="150" y1="135" x2="226" y2="135" class="d-soft" stroke-width="1.5" stroke-dasharray="4 3"/>
+    </svg>
+    <figcaption>
+      확장을 켜면 뜨는 <strong>DT1 FabSim Viz</strong> 창의 개념도(스크린샷이 아니라 <code>extension.py</code>가
+      쌓는 위젯 구조를 그린 것). <code>with ui.VStack():</code> 블록 안에서 <code>ui.Label</code> →
+      <code>ui.Button</code> ×2 → <code>ui.Separator</code> → 상태 <code>ui.Label</code> 순서로 만든 그대로
+      위에서 아래로 쌓인다 — 즉시 모드 UI의 "코드 순서 = 화면 순서". 실제 렌더 모습은 위 영상과 학습자의
+      RTX 환경에서 확인한다.
+    </figcaption>
+  </figure>
+
   <h2>omni.usd — 스테이지를 만진다</h2>
   <p>
     확장이 팹을 "그리는" 방법은 화면에 직접 픽셀을 찍는 게 아니라 <strong>USD 스테이지를 고치는</strong>
@@ -210,13 +247,13 @@ def _refresh(self):
         return
 
     # 팹 레이아웃 안의 OHT 비히클 프림을 경로로 집어 위치를 갱신
-    prim = stage.GetPrimAtPath("/World/Fab/OHT/vehicle_007")
+    prim = stage.GetPrimAtPath("/World/Fab/OHT_01")
     if prim.IsValid():
         xform = UsdGeom.XformCommonAPI(prim)
         xform.SetTranslate(Gf.Vec3d(12.5, 0.0, 4.0))
-        self._status.text = "vehicle_007 위치 갱신"</code></pre>
+        self._status.text = "OHT_01 위치 갱신"</code></pre>
   <p>
-    이 한 조각이 우리 확장의 심장이다. 시뮬레이션(Phase 5)이나 실물 피드(Phase 8)가 "vehicle_007이
+    이 한 조각이 우리 확장의 심장이다. 시뮬레이션(Phase 5)이나 실물 피드(Phase 8)가 "OHT_01이
     (12.5, 0, 4)로 갔다"고 알려 오면, 확장은 그 값을 <strong>대응하는 프림 속성에 쓰기만</strong> 하면
     된다. 나머지 — 조명, 반사, 그림자 — 는 RTX가 맡는다.
 

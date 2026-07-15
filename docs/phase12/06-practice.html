@@ -60,11 +60,15 @@
   <ul>
     <li><strong>환경</strong>: RTX GPU가 있는 사용자 PC(Windows/Linux). NVIDIA <strong>RTX</strong> 계열 그래픽카드가 사실상 전제다.</li>
     <li><strong>앱</strong>: Omniverse Kit 기반 앱 — USD 편집에는 <strong>USD Composer</strong>가 가장 무난하다. NVIDIA 공식 배포에서 받는다.</li>
-    <li><strong>확장</strong>: 예제 <code>examples/omniverse-kit-ext/</code> —
+    <li><strong>확장(정답)</strong>: 예제 <code>examples/omniverse-kit-ext/</code> —
       <code>exts/dt1.fabsim.viz/</code>(04에서 읽은 <code>extension.toml</code> + <code>extension.py</code>),
       함께 열 USD 자산, 그리고 설치·실행을 안내하는 <code>README.md</code>.</li>
-    <li><strong>씬</strong>: Phase 11 실습 <code>examples/openusd-lab/</code>의 <code>build_fab_stage.py</code>가
-      만든 팹 USD(레이아웃 레이어 + OHT/차량 프림 + PointInstancer + 머티리얼), 또는 예제에 동봉된 USD 자산.</li>
+    <li><strong>확장(실습 스켈레톤)</strong>: <code>examples/omniverse-kit-ext-practice/</code> — 창·버튼·
+      수명주기는 채워져 있고 <strong>스캔·채색 두 곳만 <code>TODO(M4)</code></strong>다. 정답을 보기 전에
+      먼저 채워 보고, <code>_set_display_color</code>가 <strong>Gprim 자손까지</strong> 칠하게 하는 것이 핵심.</li>
+    <li><strong>씬</strong>: Phase 11 <code>examples/openusd-lab/</code>의 <code>fab_layout.usda</code>(손으로 조립),
+      또는 <strong>Station 07</strong>의 <code>examples/fabsim-usd-export/</code>가 FabSim에서 내보낸
+      <code>fab.usda</code>. 둘 다 이름이 <code>OHT_xx</code>인 프림을 가져 확장이 그대로 스캔·채색한다.</li>
   </ul>
 
   <figure class="media">
@@ -137,7 +141,7 @@ dt1.fabsim.viz   →   [Enabled] 체크
       <strong>M2 Phase 11 USD 팹 씬 열기</strong> — <code>openusd-lab</code>의 <code>build_fab_stage.py</code>가
       만든 <code>.usd</code>(또는 예제 동봉 USD)를 <strong>File ▸ Open</strong>으로 연다.
       <br><strong>완료 기준</strong>: 팹 레이아웃과 OHT/차량 프림이 뷰포트에 보이고, Stage 창의 프림 트리에서
-      경로(예: <code>/World/Fab/OHT/…</code>)가 확인된다.
+      경로(예: <code>/World/Fab/OHT_01</code>·<code>/World/Fab/AGV_01</code>)가 확인된다.
     </li>
     <li>
       <strong>M3 제공된 Kit 확장 활성화</strong> — Extension Manager에 예제의 <code>exts</code> 검색 경로를 더하고

@@ -1,0 +1,26 @@
+# DT1 FabSim Viz — Omniverse Kit 확장 메타데이터
+# Kit이 확장을 검색·로드할 때 이 파일을 읽는다. 경로는 exts/<확장이름>/config/extension.toml 로 고정.
+
+[package]
+version = "1.0.0"
+title = "DT1 FabSim Viz"
+description = "USD 팹 스테이지에서 OHT/AGV 프림을 스캔하고 상태색(displayColor)으로 시각화하는 DT1 학습용 확장"
+category = "simulation"
+authors = ["DT1 개발팀"]
+keywords = ["fabsim", "digital twin", "usd", "oht", "agv", "dt1"]
+readme = "docs/README.md"
+repository = ""
+
+# 확장이 로드되기 위해 Kit에 존재해야 하는 다른 확장들.
+# omni.usd     — 현재 스테이지(USD Stage) 접근
+# omni.ui      — 창/버튼 등 UI
+# omni.kit.uiapp — UI 애플리케이션 컨텍스트(창을 띄우는 앱 셸)
+[dependencies]
+"omni.usd" = {}
+"omni.ui" = {}
+"omni.kit.uiapp" = {}
+
+# 확장의 파이썬 진입 모듈. Kit은 이 모듈을 import 하고 그 안의
+# omni.ext.IExt 파생 클래스를 찾아 on_startup/on_shutdown을 호출한다.
+[[python.module]]
+name = "dt1.fabsim.viz"

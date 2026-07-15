@@ -1,10 +1,14 @@
-"""DT1 FabSim Viz — Omniverse Kit 확장.
+"""DT1 FabSim Viz — Omniverse Kit 확장 (실습 스켈레톤).
 
-현재 열려 있는 USD 스테이지를 순회해 이름에 "OHT" / "AGV" 가 포함된 반송 장비
-프림을 찾고, 각 프림의 상태에 따라 displayColor 를 칠해 팹 상태를 한눈에 본다.
+현재 열린 USD 스테이지를 순회해 이름에 "OHT" / "AGV" 가 포함된 반송 장비 프림을
+찾고, 상태에 따라 displayColor 를 칠해 팹 상태를 한눈에 본다.
 
-Kit은 이 파일에서 omni.ext.IExt 를 상속한 클래스를 찾아
-on_startup(ext_id) / on_shutdown() 을 호출한다.
+창·버튼·수명주기는 채워져 있고, 두 곳이 TODO다:
+  - TODO(M4): _on_scan — 스테이지를 순회해 이름에 OHT/AGV가 든 프림을 모은다.
+  - TODO(M4): _set_display_color — 프림(또는 그 Gprim 자손)에 displayColor를 칠한다.
+
+정답은 `examples/omniverse-kit-ext/`. RTX GPU가 있는 Omniverse Kit/USD Composer에서
+직접 실행·검증한다(이 저장소에서 자동 실행되지 않는다).
 """
 
 import omni.ext
@@ -15,9 +19,6 @@ import omni.usd
 from pxr import Usd, UsdGeom, Gf
 
 
-# 데모 상태 → displayColor(RGB, 0~1) 매핑.
-# 실제 트윈이라면 이벤트 스트림/시뮬레이션에서 상태가 오지만, 여기서는
-# 프림 인덱스로 상태를 순환시켜 색이 실제로 바뀌는 것을 보여준다.
 _STATE_COLORS = {
     "idle": Gf.Vec3f(0.55, 0.55, 0.58),     # 유휴 — 회색
     "moving": Gf.Vec3f(0.15, 0.70, 0.95),   # 이동 — 파랑
@@ -32,7 +33,7 @@ _VEHICLE_TOKENS = ("OHT", "AGV")
 
 
 def _is_vehicle_prim(prim: Usd.Prim) -> bool:
-    """프림 이름(또는 경로)에 OHT/AGV 토큰이 들어 있으면 반송 장비로 본다."""
+    """프림 이름에 OHT/AGV 토큰이 들어 있으면 반송 장비로 본다."""
     name = prim.GetName().upper()
     return any(token in name for token in _VEHICLE_TOKENS)
 
@@ -43,29 +44,22 @@ def _paint_gprim(prim: Usd.Prim, color: Gf.Vec3f) -> None:
     color_attr = gprim.GetDisplayColorAttr()
     if not color_attr:
         color_attr = gprim.CreateDisplayColorAttr()
-    # displayColor 는 primvar(색 배열)라 리스트로 넣는다. 단색이면 원소 1개.
     color_attr.Set([color])
 
 
 def _set_display_color(prim: Usd.Prim, color: Gf.Vec3f) -> bool:
-    """프림에 상태색을 칠한다.
+    """프림에 상태색을 칠한다. 반환값: 하나라도 칠했으면 True.
 
-    반송 장비 프림은 대개 Xform(그룹)이고 실제로 그려지는 메시는 그 자식이다
-    (예: reference로 붙인 OHT_01 의 자식 Body). 그래서 프림 자신이 Gprim이면
-    그것을, 아니면 <b>Gprim 자손 전부</b>를 칠한다.
-
-    반환값: 하나라도 칠했으면 True.
+    반송 장비 프림은 대개 Xform(그룹)이고 실제 메시는 그 자식이다(예: reference로
+    붙인 OHT_01 의 자식 Body). 그래서 프림 자신이 Gprim이면 그것을, 아니면 Gprim
+    자손 전부를 칠해야 한다.
     """
-    painted = False
-    if UsdGeom.Gprim(prim):
-        _paint_gprim(prim, color)
-        painted = True
-    else:
-        for child in Usd.PrimRange(prim):
-            if child != prim and UsdGeom.Gprim(child):
-                _paint_gprim(child, color)
-                painted = True
-    return painted
+    # TODO(M4): 아래를 채운다.
+    #   1) UsdGeom.Gprim(prim) 이 참이면 _paint_gprim(prim, color) 후 True.
+    #   2) 아니면 Usd.PrimRange(prim) 로 자손을 돌며, prim 자신을 제외한
+    #      Gprim 자손마다 _paint_gprim(child, color). 하나라도 칠했으면 True.
+    #   막히면 정답 examples/omniverse-kit-ext/.../extension.py 참고.
+    return False
 
 
 class Dt1FabsimVizExtension(omni.ext.IExt):
@@ -73,7 +67,6 @@ class Dt1FabsimVizExtension(omni.ext.IExt):
 
     def on_startup(self, ext_id: str):
         self._ext_id = ext_id
-        # 마지막 스캔에서 찾은 반송 장비 프림 경로 목록.
         self._vehicle_paths = []
 
         self._window = ui.Window("DT1 FabSim Viz", width=380, height=260)
@@ -91,14 +84,10 @@ class Dt1FabsimVizExtension(omni.ext.IExt):
     def on_shutdown(self):
         self._vehicle_paths = []
         self._status_label = None
-        # 창을 파괴해 확장 비활성화 시 UI가 남지 않게 한다.
         if self._window is not None:
             self._window.destroy()
             self._window = None
 
-    # ------------------------------------------------------------------
-    # 버튼 콜백
-    # ------------------------------------------------------------------
     def _get_stage(self):
         """현재 열린 USD 스테이지. 없으면 None."""
         return omni.usd.get_context().get_stage()
@@ -111,11 +100,8 @@ class Dt1FabsimVizExtension(omni.ext.IExt):
 
         self._vehicle_paths = []
         total = 0
-        # Traverse() 는 스테이지의 모든 프림을 깊이 우선으로 순회한다.
-        for prim in stage.Traverse():
-            total += 1
-            if _is_vehicle_prim(prim):
-                self._vehicle_paths.append(prim.GetPath())
+        # TODO(M4): stage.Traverse() 로 모든 프림을 순회하며 total을 세고,
+        #   _is_vehicle_prim(prim) 이 참인 프림의 GetPath()를 self._vehicle_paths에 담는다.
 
         self._set_status(
             f"스캔 완료 — 전체 프림 {total}개 중 반송 장비 {len(self._vehicle_paths)}개 발견.\n"
@@ -138,7 +124,6 @@ class Dt1FabsimVizExtension(omni.ext.IExt):
             if not prim or not prim.IsValid():
                 skipped += 1
                 continue
-            # 데모: 프림 순서로 상태를 순환시켜 색을 다양하게 보여준다.
             state = _STATE_ORDER[i % len(_STATE_ORDER)]
             if _set_display_color(prim, _STATE_COLORS[state]):
                 painted += 1
@@ -150,7 +135,6 @@ class Dt1FabsimVizExtension(omni.ext.IExt):
             "(Gprim이 아닌 프림)."
         )
 
-    # ------------------------------------------------------------------
     def _set_status(self, text: str):
         if self._status_label is not None:
             self._status_label.text = text

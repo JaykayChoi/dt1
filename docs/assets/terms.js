@@ -661,6 +661,42 @@
   T(['USD Composer'], 'USD Composer',
     'USD 씬을 조립·편집하는 Omniverse의 대표 저작 앱(구 Create). Kit 위에 세워진 앱으로, 레이아웃·머티리얼·라이팅을 RTX로 미리 본다.',
     'compose(함께 놓다)+-er — 여러 USD 레이어를 "합성해 놓는" 저작 도구라는 뜻이다.');
+  T(['SdfPath'], 'SdfPath',
+    '스테이지에서 Prim·Property의 위치를 가리키는 문자열 경로(예: /World/Fab/OHT_01). USD 씬 그래프의 주소 체계다.',
+    'Sdf는 Scene Description Foundations(씬 기술의 토대) 모듈, path는 "경로" — 씬 트리에서의 주소라는 뜻이다.');
+  T(['Xform'], 'Xform',
+    'UsdGeom의 변환 가능한 Prim 타입. 위치·회전·스케일(xformOp)을 담아 자식들을 함께 옮기는 그룹 노드로 쓴다.',
+    'transform(변환)의 관용 축약 Xform — 3D 도구들이 오래 써 온 표기다.');
+  T(['Scope'], 'Scope (USD)',
+    '변환을 갖지 않는 순수 그룹핑 Prim. 씬을 논리적으로 묶기만 할 뿐 자식의 좌표에는 영향을 주지 않는다.',
+    'scope는 "범위·구획" — 좌표 변환 없이 이름공간만 묶는 칸이라는 뜻이다.');
+  T(['Kind'], 'Kind (USD)',
+    'Prim이 모델 계층에서 어떤 역할인지(component·group·assembly 등)를 나타내는 메타데이터. 씬 순회·집계의 단위를 정한다.',
+    'kind는 "종류" — 이 Prim이 어떤 종류의 모델 단위인가를 표시한다.');
+  T(['defaultPrim'], 'defaultPrim',
+    '레이어의 루트 메타데이터로, "이 파일을 reference하면 기본으로 붙는 Prim"을 지정한다.',
+    'default(기본)+prim — 파일의 대표 Prim이라는 뜻 그대로다.');
+  T(['flatten', '평탄화'], 'flatten',
+    '여러 레이어의 컴포지션 결과를 하나의 레이어로 눌러 담는 것. 이식성은 오르지만 레이어 분리(비파괴 편집)의 이점은 잃는다.',
+    'flatten은 "평평하게 만들다" — 겹겹의 레이어를 한 장으로 눌러 편다는 뜻이다.');
+  T(['instanceable'], 'instanceable',
+    'Prim을 인스턴스 가능으로 표시하는 플래그. 같은 자산의 복제본들이 하나의 원형(prototype)을 공유해 메모리·순회 비용을 줄인다(native instancing).',
+    'instance(사례)+-able — "인스턴스로 공유될 수 있는"이라는 뜻이다.');
+  T(['usdcat'], 'usdcat',
+    'USD 레이어를 텍스트로 덤프하거나 인코딩(.usda↔.usdc)을 변환하고, --flatten으로 합성 결과를 평탄화해 보는 명령줄 도구.',
+    'usd + cat(유닉스의 출력·이어붙이기 명령) — "USD를 화면에 뿌리는 cat"이라는 뜻이다.');
+  T(['usdchecker'], 'usdchecker',
+    'USD 파일이 규격·모범 사례에 맞는지 검사하는 명령줄 검증 도구. CI에서 자산 유효성을 자동 확인한다.',
+    'usd + checker(검사기) — 이름 그대로 "USD 검사기"다.');
+  T(['omni.usd'], 'omni.usd',
+    'Kit에서 현재 열린 USD 스테이지에 접근·조작하는 Omniverse 모듈. get_context().get_stage()로 스테이지를 얻는다.',
+    'omni(Omniverse 네임스페이스)+usd — "Omniverse의 USD 창구" 모듈이라는 뜻이다.');
+  T(['UsdPhysics'], 'UsdPhysics',
+    'USD에 강체·조인트·충돌 등 물리 속성을 기술하는 스키마. Omniverse에서는 PhysX가 이 스키마를 읽어 시뮬레이션한다.',
+    'Usd+Physics — USD의 물리 스키마라는 뜻 그대로다.');
+  T(['PhysX'], 'NVIDIA PhysX',
+    'NVIDIA의 실시간 물리 엔진. Omniverse에서 UsdPhysics 스키마를 읽어 강체·충돌·조인트를 시뮬레이션한다.',
+    'physics(물리)에 NVIDIA 기술 브랜드의 X 표기를 붙인 이름이다.');
 
   // ---------- 본문 주석(annotation) ----------
   var EXCLUDE = 'a, code, pre, h1, h2, h3, svg, script, style, summary, .en, .term, .eyebrow, .rail-legend, .brand, .crumb';

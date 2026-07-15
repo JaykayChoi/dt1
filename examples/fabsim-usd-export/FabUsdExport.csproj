@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>FabSim.UsdExport</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\phase2-descore\DesCore\DesCore.csproj" />
+    <!-- Sim 소스를 링크(복사 아님)해 단일 진리 원천을 지킨다 — 익스포터가 읽는 레이아웃·비히클이
+         Unity의 FabSim이 굴리는 것과 동일한 코드에서 나온다. Sim/*.cs는 UnityEngine 무의존이다. -->
+    <Compile Include="..\..\FabSim-P8-Complete\Assets\Scripts\Sim\*.cs" />
+  </ItemGroup>
+
+</Project>

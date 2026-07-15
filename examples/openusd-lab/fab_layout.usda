@@ -72,6 +72,30 @@ def Xform "World"
             }
         }
 
+        def Xform "OHT_02" (
+            prepend references = @oht_asset.usda@
+        )
+        {
+            double3 xformOp:translate = (-1, 0, 2.4)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Xform "AGV_01" (
+            prepend references = @oht_asset.usda@
+        )
+        {
+            double3 xformOp:translate = (3, -1.5, 0.3)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Xform "AGV_02" (
+            prepend references = @oht_asset.usda@
+        )
+        {
+            double3 xformOp:translate = (6, -1.5, 0.3)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
         def Xform "Stocker_A" (
             prepend payload = @stocker_asset.usda@
         )

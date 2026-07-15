@@ -13,6 +13,8 @@ USD의 데이터 모델과 컴포지션을 손으로 만져 본다. 렌더링은
 - **PointInstancer**로 동일 캐리어 24대를 인스턴스로 배치(개별 프림이 아니라 한 프로토타입 참조)
 - **variantSet**(`status`: idle/busy/error)으로 장비 상태를 스위칭 — 배리언트마다 `displayColor`가 다르다
 - **UsdShade**(`UsdPreviewSurface`) PBR 머티리얼 바인딩
+- **이름 붙은 함대**(`OHT_01`·`OHT_02`·`AGV_01`·`AGV_02`) — 대량은 인스턴서로 가볍게 두되, 개별
+  상태색을 칠할 소수는 named 프림으로 심는다. Phase 12 Kit 확장이 이 프림들을 스캔·채색한다.
 
 ## 설치
 
@@ -32,6 +34,19 @@ python build_fab_stage.py
 # 2) 조립된 스테이지를 열어 트리·컴포지션·인스턴싱·배리언트를 확인
 python inspect_stage.py
 ```
+
+## 테스트 — 숫자를 책임진다
+
+`inspect_stage.py`가 사람이 눈으로 읽는 출력이라면, `test_fab_stage.py`는 CI가 회귀를 자동으로
+잡는 그물이다(Phase 6의 검증 정신). `usd-core`는 RTX 없이 헤드리스로 돌므로 그대로 CI에 건다.
+
+```
+pip install pytest
+pytest -q
+```
+
+인스턴스 수 24, `defaultPrim==/World`, `OHT_01`의 reference·variantSet, 함대 프림이 모두
+채색 가능한 Gprim을 갖는지(Phase 12 캡스톤 계약)를 assert한다.
 
 `inspect_stage.py`는 프림 트리를 타입·Kind·컴포지션 아크(ref/payload/variants)와 함께 찍고,
 PointInstancer 인스턴스 수를 세고, `status` 배리언트를 idle→busy→error로 바꿔 가며
@@ -60,6 +75,8 @@ Phase 12에서는 바로 이 `fab_layout.usda`를 **Omniverse**에서 열어 실
 |------|------|
 | `build_fab_stage.py` | 팹 씬을 USD로 조립(자산 → 레이아웃 합성) |
 | `inspect_stage.py` | 조립된 스테이지 순회·질의(컴포지션·인스턴싱·배리언트 확인) |
+| `render_scene.py` | USD를 읽어 위에서 본 지도 + 3D 이미지(PNG)로 렌더(`pip install matplotlib`) |
+| `test_fab_stage.py` | pytest — 계약(인스턴스 수·컴포지션·함대 채색 가능)을 assert |
 | `requirements.txt` | `usd-core` 의존성 |
 | `oht_asset.usda` 등 | 실행 시 생성되는 USD 산출물 |
 

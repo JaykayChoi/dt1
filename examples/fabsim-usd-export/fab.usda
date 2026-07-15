@@ -1,0 +1,146 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    upAxis = "Y"
+    metersPerUnit = 1
+)
+
+def Xform "World"
+{
+    def Xform "Fab"
+    {
+        def BasisCurves "Rail"
+        {
+            int[] curveVertexCounts = [13]
+            point3f[] points = [(-6, 4, -16), (-6, 4, -8), (-6, 4, 0), (-6, 4, 8), (-6, 4, 16), (0, 4, 16), (6, 4, 16), (6, 4, 8), (6, 4, 0), (6, 4, -8), (6, 4, -16), (0, 4, -16), (-6, 4, -16)]
+            uniform token type = "linear"
+            float[] widths = [0.15] (interpolation = "constant")
+            color3f[] primvars:displayColor = [(0.2, 0.22, 0.25)]
+        }
+        def Scope "Ports"
+        {
+            def Cube "Port_00"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (-6, 4, -8)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+            def Cube "Port_01"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (-6, 4, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+            def Cube "Port_02"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (-6, 4, 8)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+            def Cube "Port_03"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (6, 4, 8)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+            def Cube "Port_04"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (6, 4, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+            def Cube "Port_05"
+            {
+                double size = 0.6
+                double3 xformOp:translate = (6, 4, -8)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+                color3f[] primvars:displayColor = [(0.9, 0.7, 0.2)]
+            }
+        }
+        def Xform "OHT_00"
+        {
+            double3 xformOp:translate = (-6, 4, -16)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_01"
+        {
+            double3 xformOp:translate = (-6, 4, -8)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_02"
+        {
+            double3 xformOp:translate = (-6, 4, 8)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_03"
+        {
+            double3 xformOp:translate = (-6, 4, 16)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_04"
+        {
+            double3 xformOp:translate = (6, 4, 16)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_05"
+        {
+            double3 xformOp:translate = (6, 4, 8)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_06"
+        {
+            double3 xformOp:translate = (6, 4, -8)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+        def Xform "OHT_07"
+        {
+            double3 xformOp:translate = (6, 4, -16)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            def Cube "Body"
+            {
+                double size = 1
+                color3f[] primvars:displayColor = [(0.55, 0.57, 0.6)]
+            }
+        }
+    }
+}

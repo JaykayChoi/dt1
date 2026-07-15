@@ -108,10 +108,21 @@ def build_fab_layout(oht_asset: str, stocker_asset: str) -> str:
     rail_mat = _make_pbr_material(stage, "/World/Fab/Looks/Rail", base=(0.2, 0.22, 0.25), rough=0.3, metal=0.9)
     UsdShade.MaterialBindingAPI(rail).Bind(rail_mat)
 
-    # --- OHT_01: 자산을 '레퍼런스'로 합성 (강도 R) ---
-    oht01 = UsdGeom.Xform.Define(stage, "/World/Fab/OHT_01")
-    oht01.GetPrim().GetReferences().AddReference(os.path.basename(oht_asset))
-    oht01.AddTranslateOp().Set(Gf.Vec3d(-6.0, 0.0, 2.4))
+    # --- 이름 붙은 함대: 개별 상태를 제어할 소수 반송 장비 ---
+    #     대량(24대)은 아래 PointInstancer로 가볍게 두고, 이름으로 개별 지목·
+    #     상태색을 칠할 소수는 named 프림으로 심는다. Phase 12 Kit 확장이
+    #     이 프림들(이름에 OHT/AGV 포함)을 스캔해 displayColor를 칠한다.
+    #     각 프림은 oht_asset을 reference하므로 드로어블 자식 Body(Mesh)를 갖는다.
+    fleet = [
+        ("OHT_01", Gf.Vec3d(-6.0, 0.0, 2.4)),   # 천장 레일 위
+        ("OHT_02", Gf.Vec3d(-1.0, 0.0, 2.4)),
+        ("AGV_01", Gf.Vec3d(3.0, -1.5, 0.3)),    # 바닥
+        ("AGV_02", Gf.Vec3d(6.0, -1.5, 0.3)),
+    ]
+    for name, pos in fleet:
+        v = UsdGeom.Xform.Define(stage, "/World/Fab/" + name)
+        v.GetPrim().GetReferences().AddReference(os.path.basename(oht_asset))
+        v.AddTranslateOp().Set(pos)
 
     # --- Stocker_A: '페이로드'로 합성 (무거운 지오는 필요할 때만 로드) ---
     stocker = stage.DefinePrim("/World/Fab/Stocker_A", "Xform")
