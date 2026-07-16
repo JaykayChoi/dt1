@@ -126,6 +126,276 @@
     </li>
   </ol>
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 다섯 마일스톤은 <strong>무엇을 하는지</strong>의 지도다. 여기서는 <strong>어떻게 하는지</strong>를
+    파일·클래스·클릭 단위로 편다. 먼저 스스로 붙여 보고, 막히거나 결과가 어긋날 때 이 절차를 펼쳐
+    대조하라 — 인터페이스·필드·값은 완성본 <code>FabSim-P8-Complete</code>에서 그대로 뽑은
+    <strong>재현값</strong>이라, 따라 하면 정답 구조가 다시 만들어진다. 콘솔 <strong>M1</strong>
+    (<code>examples/twin-bridge-practice</code>)은 그대로 둔다 — 직렬화·페이싱 TODO는 그 스켈레톤에서
+    채운다. 여기서는 Unity 쪽 <strong>M2~M5</strong>만 편다.
+  </p>
+  <p>
+    전제: 새 스크립트는 두 폴더로 나뉜다. 소스 추상화(<code>IFleetSource</code>·<code>SimFleetSource</code>)는
+    <code>Assets/Scripts/Sim/</code>(네임스페이스 <code>FabSim.Sim</code>), 트윈 배선
+    (<code>FleetSourceHost</code>·<code>TwinFeedClient</code>·<code>TwinReplaySource</code>)은
+    <code>Assets/Scripts/Twin/</code>(네임스페이스 <code>FabSim.Twin</code>)에 둔다.
+  </p>
+
+  <h3>M2 — IFleetSource로 소스 분리 (뷰·HUD가 소스를 모르게)</h3>
+  <p>
+    지금 <code>VehicleFleetView</code>·<code>StatsHud</code>는 <code>simulation.Model</code>을 직접 읽는다.
+    이 결합을 인터페이스 하나로 끊는다. 순서는 (1) 인터페이스 선언 → (2) 내장 Sim을 감싼 구현 →
+    (3) 소스를 소유·구동하는 호스트 → (4) 뷰·HUD가 인터페이스만 읽도록 치환, 넷이다.
+  </p>
+  <ol>
+    <li>
+      <code>Assets/Scripts/Sim/IFleetSource.cs</code>를 만들고 <strong>뷰가 실제로 읽는 것만</strong>
+      표면으로 노출한다 — 그래프·비히클 목록·현재 시각·완료/대기 수·세 지표 메서드·<code>Tick(dt)</code>.
+      멤버는 아래 멤버 표 그대로.
+    </li>
+    <li>
+      <code>Assets/Scripts/Sim/SimFleetSource.cs</code>(<code>sealed</code>)로 기존 <code>FabModel</code>을 감싼다.
+      모든 getter는 <code>model</code>에 위임하고, <code>Now</code>는 <code>model.Simulation.Now</code>,
+      <code>Tick(dt)</code>는 <code>model.Simulation.Run(model.Simulation.Now + dt * TimeScale)</code> —
+      Phase 5가 <code>FabSimulation.Update</code>에 넣었던 "실시간 × 배속" 브리지가 여기로 옮겨 온다.
+    </li>
+    <li>
+      <code>Assets/Scripts/Twin/FleetSourceHost.cs</code>(<code>MonoBehaviour</code>)를 만든다. 이 호스트가
+      <code>Source</code>를 소유하고 <code>Update</code>에서 매 프레임 <code>Source.Tick(Time.deltaTime)</code>한다
+      — <code>FabSimulation</code>이 하던 클록 구동 역할을 이 호스트가 넘겨받는다.
+      <code>BuildSource()</code>는 <code>FabLayout.Build(out portNodes)</code> → <code>new FabModel(...)</code> →
+      <code>model.Start()</code> → <code>new SimFleetSource(model, timeScale)</code> 순이다.
+    </li>
+    <li>
+      <code>VehicleFleetView.Initialize</code>·<code>StatsHud.Initialize</code>의 인자를
+      <code>FabSimulation</code>에서 <code>IFleetSource</code>로 바꾸고, 본문의 <code>simulation.Model.X</code>
+      읽기를 전부 <code>source.X</code>로 치환한다(치환표 아래). 씬에서는 뷰·HUD의 <code>Initialize</code>에
+      <code>host.Source</code>를 넘긴다.
+    </li>
+  </ol>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>멤버</th>
+          <th>시그니처</th>
+          <th>뜻</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">Graph</td><td><code>RailGraph Graph { get; }</code></td><td>노드 좌표 조회용 레일 그래프</td></tr>
+        <tr><td class="rowhead">Vehicles</td><td><code>IReadOnlyList&lt;VehicleAgent&gt; Vehicles { get; }</code></td><td>현재 비히클 상태 목록</td></tr>
+        <tr><td class="rowhead">Now</td><td><code>double Now { get; }</code></td><td>현재 소스 시각 [초]</td></tr>
+        <tr><td class="rowhead">CompletedJobs</td><td><code>int CompletedJobs { get; }</code></td><td>완료된 반송 수</td></tr>
+        <tr><td class="rowhead">PendingJobCount</td><td><code>int PendingJobCount { get; }</code></td><td>배차 대기 명령 수</td></tr>
+        <tr><td class="rowhead">GetThroughputPerHour</td><td><code>double GetThroughputPerHour(double now)</code></td><td>now 기준 시간당 처리량 [건/시간]</td></tr>
+        <tr><td class="rowhead">GetAverageDeliveryTime</td><td><code>double GetAverageDeliveryTime()</code></td><td>완료 기준 평균 반송 시간 [초]</td></tr>
+        <tr><td class="rowhead">GetFleetUtilization</td><td><code>double GetFleetUtilization(double now)</code></td><td>now 기준 함대 평균 가동률 (0~1)</td></tr>
+        <tr><td class="rowhead">Tick</td><td><code>void Tick(float deltaTime)</code></td><td>소스를 실시간 dt만큼 전진</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>뷰·HUD의 기존 읽기 (FabSimulation)</th>
+          <th>리팩터 후 (IFleetSource)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead"><code>simulation.Model.Simulation.Now</code></td><td><code>source.Now</code></td></tr>
+        <tr><td class="rowhead"><code>simulation.Model.Graph</code></td><td><code>source.Graph</code></td></tr>
+        <tr><td class="rowhead"><code>simulation.Model.Vehicles</code></td><td><code>source.Vehicles</code></td></tr>
+        <tr><td class="rowhead"><code>model.CompletedJobs</code></td><td><code>source.CompletedJobs</code></td></tr>
+        <tr><td class="rowhead"><code>model.PendingJobCount</code></td><td><code>source.PendingJobCount</code></td></tr>
+        <tr><td class="rowhead"><code>model.GetThroughputPerHour(now)</code></td><td><code>source.GetThroughputPerHour(now)</code></td></tr>
+        <tr><td class="rowhead"><code>model.GetAverageDeliveryTime()</code></td><td><code>source.GetAverageDeliveryTime()</code></td></tr>
+        <tr><td class="rowhead"><code>model.GetFleetUtilization(now)</code></td><td><code>source.GetFleetUtilization(now)</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout dt">
+    <span class="label">정답 값 — SimFleetSource · FleetSourceHost</span>
+    <p>
+      <code>SimFleetSource</code>(sealed): <code>TimeScale</code> 프로퍼티 · <code>Now =&gt; model.Simulation.Now</code> ·
+      <code>Tick(dt) =&gt; model.Simulation.Run(model.Simulation.Now + dt * TimeScale)</code> · 나머지 getter는 <code>model</code>에 위임.<br>
+      <code>FleetSourceHost</code> 직렬화 기본값: <code>kind</code> Sim · <code>vehicleCount</code> <strong>4</strong> [Range 1–12] ·
+      <code>vehicleSpeed</code> <strong>2.5</strong> · <code>jobIntervalMean</code> <strong>25</strong> ·
+      <code>timeScale</code> <strong>30</strong> · <code>randomSeed</code> <strong>7</strong>. <code>Update</code>는 소스가 Sim이면
+      <code>sim.TimeScale = timeScale</code>로 배속을 갱신한 뒤 <code>Source.Tick(Time.deltaTime)</code>.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">함정 — 인터페이스는 딱 뷰가 읽는 것만</span>
+    <p>
+      <code>IFleetSource</code>에 <code>Model</code>이나 <code>Segments</code>(P7 교통)를 얹지 마라 — 그 순간
+      "뷰가 소스를 모른다"가 깨진다. P7까지 온 FabSim이라면 대기·데드락 색칠이 <code>Segments</code>를 쓰므로
+      인터페이스 밖이다: 그 색칠은 Sim 전용으로 남기거나 뺀다. 배속 표시(<code>simulation.TimeScale</code>)도
+      인터페이스에 없으니 호스트에서 읽어라. 완료 기준은 <strong>회귀 없음</strong> — 내장 Sim으로 리팩터
+      전과 육안·수치가 같아야 한다.
+    </p>
+  </div>
+
+  <h3>M3 — TwinFeedClient·TwinReplaySource로 스트림 재생</h3>
+  <p>
+    같은 인터페이스를 <strong>두 번째 구현</strong>이 채운다. 헤드리스 재생 코어(<code>TwinReplaySource</code>,
+    <code>UnityEngine</code> 무의존 — 그래서 테스트된다)와, 그것을 TCP로 먹여 살리는 <code>MonoBehaviour</code>
+    (<code>TwinFeedClient</code>)로 나눈다. 위치를 그리는 <code>EvaluatePosition</code>은 손대지 않는다 —
+    스트림이 엣지 시각 필드를 채우면 보간 코드는 소스가 바뀌어도 그대로다.
+  </p>
+  <ol>
+    <li>
+      <code>Assets/Scripts/Twin/TwinReplaySource.cs</code>(<code>sealed</code>, <code>IFleetSource</code>).
+      생성자는 로그 라인들 + <code>playoutDelay</code>를 받아 첫 <code>HELLO</code>로
+      <code>vehicleCount</code>·<code>nodeCount</code>를 읽고(로컬 그래프와 대조), 비히클 목록을 세운다.
+      <code>AppendLine(line)</code>은 라이브 라인을 <code>(t, line)</code>으로 버퍼에 쌓고,
+      <code>Tick(dt)</code>는 <code>now += dt</code> 뒤 지평선 <code>now − playoutDelay</code>를 지난 이벤트만
+      <code>Apply</code>한다. <code>Apply</code>는 <code>type</code>으로 분기해 아래 매핑대로
+      <code>VehicleAgent</code> 필드를 채우고, <code>SNAPSHOT</code>이면 전체를 덮어쓴다.
+    </li>
+    <li>
+      <code>Assets/Scripts/Twin/TwinFeedClient.cs</code>(<code>MonoBehaviour</code>, <code>IFleetSource</code>).
+      직렬화 필드 <code>host</code> <code>127.0.0.1</code> · <code>port</code> <code>5088</code> ·
+      <code>playoutDelay</code> <code>0.5</code>. <code>Connect()</code>가 백그라운드 수신 스레드를 띄우고,
+      소켓에서 읽은 라인을 <code>ConcurrentQueue</code>에 넣는다. <code>Tick(dt)</code>는 <strong>메인 스레드에서만</strong>
+      큐를 비워 — 첫 <code>HELLO</code> 라인으로 <code>TwinReplaySource</code>를 만들고, 이후 라인은
+      <code>source.AppendLine</code>에 넘긴 뒤 — <code>source.Tick(dt)</code>한다. 모든 <code>IFleetSource</code>
+      getter는 내부 <code>source</code>에 위임한다.
+    </li>
+    <li>
+      <code>FleetSourceHost</code>에 <code>[SerializeField] TwinFeedClient twinClient</code>를 두고,
+      <code>BuildSource()</code>에서 <code>kind == Twin</code>이면 <code>twinClient.Connect()</code> 후
+      <code>twinClient</code>를 반환한다. 씬에서 호스트의 <code>kind</code>를 <code>Twin</code>으로 두고,
+      <code>twinClient</code> 슬롯에 같은(또는 다른) 오브젝트의 <code>TwinFeedClient</code> 컴포넌트를 드래그해 연결한다.
+    </li>
+    <li>
+      콘솔에서 리플레이 서버를 띄운다:
+      <code>dotnet run --project examples/twin-bridge/ReplayServer -c Release -- --file examples/twin-bridge/sample.ndjson --port 5088 --speed 30</code>.
+      그다음 Unity에서 Play — 호스트가 <code>Twin</code>이면 <code>HELLO</code>가 즉시 오고 뷰·HUD가 스트림으로 돈다.
+    </li>
+  </ol>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>type</th>
+          <th>필드</th>
+          <th>VehicleAgent 반영</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">HELLO</td><td><code>layout·nodeCount·portNodes·vehicleCount</code></td><td>로컬 그래프 대조·비히클 수 결정</td></tr>
+        <tr><td class="rowhead">JOB_CREATE</td><td><code>jid·from·to</code></td><td>대기(pending) 증가·생성 시각 기록</td></tr>
+        <tr><td class="rowhead">DISPATCH</td><td><code>jid·vid</code></td><td><code>Phase→ToPickup</code>, <code>BusyStartedAt=t</code></td></tr>
+        <tr><td class="rowhead">EDGE_DEPART</td><td><code>vid·from·to·eta</code></td><td><code>IsMoving=true</code>, <code>EdgeFromNode/EdgeToNode/EdgeDepartAt=t/EdgeArriveAt=eta</code></td></tr>
+        <tr><td class="rowhead">EDGE_ARRIVE</td><td><code>vid·node</code></td><td><code>IsMoving=false</code>, <code>NodeId</code></td></tr>
+        <tr><td class="rowhead">PICKUP</td><td><code>vid·jid</code></td><td><code>Phase→Carrying</code> (FOUP 표시 on)</td></tr>
+        <tr><td class="rowhead">JOB_COMPLETE</td><td><code>vid·jid</code></td><td><code>Phase→Idle</code>, <code>CompletedJobs++</code>, 반송 시간 누적</td></tr>
+        <tr><td class="rowhead">SNAPSHOT</td><td><code>vehicles[]·stats{}</code></td><td>전체 덮어쓰기 — 재동기화 기준점</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout dt">
+    <span class="label">정답 값 — 수신·재생</span>
+    <p>
+      <code>TwinFeedClient</code> 기본값: <code>host</code> <strong>127.0.0.1</strong> · <code>port</code> <strong>5088</strong> ·
+      <code>playoutDelay</code> <strong>0.5</strong>초. 스레드 경계는 락 프리 큐 하나로 마샬링한다 —
+      <strong>수신·파싱은 백그라운드</strong>, <strong>상태 적용은 메인 스레드</strong>(<code>Tick</code>).
+      <code>TwinReplaySource.Tick</code>은 <code>now − playoutDelay</code> 지평선을 지난 이벤트만 적용하고,
+      처리량·가동률을 <code>FabModel</code>과 같은 식(<code>completed / (now/3600)</code>,
+      <code>busy / (now × 대수)</code>)으로 계산한다 — 그래서 Replay 궤적이 내장 Sim과 <strong>MAPE ≈ 0</strong>이다.
+    </p>
+  </div>
+
+  <h3>M4 — 고장 주입: 끊김·유실을 스스로 복구</h3>
+  <p>
+    이제 스트림을 일부러 흔든다. 서버의 두 플래그가 현장의 두 고장을 재현한다 — 연결이 죽고(서버 다운),
+    라인이 새는(패킷 유실) 상황. 화면이 어긋나고, 다음 <code>SNAPSHOT</code>에서 스스로 맞는 것을 확인한다.
+  </p>
+  <ol>
+    <li>
+      <strong>끊김</strong>: 서버를 <code>--cut 20</code>으로 띄운다(접속 20초 후 연결 강제 종료). Play 중
+      <code>TwinFeedClient.ReceiveLoop</code>가 예외를 삼키고 <code>Thread.Sleep(500)</code> 뒤 재접속한다 —
+      <strong>자동 복구 경로</strong>다. 끊긴 동안 뷰는 마지막 상태로 얼어 있다.
+    </li>
+    <li>
+      <strong>유실</strong>: 서버를 <code>--drop 0.02</code>로 띄운다(델타 라인 2% 확률 스킵). 수신 <code>n</code>에
+      갭이 생기고, <code>TrackSequence</code>가 <code>n &gt; lastSequence + 1</code>을 세어 <code>DroppedCount</code>에 누적한다.
+    </li>
+    <li>
+      <strong>드러내기</strong>: <code>TwinFeedClient.Connected</code>·<code>DroppedCount</code>를 HUD(또는 M5 패널)에
+      표시해, 접속 상태와 누적 유실을 눈으로 본다.
+    </li>
+    <li>
+      <strong>재동기화</strong>: <code>SNAPSHOT</code>이 <strong>60초 주기</strong>로 오고, <code>ApplySnapshot</code>이
+      완료·대기 수와 각 비히클의 전체 상태를 덮어쓴다. 끊김·유실로 어긋났던 화면이 다음 스냅샷에서 실물과 다시 맞는다.
+    </li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 고장 주입 · 복구</span>
+    <p>
+      서버 플래그: <code>--cut &lt;초&gt;</code>(그 시각에 연결 종료) · <code>--drop &lt;확률&gt;</code>(델타 라인을 그 확률로 스킵).
+      복구 축: <code>TwinFeedClient.ReceiveLoop</code>는 끊기면 <strong>500 ms 간격으로 자동 재접속</strong>,
+      <code>TrackSequence</code>는 <code>n</code> 갭을 <code>DroppedCount</code>로 집계.
+      <code>SNAPSHOT</code>은 <strong>60초 주기</strong>이며 <code>ApplySnapshot</code>이 완료/대기 수 + 각 비히클
+      전체 상태(<code>phase·busy·moving</code>과 이동 중이면 <code>from/to/depart/eta</code>, 정지면 <code>node</code>)를 덮어쓴다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">함정 — 델타로는 못 맞춘다</span>
+    <p>
+      갭 이후의 델타는 <strong>잃어버린 이전 상태를 기준</strong>으로 삼아 어긋난다. 자기 완결적인
+      <code>SNAPSHOT</code>만이 이전 맥락 없이 전체를 덮어써 복원한다 — 그래서 재접속·유실 복구의 공통 해법이
+      스냅샷이다. "sync 버그"를 스스로 만들고(<code>--cut</code>/<code>--drop</code>) 스스로 고쳐 본 것이 이 마일스톤의 핵심이다.
+    </p>
+  </div>
+
+  <h3>M5 — UI Toolkit KPI 패널 한 조각</h3>
+  <div class="callout warn">
+    <span class="label">근거 — 완성본에 대시보드 파일은 없다</span>
+    <p>
+      완성본 <code>FabSim-P8-Complete</code>에는 대시보드 <code>.uxml</code>/<code>.uss</code>/컨트롤러 파일이
+      들어 있지 않다. 그래서 M5는 <strong>사양</strong>(BEM 클래스 · <code>Every(250)</code> · 처리량/가동률)만
+      주어지고, 최소 골격을 직접 짓는다. 아래에서 <strong>바인딩 대상 API</strong>(<code>host.Source.*</code>)와
+      갱신 주기만 확정값이고, UXML/USS 레이아웃 값은 자유다.
+    </p>
+  </div>
+  <ol>
+    <li>
+      <strong>UIDocument 준비</strong>: 빈 GameObject에 <code>UIDocument</code> 컴포넌트를 추가하고,
+      Project에서 <strong>Create → UI Toolkit → Panel Settings Asset</strong>으로 <code>PanelSettings</code>를 하나 만들어
+      <code>UIDocument</code>의 Panel Settings 슬롯에 지정한다.
+    </li>
+    <li>
+      <strong>Dashboard.uxml</strong>: <code>kpi-panel</code> 블록 안에 처리량·가동률 두 행을 둔다. BEM kebab-case로
+      <code>kpi-panel__row</code>(행), <code>kpi-panel__label</code>(이름), <code>kpi-panel__value</code>(값 Label)를 쓴다.
+      <code>UIDocument</code>의 Source Asset에 이 UXML을 지정한다.
+    </li>
+    <li>
+      <strong>Dashboard.uss</strong>: 패널 배경·여백·값 폰트만 최소로 준다. 임계치 강조는 모디파이어
+      <code>kpi-panel__value--warn</code>으로 분리한다(예: 가동률이 특정 값을 넘으면 이 클래스를 토글).
+    </li>
+    <li>
+      <strong>DashboardController.cs</strong>: <code>UIDocument.rootVisualElement</code>에서 값 Label 두 개를
+      <code>Q&lt;Label&gt;(...)</code>로 잡고, <code>FleetSourceHost</code> 참조를 받는다.
+      <code>root.schedule.Execute(UpdateKpis).Every(250)</code>로 갱신을 건다. <code>UpdateKpis</code>는
+      <code>host.Source.Now</code>를 <code>now</code>로 잡아 <code>host.Source.GetThroughputPerHour(now)</code>·
+      <code>host.Source.GetFleetUtilization(now)</code>를 읽어 Label 텍스트를 갱신한다.
+    </li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">재현 기준 — 바인딩 (사양·API)</span>
+    <p>
+      갱신 주기 <strong>250 ms</strong>(<code>schedule.Execute(UpdateKpis).Every(250)</code>). 처리량 =
+      <code>host.Source.GetThroughputPerHour(host.Source.Now)</code>, 가동률 =
+      <code>host.Source.GetFleetUtilization(host.Source.Now) × 100</code> %. BEM: 블록 <code>kpi-panel</code>,
+      엘리먼트 <code>__row</code>/<code>__label</code>/<code>__value</code>, 모디파이어 <code>--warn</code>.
+      소스가 Sim이든 Twin이든 패널 코드는 <code>host.Source</code>만 읽으므로 그대로 돈다 — M2 분리의 배당금이다.
+    </p>
+  </div>
+
   <div class="callout dt">
     <span class="label">DIGITAL TWIN 관점</span>
     <p>

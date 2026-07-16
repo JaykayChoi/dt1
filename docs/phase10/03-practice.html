@@ -168,6 +168,180 @@ namespace FabSim.EditorTools
   <!-- TODO(editor-session): FabSim-P10-Complete에서 자동화 후 Frame Debugger(phase10-framedebugger-after.png)와
        ImportReportWindow 전/후(phase10-report-before-after.png)를 캡처해 <figure class="photo">로 수록. -->
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 마일스톤은 <strong>무엇을</strong>의 지도다. 여기서는 <strong>어떻게</strong>를 클릭·입력·코드
+    단위로 편다. 먼저 스스로 M1~M5를 밟아 보고, 막히거나 결과가 어긋날 때 이 절차를 펼쳐 대조하라 —
+    값은 완성본 <code>FabSim-P10-Complete</code>의 <code>DefectFbxGenerator.cs</code>(결함 주입)·
+    <code>oht_station_raw.fbx.meta</code>(교정된 임포트 설정)·<code>CadImportPostprocessor.cs</code>(자동화 훅)에서
+    그대로 뽑은 <strong>재현값</strong>이라, 따라 하면 정답 상태가 다시 만들어진다. 임포터와 스크립트는
+    전부 <strong>직접 손으로</strong> 만진다.
+  </p>
+
+  <h3>0단계 — 결함 FBX 받아오기</h3>
+  <ol>
+    <li>FabSim <code>Assets</code>에서 우클릭 → <strong>Create → Folder</strong>, 이름 <code>Vendor</code>.
+      자동화 스코프가 정확히 이 이름(<code>Assets/Vendor/</code>)이므로 철자·대소문자를 그대로 맞춘다.</li>
+    <li>완성본의 <code>FabSim-P10-Complete/Assets/Vendor/oht_station_raw.fbx</code>를 탐색기에서
+      복사해 FabSim의 <code>Assets/Vendor/</code>에 붙여넣는다. Unity로 돌아오면 자동 임포트된다.
+      (FBX <strong>생성</strong>은 완성본의 <code>DefectFbxGenerator</code> 몫 — 결함 파일만 받아 길들인다.)</li>
+  </ol>
+
+  <h3>1단계(M1) — 결함을 눈으로 확인</h3>
+  <ol>
+    <li>임포트된 <code>oht_station_raw</code> 프리팹을 Hierarchy로 드래그해 씬에 놓는다. Scene 뷰에서
+      <strong>거대하게</strong> 잡히면(F로 프레이밍하면 카메라가 한참 물러난다) 스케일 결함이 눈에 보인 것이다.</li>
+    <li>계층을 펼쳐 구조를 확인한다: 의미 없는 빈 부모 두 겹(<code>export_group</code> → <code>node_0</code>) 밑에
+      부품 10개(<code>part_00</code>…<code>part_09</code>, Cube/Cylinder 교대)가 흩어져 있다.</li>
+    <li>메뉴 <strong>FabSim → Import Report</strong>를 열고 이 모델을 선택해 <strong>정점 수·서브메시 수·고유 재질 수</strong>를 읽는다.</li>
+    <li><strong>Window → Analysis → Frame Debugger</strong>를 Enable하고, Game 뷰 <strong>Stats</strong>에서
+      <code>Batches</code>·<code>SetPass calls</code>를 읽어 <strong>완주 체크표의 "전(前)" 칸</strong>에 적는다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 결함 FBX 해부 (DefectFbxGenerator)</span>
+    <p>
+      스케일 <strong>100배</strong>(루트 <code>localScale</code> ×100 주입) → 씬에서 거대.<br>
+      계층 <code>oht_station</code> → <code>export_group</code> → <code>node_0</code> → <code>part_00 … part_09</code> (부품 10개, Cube/Cylinder 교대).<br>
+      고유 재질 <strong>10개</strong>: <code>vendor_mat_00 … vendor_mat_09</code> (부품마다 개별, 공유 없음).<br>
+      콜라이더 없음. 서브메시 = 재질 수 = <strong>드로우콜 하한 10</strong>.
+    </p>
+  </div>
+
+  <h3>2단계(M2) — 임포트 설정 수동 교정 (Model 탭)</h3>
+  <ol>
+    <li>Project에서 <code>oht_station_raw.fbx</code>를 선택 → Inspector <strong>Model</strong> 탭.</li>
+    <li><strong>Scale Factor</strong>를 <code>0.01</code>로. 루트 100배를 상쇄해 정상 크기(1&nbsp;유닛&nbsp;=&nbsp;1&nbsp;m)로 돌아온다.</li>
+    <li><strong>Read/Write Enabled 끔</strong> — 런타임 메시 사본을 없애 메모리 2배를 막는다.</li>
+    <li><strong>Mesh Compression</strong>을 <code>Medium</code>, <strong>Weld Vertices 켬</strong>,
+      <strong>Optimize Mesh</strong>는 정점·폴리곤 둘 다 켠다.</li>
+    <li><strong>Tangents</strong>를 <code>Calculate Mikktspace</code>로. 값을 다 맞췄으면 <strong>Apply</strong>.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 교정된 임포트 설정 (.meta ↔ Inspector)</span>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Inspector 필드</th><th>ModelImporter</th><th>재현값</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="rowhead">Scale Factor</td><td><code>globalScale</code></td><td>0.01</td></tr>
+          <tr><td class="rowhead">(Convert Units 계열)</td><td><code>useFileScale</code></td><td>off</td></tr>
+          <tr><td class="rowhead">Read/Write Enabled</td><td><code>isReadable</code></td><td>off</td></tr>
+          <tr><td class="rowhead">Mesh Compression</td><td><code>meshCompression</code></td><td>Medium</td></tr>
+          <tr><td class="rowhead">Weld Vertices</td><td><code>weldVertices</code></td><td>on</td></tr>
+          <tr><td class="rowhead">Optimize Mesh</td><td><code>optimizeMeshPolygons</code>·<code>optimizeMeshVertices</code></td><td>on</td></tr>
+          <tr><td class="rowhead">Tangents</td><td><code>importTangents</code></td><td>CalculateMikk</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>3단계(M3) — 재질 통합</h3>
+  <ol>
+    <li>같은 FBX의 Inspector <strong>Materials</strong> 탭으로 이동한다.</li>
+    <li>부품별 개별 재질 <strong>10개</strong>(<code>vendor_mat_00 … 09</code>)를 프로젝트 <strong>공유 머티리얼 1~3개</strong>로 리맵한다 —
+      Remap 목록의 각 이름 슬롯에 공유 머티리얼을 지정하고 <strong>Apply</strong>. 여러 이름을 한 머티리얼로 몰면 통합된다.</li>
+    <li>다시 <strong>FabSim → Import Report</strong>로 <strong>고유 재질 수</strong>가 10 → 1~3으로 준 것을 확인한다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label"><code>material</code> 말고 <code>sharedMaterial</code></span>
+    <p>
+      리맵은 반드시 <strong>공유 머티리얼</strong>로 연결한다. 코드에서 <code>renderer.material</code>에 손대면
+      머티리얼이 <strong>복제</strong>돼 인스턴스가 생기고, 복제본끼리는 배칭되지 못해 드로우콜이 되레 는다(Phase 4).
+      재질 수 = 서브메시 = 드로우콜 하한이므로, 통합이 곧 드로우콜 하한을 낮추는 일이다.
+    </p>
+  </div>
+
+  <h3>4단계(M4) — AssetPostprocessor 훅 채우기</h3>
+  <p>
+    페이지 위쪽 <strong>스켈레톤</strong>의 두 TODO를 완성본의 훅 본문으로 채운다. 파일은
+    <code>Assets/Editor/CadImportPostprocessor.cs</code>이고, 저장하면 Unity가 리플렉션으로 발견해 등록 없이
+    임포트에 끼어든다. <code>OnPostprocessModel</code>이 쓰는 도우미 두 개(<code>UnifyMaterials</code>·<code>AttachCollider</code>)도
+    같은 클래스에 추가한다.
+  </p>
+  <pre><code>private const string VendorRoot = "Assets/Vendor/";
+private const float MillimeterToMeter = 0.01f;
+
+private void OnPreprocessModel()
+{
+    if (!assetPath.StartsWith(VendorRoot)) { return; }
+    var importer = assetImporter as ModelImporter;
+    if (importer == null) { return; }
+
+    importer.useFileScale = false;
+    importer.globalScale = MillimeterToMeter;   // 0.01f — mm→m, 100배 상쇄
+    importer.isReadable = false;                // Read/Write off (메모리 2배 방지)
+    importer.meshCompression = ModelImporterMeshCompression.Medium;
+    importer.weldVertices = true;
+    importer.optimizeMeshPolygons = true;
+    importer.optimizeMeshVertices = true;
+    importer.importTangents = ModelImporterTangents.CalculateMikk;
+}
+
+private void OnPostprocessModel(GameObject root)
+{
+    if (!assetPath.StartsWith(VendorRoot)) { return; }
+
+    foreach (MeshRenderer renderer in root.GetComponentsInChildren&lt;MeshRenderer&gt;())
+    {
+        UnifyMaterials(renderer);            // 한 렌더러의 서브메시 재질을 [0]으로 통일
+        AttachCollider(renderer.gameObject); // MeshCollider 부착
+    }
+
+    GameObjectUtility.SetStaticEditorFlags(root,
+        StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic
+            | StaticEditorFlags.OccludeeStatic);
+}
+
+private static void UnifyMaterials(MeshRenderer renderer)
+{
+    Material[] materials = renderer.sharedMaterials;
+    if (materials.Length &lt;= 1) { return; }
+    for (int i = 1; i &lt; materials.Length; i++) { materials[i] = materials[0]; }
+    renderer.sharedMaterials = materials;
+}
+
+private static void AttachCollider(GameObject target)
+{
+    if (target.GetComponent&lt;MeshCollider&gt;() == null) { target.AddComponent&lt;MeshCollider&gt;(); }
+}</code></pre>
+  <div class="callout dt">
+    <span class="label">정답 값 — 스코프·후처리 (CadImportPostprocessor)</span>
+    <p>
+      스코프 <code>VendorRoot = "Assets/Vendor/"</code> · 스케일 상수 <code>MillimeterToMeter = 0.01f</code>.<br>
+      정적 플래그 <code>BatchingStatic | OccluderStatic | OccludeeStatic</code>을 루트에 일괄 지정 → 정적 배칭·오클루전 대상.<br>
+      각 렌더러에 <strong>MeshCollider</strong> 부착. 재질은 <strong>sharedMaterials</strong>로만 다뤄 배칭을 지킨다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">이 코드만으로 10→1이 되진 않는다 — 정직한 경계</span>
+    <p>
+      <code>UnifyMaterials</code>는 <strong>한 렌더러 안의 다중 서브메시</strong> 재질을 <code>sharedMaterials[0]</code>으로
+      통일한다. 이 결함 FBX처럼 부품이 저마다 <strong>단일 재질 렌더러</strong>로 쪼개져 있으면
+      <code>materials.Length &lt;= 1</code>이라 이 훅은 그냥 지나간다 — 부품 <strong>간</strong> 재질 통합(10 → 1~3)은
+      M3의 Materials 탭 리맵이 담당한다. 포스트프로세서가 <strong>매 임포트마다</strong> 보장하는 것은
+      스케일·Read/Write·압축·콜라이더·정적 플래그다. 재임포트 검증: <code>Assets/Vendor/</code>의 FBX를
+      <strong>지우고 다시 복사</strong>하면 손 안 대도 이 값들이 교정된 채로 들어온다.
+    </p>
+  </div>
+
+  <h3>5단계(M5) — 배칭 회복을 수치로</h3>
+  <ol>
+    <li>교정·통합·자동화가 끝난 모델을 씬에 놓고, <strong>Frame Debugger</strong>와 Game 뷰 <strong>Stats</strong>로
+      <code>Batches</code>·<code>SetPass calls</code>를 다시 읽어 체크표의 <strong>"후(後)" 칸</strong>에 적는다.</li>
+    <li><strong>FabSim → Import Report</strong>로 고유 재질 수·서브메시 수가 전/후로 어떻게 줄었는지 대조한다.</li>
+    <li>드로우콜이 <strong>유의하게</strong> 줄었으면 회복이 확인된 것이다 — 근거는 재질 통합으로 서브메시가 줄고,
+      정적 배칭·SRP Batcher가 남은 드로우를 묶었기 때문이다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">Batches·SetPass 절대값은 지어내지 말 것</span>
+    <p>
+      완성본에는 <code>Batches</code>·<code>SetPass calls</code>의 <strong>절대 수치가 기록돼 있지 않다</strong>(체크표가
+      빈칸인 이유). 이 두 값은 화면 해상도·카메라 구도·SRP Batcher 상태에 따라 달라지므로 <strong>자기 환경에서 측정</strong>해
+      채운다. 정답으로 고정된 것은 재질 수(10 → 1~3)와 스케일(100배 → 정상)뿐이다.
+    </p>
+  </div>
+
   <div class="callout dt">
     <span class="label">연장선 완주 — 실전 트윈 도착</span>
     <p>

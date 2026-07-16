@@ -320,6 +320,222 @@ foreach (Transform child in root.GetComponentsInChildren&lt;Transform&gt;(true))
     </p>
   </div>
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 <strong>관찰 절차</strong>는 <strong>무엇을 볼지</strong>의 지도다. 여기서는
+    <strong>어떻게 보는지</strong>를 클릭·입력 단위로 편다. 먼저 스스로 Stats와
+    Frame Debugger를 열어 예측하고 관찰해 본 뒤, 숫자가 이해되지 않거나 어디를
+    눌러야 할지 막힐 때 이 절차를 펼쳐 대조하라 — 값은 완성본
+    <code>FabSim-P4-Complete</code>의 StressField 씬을 실제로 구성한
+    <code>Assets/Editor/StressSceneBuilder.cs</code>에서 그대로 뽑은
+    <strong>재현값</strong>이라, 같은 씬·같은 구조가 화면에 다시 나타난다. 이 씬은
+    손으로 만드는 게 아니라 빌더가 배치 모드에서 자동으로 세워 둔 것이므로, 실습의
+    몫은 <strong>만들기가 아니라 토글하며 관찰하기</strong>다.
+  </p>
+
+  <h3>0단계 — 실험장 열기와 구성 확인</h3>
+  <ol>
+    <li>Unity로 <code>FabSim-P4-Complete</code>를 열고
+      <code>Assets/Scenes/StressField.unity</code>를 더블클릭해 로드한다.</li>
+    <li>Hierarchy를 펼쳐 루트 구성을 확인한다 — 정적 지오메트리를 담은
+      <code>Fab (Static)</code>, 움직이는 무리를 담은 <code>Vehicles (Dynamic)</code>,
+      그리고 <code>Main Camera</code>·<code>Global Volume</code>이 나란히 있다.</li>
+    <li>아직 Play를 누르지 않는다. 먼저 씬이 <strong>무엇으로, 몇 개로</strong>
+      이루어졌는지를 숫자로 붙잡아 둔다 — 이 숫자가 뒤 실험의 기준이 된다.</li>
+  </ol>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>그룹</th>
+          <th>프리미티브(메시)</th>
+          <th>개수</th>
+          <th>머티리얼</th>
+          <th>Static</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">Floor</td><td>Plane</td><td>1</td><td>MAT_Floor_Epoxy</td><td>✓</td></tr>
+        <tr><td class="rowhead">Ceiling</td><td>Cube</td><td>1</td><td>MAT_Wall_Paint</td><td>✓</td></tr>
+        <tr><td class="rowhead">Equipment</td><td>Cube</td><td>192</td><td>MAT_Panel_Painted</td><td>✓</td></tr>
+        <tr><td class="rowhead">StatusLight</td><td>Cube (장비 자식)</td><td>192</td><td>MAT_StatusLight</td><td>✓</td></tr>
+        <tr><td class="rowhead">Rail</td><td>Cube</td><td>6</td><td>MAT_Rail_Alu</td><td>✓</td></tr>
+        <tr><td class="rowhead">Vehicle</td><td>Cube</td><td>96</td><td>MAT_Vehicle</td><td><strong>✗ 동적</strong></td></tr>
+        <tr><td class="rowhead">합계</td><td>메시 2종</td><td><strong>488</strong></td><td>머티리얼 6종</td><td>392 static / 96 동적</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>천장 조명(<code>Light_B*</code>)은 베이당 4개 × 6베이 = <strong>24개</strong>이고
+      전부 Baked라 <strong>렌더러가 아니다</strong> — 488에 포함되지 않으니 Hierarchy에
+      오브젝트가 더 많아 보여도 헷갈리지 말 것.</li>
+    <li>핵심은 <strong>"종류는 적고 개수는 많다"</strong>이다 — 렌더러 488개가
+      메시 <strong>2종</strong>·머티리얼 <strong>6종</strong>의 반복이다. 배칭이 크게
+      먹힐 수밖에 없는 구조라는 뜻이다.</li>
+  </ul>
+  <div class="callout dt">
+    <span class="label">정답 값 — 씬 구성 (StressSceneBuilder.cs 기준)</span>
+    <p>
+      렌더러 <strong>488</strong> = Floor 1 + Ceiling 1 + Equipment 192 + StatusLight 192
+      + Rail 6 + Vehicle 96 · 메시 <strong>2종</strong>(Plane 1 / Cube 487) ·
+      머티리얼 <strong>6종</strong>, 전부 빌더에서
+      <code>material.enableInstancing = true</code>로 배포(= Enable GPU Instancing ON) ·
+      Static <strong>392</strong>(Fab 서브트리 전체) / 동적 <strong>96</strong>(Vehicles).
+    </p>
+  </div>
+
+  <h3>1단계 — 기준선 잡기: Stats 창</h3>
+  <ol>
+    <li>Play를 눌러 재생한다 — 비히클 96대가 팹 둘레의 순환 트랙을 돌기 시작한다.</li>
+    <li>Game 뷰 우상단 <strong>Stats</strong>(통계) 버튼을 켜고
+      <strong>Batches</strong>·<strong>SetPass calls</strong>·<strong>Tris/Verts</strong>·
+      <strong>FPS</strong>를 표에 적어 둔다.</li>
+    <li>이 숫자를 <strong>렌더러 488</strong> 옆에 나란히 둔다. Batches가 488보다
+      훨씬 작다면 — 그것이 배칭이 일하고 있다는 증거다. 그 <strong>격차</strong>가
+      이 실험의 주제다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 기준선 해석</span>
+    <p>
+      고정값은 <strong>렌더러 488</strong>뿐이다. <strong>Batches·SetPass calls</strong>는
+      하드웨어·창 크기·카메라에 든 오브젝트 수에 따라 달라지므로 여기 못 박지 않는다
+      — <strong>완성본을 실행해 직접 측정</strong>한다. 다만 방향은 확정적이다:
+      배칭이 모두 켜진 기준선에서 <strong>Batches ≪ 488</strong>이어야 한다.
+    </p>
+  </div>
+
+  <h3>2단계 — 한 프레임 해부: Frame Debugger</h3>
+  <ol>
+    <li>Play 중인 상태에서 <strong>Window &gt; Analysis &gt; Frame Debugger</strong>를
+      열고 <strong>Enable</strong>을 누른다. 게임이 그 프레임에 멈추고 왼쪽에
+      렌더링 이벤트 목록이 뜬다.</li>
+    <li>목록을 <strong>위에서 아래로</strong> 클릭하며 Game 뷰가 채워지는 순서를
+      본다 — 불투명 지오메트리가 먼저 쌓이고, <strong>마지막</strong>에 포스트가 얹힌다.</li>
+    <li>드로우 이벤트 하나를 선택하면 오른쪽 패널에 <strong>셰이더·머티리얼·
+      배칭 실패 사유</strong>가 뜬다. 같은 물건들이 몇 번의 콜로 묶였는지 여기서 읽는다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 목록에서 찾을 것</span>
+    <p>
+      불투명 드로우: 같은 Cube의 반복(Equipment 192 · StatusLight 192 · Vehicle 96 ·
+      Rail 6)이 <strong>Draw Mesh (instanced)</strong> 또는 <strong>SRP Batch</strong>로
+      접혀 나타난다. 포스트: 이 씬의 렌더러 기능은 비어 있어
+      (<code>FabSimRenderer.asset</code>의 <code>m_RendererFeatures: []</code>)
+      <strong>SSAO가 없다</strong> — 마지막 포스트 이벤트는
+      <strong>Bloom → Tonemapping(ACES)</strong>뿐이다. 근거: 포스트 프로파일
+      <code>StressPostProfile</code>에 Tonemapping ACES · Bloom Intensity 0.35 ·
+      Threshold 1.1만 들어 있다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">인스턴싱을 켰는데 (instanced)가 안 보인다?</span>
+    <p>
+      정상이다. <strong>호환 렌더러에는 SRP Batcher가 우선</strong>이라, 인스턴싱을
+      켜 둔 일반 MeshRenderer도 <strong>SRP Batch</strong> 경로로 그려질 수 있다. 즉
+      기본 상태에서는 대부분이 SRP Batch로 보이고 <strong>Draw Mesh (instanced)</strong>는
+      드물게만 보이는 게 오히려 맞다. 인스턴싱의 효과를 눈으로 격리하려면 다음
+      단계처럼 <strong>SRP Batcher를 끈 뒤</strong> 인스턴싱만 토글해야 한다.
+    </p>
+  </div>
+
+  <h3>3단계 — 토글 ①: SRP Batcher 하나만 끄기</h3>
+  <ol>
+    <li>Play를 멈춘다(관찰은 정지 프레임에서 해도 된다). Project에서
+      <code>Assets/Settings/FabSimUrp.asset</code>을 선택한다.</li>
+    <li>Inspector 우상단 <strong>⋮</strong> 메뉴에서 <strong>추가 속성(Advanced
+      Properties)</strong> 표시를 켜면 <strong>Rendering</strong> 항목에
+      <strong>SRP Batcher</strong> 체크박스가 드러난다. 그 체크를 <strong>끈다</strong>.</li>
+    <li>다시 Play + Stats를 보고 <strong>Batches가 어떻게 뛰는지</strong> 기록한다.
+      Frame Debugger를 다시 Enable하면 접혀 있던 <strong>SRP Batch</strong> 묶음이
+      개별 드로우로 풀려 목록이 길어진 것을 볼 수 있다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — URP 에셋 기본값</span>
+    <p>
+      완성본 기본값은 <strong>SRP Batcher ON</strong>(<code>m_UseSRPBatcher: 1</code>)이고
+      <strong>Dynamic Batching은 OFF</strong>(<code>m_SupportsDynamicBatching: 0</code>)다.
+      즉 SRP Batcher를 끄면 그 자리를 동적 배칭이 대신 받아 주지 않는다 —
+      정적 배칭과 GPU 인스턴싱만 남아 지오메트리를 붙든다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">되돌릴 것</span>
+    <p>
+      이 토글은 <strong>실험용 임시 조작</strong>이다. 4·5단계 관찰까지 마친 뒤
+      6단계에서 <strong>반드시 다시 켠다</strong>. 끈 채로 저장하면 완성본의 기준
+      성능이 망가진다.
+    </p>
+  </div>
+
+  <h3>4단계 — 토글 ②: GPU 인스턴싱 끄기 — 비히클 96대로</h3>
+  <p>
+    SRP Batcher가 켜져 있으면 호환 렌더러는 SRP Batch 경로가 우선이라 인스턴싱을
+    꺼도 화면상 변화가 잘 안 보인다. 그래서 <strong>3단계에서 SRP Batcher를 끈
+    상태 그대로</strong>, 인스턴싱만 따로 토글해 그 효과를 격리한다. 대상은
+    <strong>움직여서 정적 배칭에 낄 수 없는 비히클</strong>이 가장 깨끗하다.
+  </p>
+  <ol>
+    <li><code>Assets/Materials/MAT_Vehicle.mat</code>을 선택하고 Inspector 하단
+      <strong>Advanced Options</strong> 폴드아웃의 <strong>Enable GPU Instancing</strong>
+      체크를 <strong>끈다</strong>.</li>
+    <li>Play + Frame Debugger. 비히클 96대가 이제 <strong>낱개 드로우</strong>로
+      쏟아지는지 확인한다 — Batches가 눈에 띄게 더 늘어난다.</li>
+    <li>체크를 <strong>다시 켠다</strong>. <strong>Draw Mesh (instanced)</strong>
+      몇 개로 96대가 도로 접히는 것을 본다. 콜 개수 자체가 줄어드는 게
+      인스턴싱의 일이다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 인스턴싱 후보</span>
+    <p>
+      6개 머티리얼 전부 빌더에서 <code>material.enableInstancing = true</code>로 켜져
+      배포된다. 같은 메시(Cube)+같은 머티리얼 묶음 후보는 <code>MAT_Vehicle</code>→비히클
+      96 · <code>MAT_Panel_Painted</code>→장비 192 · <code>MAT_StatusLight</code>→상태등
+      192 · <code>MAT_Rail_Alu</code>→레일 6이다. 개수가 많을수록 콜 절감이 크다.
+    </p>
+  </div>
+
+  <h3>5단계 — 토글 ③: Static 끄고 정적 배칭의 몫 보기</h3>
+  <ol>
+    <li>SRP Batcher는 <strong>여전히 끈 채로</strong>(정적 배칭만 남기려는 것),
+      Hierarchy에서 <code>Fab (Static)</code> 루트를 선택한다.</li>
+    <li>Inspector 우상단 <strong>Static</strong> 체크를 <strong>끈다</strong> —
+      "Yes, change children"으로 자식 전부에 적용한다. 바닥·천장·장비·상태등·레일이
+      한꺼번에 동적이 된다.</li>
+    <li>Play + Stats. 미리 합쳐 두었던 정적 메시가 풀리며 <strong>Batches가 더
+      오르는지</strong> 기록한다. Frame Debugger에서도 합쳐졌던 지오메트리가 흩어진다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — Static 범위</span>
+    <p>
+      빌더의 <code>MarkStaticRecursively</code>가 <code>Fab (Static)</code> 서브트리
+      전체에 모든 Static 플래그를 세운다 — 렌더러 <strong>392개</strong>가 정적이다.
+      <code>Vehicles (Dynamic)</code> 아래 <strong>96대</strong>는 애초에 Static이
+      아니다 — 움직이니 될 수 없고, 그래서 이들은 처음부터 인스턴싱의 몫이었다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">정적 배칭의 대가와 복구</span>
+    <p>
+      정적 배칭은 합친 만큼 <strong>정점 메모리를 복제</strong>한다 — 공짜가 아니다.
+      그리고 이 토글도 임시 조작이니 6단계에서 <strong>Static을 다시 켠다</strong>.
+    </p>
+  </div>
+
+  <h3>6단계 — 전부 되돌리기</h3>
+  <ol>
+    <li><code>FabSimUrp.asset</code>의 <strong>SRP Batcher</strong>를 다시 켠다.</li>
+    <li>실험 중 껐다면 <code>MAT_Vehicle</code>의 <strong>Enable GPU Instancing</strong>을
+      다시 켠다.</li>
+    <li><code>Fab (Static)</code>의 <strong>Static</strong>을 다시 켠다.</li>
+    <li>Stats가 1단계 기준선으로 돌아오는지 확인한다 — 세 기법이 모두 복귀하면
+      Batches가 다시 최소로 내려앉는다.</li>
+  </ol>
+  <p>
+    세 토글을 한 번씩 겪고 나면 "배칭 3형제가 각각 무엇을 줄이는가"가 표가 아니라
+    <strong>손끝의 기억</strong>이 된다. 여기서 적어 둔 Batches 수치는 Station 03의
+    최적화 실험장에서 <strong>측정 → 변경 → 재측정</strong> 기록으로 그대로 이어진다.
+  </p>
+
   <h2>핵심 확인 질문</h2>
   <div class="selfcheck">
     <details>

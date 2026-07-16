@@ -360,6 +360,236 @@
     </p>
   </div>
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 절들은 각 효과가 <strong>무엇을 하는지</strong>의 지도다. 여기서는
+    <strong>어떻게 만드는지</strong>를 노드·클릭 단위로 편다. 먼저 스스로 그래프를
+    짜 보고, 막히거나 결과가 어긋날 때 이 절차를 펼쳐 대조하라 — 색·강도·프레넬
+    지수 같은 값은 완성본 <code>FabSim-P3Viz-Complete</code>에서 그대로 뽑은
+    <strong>재현값</strong>이라, 따라 하면 정답 씬의 시각화가 다시 만들어진다.
+    관통하는 원칙은 하나다: <strong>상태색은 팀 표준 코드로 고정하고, 발광은 값을
+    1보다 크게 밀어 Station 03의 Bloom에 실어 보낸다.</strong>
+  </p>
+
+  <div class="callout dt">
+    <span class="label">정답 근거 — 완성본은 손코딩 셰이더로 만들었다</span>
+    <p>
+      완성본에는 <code>.shadergraph</code> 에셋이 없다. 대신 손코딩 HLSL 셰이더 둘
+      — <code>FabViz/FresnelRim</code>(<code>Assets/Shaders/FabVizFresnel.shader</code>)과
+      <code>FabViz/Heatmap</code>(<code>Assets/Shaders/FabVizHeatmap.shader</code>) —
+      과 상태등·레일에 쓰는 URP <strong>Unlit + HDR Base Color</strong>로 같은 효과를
+      낸다. 셰이더 파일 주석도 "에디터에서는 같은 것을 Fresnel 노드로/Shader Graph로
+      만든다"고 적어 두었다. 아래 절차는 이 페이지가 가르치는 <strong>Shader
+      Graph</strong>로 그 결과를 재현하는 길이고, 값은 그 셰이더·머티리얼에서 그대로
+      옮긴 것이다. 그래서 완성본을 열면 노드 그래프가 아니라 <code>.shader</code>
+      텍스트가 보인다 — 결과는 같다.
+    </p>
+  </div>
+
+  <h3>0단계 — 데모 씬과 장비 5대</h3>
+  <p>
+    빈 씬 하나를 만들고(<code>Assets/Scenes/DtVizScene</code>), 상태 시각화를 얹을
+    최소 무대를 세운다. 바닥·뒷벽 위에 장비 큐브 5대를 한 줄로 세우고, 각 장비에
+    상태를 하나씩 배정한다. 값은 아래 표대로 <strong>Transform에 직접 입력</strong>한다.
+    <code>MAT_Viz_*</code>·<code>MAT_Status_*</code>는 다음 단계에서 만드니, 지금은
+    자리만 잡고 나중에 입혀도 된다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>오브젝트</th>
+          <th>프리미티브</th>
+          <th>Position (X, Y, Z)</th>
+          <th>Rotation · Scale</th>
+          <th>머티리얼</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">Floor</td><td>Plane</td><td>0, 0, 0</td><td>Scale 1.4, 1, 1.2</td><td>MAT_Floor_Epoxy</td></tr>
+        <tr><td class="rowhead">Wall_Back</td><td>Cube</td><td>0, 2.5, 3</td><td>Scale 13, 5, 0.15</td><td>MAT_Wall_Paint</td></tr>
+        <tr><td class="rowhead">Machine_EQP-01…05</td><td>Cube</td><td><em>x</em>, 1.1, 1.5</td><td>Scale 1.4, 2.2, 1.6</td><td>MAT_Panel_Painted</td></tr>
+        <tr><td class="rowhead">Indicator (장비 자식)</td><td>Cube</td><td>local 0, 0.28, −0.53</td><td>Scale 0.5, 0.09, 0.06</td><td>MAT_Status_&lt;상태&gt;</td></tr>
+        <tr><td class="rowhead">SelectionHalo (장비 자식)</td><td>Cube</td><td>local 0, 0, 0</td><td>Scale 1.08, 1.06, 1.08</td><td>MAT_Viz_Halo</td></tr>
+        <tr><td class="rowhead">Zone_통제구역</td><td>Quad</td><td>−3, 0.04, 0.1</td><td>Rot 90, 0, 0 · Scale 3.2, 2.6, 1</td><td>MAT_Viz_Zone</td></tr>
+        <tr><td class="rowhead">Heatmap Cell_00…08</td><td>Quad</td><td><em>x</em>, 0.02, −2.4</td><td>Rot 90, 0, 0 · Scale 0.9, 1.6, 1</td><td>MAT_Viz_Heatmap</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>장비 5대의 X</strong>는 <code>−4, −2, 0, 2, 4</code> — 한 줄로 2&nbsp;m 간격. 이름은 <code>Machine_EQP-01</code>~<code>05</code>.</li>
+    <li><strong>상태 배정</strong>: <code>EQP-01 정상 · EQP-02 정상 · EQP-03 경고 · EQP-04 유휴 · EQP-05 정지</code>. 각 장비의 <code>Indicator</code>에 배정 상태의 <code>MAT_Status_*</code>를 입힌다.</li>
+    <li><strong>표시용 자식</strong>(Indicator·SelectionHalo)과 존·히트맵 타일은 <strong>Collider를 제거</strong>한다 — 클릭 선택 레이캐스트가 장비 본체에 닿아야 하므로 덧껍데기가 길을 막으면 안 된다.</li>
+    <li><code>SelectionHalo</code>는 <strong>기본 비활성</strong>으로 둔다(3단계에서 선택 시 켠다). 완성본은 예시로 정지 장비 <code>EQP-05</code>의 헤일로만 켜 둔 상태다.</li>
+  </ul>
+  <div class="callout dt">
+    <span class="label">정답 값 — 환경·Bloom (발광이 살아나는 조건)</span>
+    <p>
+      상태등의 HDR 발광이 실제로 피어나려면 Station 03의 포스트가 깔려 있어야 한다.
+      완성본 값 — Ambient Source <strong>Color (Flat)</strong> (0.17, 0.18, 0.22)(어두운 청회색) ·
+      Directional Light 회전 (52, −32, 0), 색 (1, 0.97, 0.9), Intensity 1.1 ·
+      <strong>Bloom Threshold 1.0</strong>, Intensity 0.5 · Tonemapping ACES ·
+      Color Adjustments Post Exposure 0.3, Contrast 10 · Vignette 0.24.
+      핵심은 <strong>Bloom Threshold 1.0</strong>이다 — 아래에서 상태색을 1.6배로 미는 이유가
+      바로 이 문턱을 넘겨 발광 픽셀만 골라 피우기 위해서다.
+    </p>
+  </div>
+
+  <h3>1단계 — 발광 상태 셰이더 (Unlit + HDR)</h3>
+  <p>
+    상태등은 조명과 무관하게 스스로 빛나야 한다. 그래서 Lit이 아니라
+    <strong>Unlit</strong>으로 만들고, 색을 <strong>HDR</strong>로 밀어 Bloom이 잡게 한다.
+  </p>
+  <ol>
+    <li><code>Assets/Shaders</code>에서 우클릭 → <strong>Create → Shader Graph → URP → Unlit Shader Graph</strong>, 이름 <code>SG_Status</code>.</li>
+    <li>Blackboard에서 <strong>+ → Color</strong>로 <code>StateColor</code> 프로퍼티를 만들고, 인스펙터에서 <strong>Mode = HDR</strong>로 바꾼다. 이게 스크립트가 상태색을 넣는 입구다.</li>
+    <li><code>StateColor</code> 노드를 Master Stack의 <strong>Base Color</strong>에 바로 연결하고 <strong>Save Asset</strong>. Unlit이라 이 색이 그대로 화면색이 된다.</li>
+    <li>이 셰이더로 머티리얼 4종 <code>MAT_Status_Running/Idle/Warning/Down</code>을 만들고 <code>StateColor</code>를 아래 표 값으로 채운 뒤, 각 장비 <code>Indicator</code>에 배정 상태에 맞는 머티리얼을 입힌다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 상태색 코드 (LDR 기준색 × 1.6 = HDR)</span>
+    <p>
+      팀 표준색은 아래 <strong>기준색(LDR)</strong>이고, 상태등에는 여기에
+      <strong>강도 1.6</strong>을 곱한 HDR 값을 넣는다 (밝은 채널이 1.0을 넘겨 Bloom에 걸린다).<br>
+      <strong>정상(Running)</strong> 청록 (0.10, 0.85, 0.55)=[26,217,140] → HDR (0.16, 1.36, 0.88)<br>
+      <strong>유휴(Idle)</strong> 청색 (0.30, 0.55, 0.85)=[77,140,217] → HDR (0.48, 0.88, 1.36)<br>
+      <strong>경고(Warning)</strong> 앰버 (0.95, 0.72, 0.15)=[242,184,38] → HDR (1.52, 1.15, 0.24)<br>
+      <strong>정지(Down)</strong> 적색 (0.92, 0.22, 0.18)=[235,56,46] → HDR (1.47, 0.35, 0.29)<br>
+      색상칩의 HDR <strong>Intensity</strong> 슬라이더를 올려도 되고(약 +0.68 EV), 위 HDR RGB를 직접 입력해도 된다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">HDR인데 안 피면 문턱을 의심하라</span>
+    <p>
+      발광이 밋밋하면 십중팔구 색이 <strong>Bloom Threshold(1.0)를 못 넘긴</strong> 것이다.
+      Base Color를 Unlit에 꽂았는데도 어둡다면 색이 LDR(모든 채널 1 이하)인지 확인하고,
+      가장 밝은 채널이 1을 넘도록 Intensity를 올려라. 반대로 화면이 온통 번지면 강도가
+      과한 것이니 1.6 부근으로 되돌린다. 레일 라인도 같은 원리다 — 완성본
+      <code>MAT_Viz_RailLine</code>은 Unlit HDR (0.32, 1.28, 1.6)(=(0.2, 0.8, 1.0)×1.6)이다.
+    </p>
+  </div>
+
+  <h3>2단계 — 경고·정지 펄스 (Time × Sine)</h3>
+  <p>
+    정적인 발광 위에 맥동을 얹으면 긴박함이 생긴다. 경고는 느리게 숨 쉬고, 정지는
+    빠르게 점멸한다. 그래프 안에서 <strong>Time → Sine → 강도에 곱</strong>으로 만든다.
+  </p>
+  <ol>
+    <li><code>SG_Status</code>에 Float 프로퍼티 <code>PulseSpeed</code>·<code>PulseFloor</code>를 추가한다.</li>
+    <li><strong>Time</strong> 노드의 Time 출력에 <code>PulseSpeed</code>를 곱하고 → <strong>Sine</strong>. Sine의 −1~1을 <strong>Absolute</strong> 또는 <strong>Remap</strong>으로 <code>PulseFloor</code>~1 범위로 옮긴다.</li>
+    <li>이 스칼라를 <code>StateColor</code>에 곱해 Base Color로 보낸다. 정상·유휴는 <code>PulseSpeed 0</code>(상시 점등), 경고·정지만 아래 계수를 준다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 펄스 계수 (완성본 재현)</span>
+    <p>
+      완성본은 이 맥동을 스크립트(<code>MachineStatus.cs</code>)에서 <code>_BaseColor</code>에
+      실시간으로 곱해 넣는다. 계수는 그래프로 옮겨도 같다 —<br>
+      <strong>경고</strong>: 강도 = 0.55 + 0.45 × |sin(Time × <strong>3</strong>)| — 0.55~1.0 사이 느린 맥동.<br>
+      <strong>정지</strong>: sin(Time × <strong>8</strong>)가 양수면 1.0, 아니면 0.15 — 빠른 On/Off 점멸.<br>
+      <strong>정상·유휴</strong>: 맥동 없음(강도 1.0 고정). 기본 강도(<code>baseIntensity</code>)는 <strong>1.6</strong>.
+    </p>
+  </div>
+
+  <h3>3단계 — 선택 하이라이트 (프레넬 림 헤일로)</h3>
+  <p>
+    선택된 장비만 테두리가 빛나게 한다. 물체를 살짝 키운 <strong>덧껍데기 큐브</strong>에
+    프레넬 발광 머티리얼을 입히고, 선택됐을 때만 그 껍데기를 켜는 방식이다.
+  </p>
+  <ol>
+    <li><strong>URP → Unlit Shader Graph</strong>를 새로 만들고(<code>SG_FresnelRim</code>), <strong>Graph Settings → Surface = Transparent</strong>로 바꾼다.</li>
+    <li>Blackboard: Color <code>BaseColor</code>(HDR) · Color <code>RimColor</code>(HDR) · Float <code>RimPower</code>.</li>
+    <li><strong>Fresnel Effect</strong> 노드의 Power에 <code>RimPower</code>를 연결한다. 그 출력에 <code>RimColor</code>를 곱하고 <code>BaseColor</code>의 RGB를 더해 Base Color로 보낸다.</li>
+    <li>Alpha는 <code>BaseColor</code>의 A에 Fresnel 값을 더해(Saturate) 연결한다 — 정면은 투명하고 가장자리로 갈수록 불투명해진다.</li>
+    <li>이 셰이더로 <code>MAT_Viz_Halo</code>를 만들어 각 장비의 <code>SelectionHalo</code> 자식(Scale 1.08, 1.06, 1.08)에 입힌다. 기본은 꺼 두고 클릭 선택 시 켠다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 선택 헤일로 (MAT_Viz_Halo)</span>
+    <p>
+      셰이더 <code>FabViz/FresnelRim</code> · Surface Transparent, Blend
+      <code>SrcAlpha OneMinusSrcAlpha</code>, ZWrite Off ·
+      <code>BaseColor</code> (0.10, 0.80, 1.00, <strong>a 0.14</strong>) ·
+      <code>RimColor</code> (0.40, 0.98, 1.00) · <strong>RimPower 1.8</strong>.
+      프레넬 식은 <code>pow(1 − dot(n, v), RimPower)</code>이고, 최종색 =
+      BaseColor.rgb + RimColor.rgb × fresnel, 알파 = saturate(BaseColor.a + fresnel).
+    </p>
+  </div>
+
+  <h3>4단계 — 반투명 존 오버레이</h3>
+  <p>
+    통제구역 같은 <strong>바닥 위 영역</strong>은 반투명 색면으로 깐다. 3단계의 프레넬
+    그래프를 그대로 재사용하되 <strong>base 알파를 올리고</strong> 색만 존 색으로 바꾸면,
+    가장자리가 밝게 서는 홀로그램 필드 룩이 나온다.
+  </p>
+  <ol>
+    <li><code>SG_FresnelRim</code>으로 머티리얼 <code>MAT_Viz_Zone</code>을 하나 더 만든다.</li>
+    <li>바닥에 깔 <strong>Quad</strong>를 만들어 눕히고(Rotation 90, 0, 0), 위치 (−3, 0.04, 0.1), Scale (3.2, 2.6, 1). 바닥과 <strong>Z-파이팅</strong>을 피하려 살짝 띄운 <code>Y 0.04</code>가 그래서 중요하다.</li>
+    <li>Collider를 제거한다(클릭 선택을 가리지 않게).</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 통제구역 존 (MAT_Viz_Zone)</span>
+    <p>
+      <code>FabViz/FresnelRim</code> · <code>BaseColor</code> (0.95, 0.60, 0.10, <strong>a 0.16</strong>) ·
+      <code>RimColor</code> (1.00, 0.80, 0.30) · <strong>RimPower 2.6</strong>. 헤일로보다 base
+      알파가 약간 높아(0.16) 면 전체가 은은히 깔리고, RimPower가 커(2.6) 가장자리 띠가 더
+      얇고 또렷하다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">반투명은 그리는 순서에 민감하다</span>
+    <p>
+      Surface를 Transparent로 두면 렌더 큐가 <strong>Transparent(3000)</strong>로 가고 ZWrite가
+      꺼진다. 존이 다른 존이나 뒤 물체를 엉뚱하게 가리거나 비쳐야 할 것이 안 비치면 큐·정렬
+      문제다. 불투명(Geometry, 2000)이 다 그려진 뒤에 반투명이 카메라 거리순으로 덧칠된다는
+      것을 전제로, 겹치는 반투명은 최소로 둔다.
+    </p>
+  </div>
+
+  <h3>5단계 — 히트맵 (스칼라 → 색 램프)</h3>
+  <p>
+    혼잡도 0~1 스칼라를 색으로 번역한다. Float 하나를 <strong>다단 그라디언트</strong>에
+    통과시켜 Base Color로 내보내는 짧은 그래프다.
+  </p>
+  <ol>
+    <li><strong>URP → Unlit Shader Graph</strong>(<code>SG_Heatmap</code>)를 만들고, Blackboard에 Float <code>Value</code>(Reference <code>_Value</code>, Range 0~1)를 둔다.</li>
+    <li><strong>Sample Gradient</strong> 노드를 놓고 Gradient에 아래 다섯 정점을 찍는다. <code>Value</code>를 Sample Gradient의 Time에 연결하고 출력을 Base Color로 보낸다.</li>
+    <li>이 셰이더로 <code>MAT_Viz_Heatmap</code>을 만들고, 바닥에 <strong>Quad 9장</strong>을 한 줄로 눕혀(<code>Cell_00</code>~<code>08</code>) 깐다. 칸마다 <code>Value</code>를 다르게 준다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 색 램프 정점과 칸 값</span>
+    <p>
+      그라디언트 정점(위치 → 색): <strong>0.00</strong> 파랑 (0.10, 0.30, 0.85) ·
+      <strong>0.25</strong> 청록 (0.10, 0.75, 0.80) · <strong>0.50</strong> 녹 (0.20, 0.80, 0.25) ·
+      <strong>0.75</strong> 황 (0.95, 0.80, 0.15) · <strong>1.00</strong> 적 (0.90, 0.18, 0.13).<br>
+      칸 배치: 9장을 X <code>−4.2 … 4.2</code>(간격 1.05), 위치 (<em>x</em>, 0.02, −2.4),
+      Rotation (90, 0, 0), Scale (0.9, 1.6, 1).
+      칸 값은 <strong>가운데가 붐비는</strong> 프로파일 — 완성본 식은
+      <code>value = 1 − ((t−0.5)×2)² × 0.9</code>(t=0~1), 즉 가운데 <code>1.0</code>에서 양끝
+      <code>0.10</code>으로 내려간다(0.10 · 0.49 · 0.78 · 0.94 · 1.0 · 0.94 · 0.78 · 0.49 · 0.10).
+    </p>
+  </div>
+  <p>
+    런타임에 값을 바꿔 히트맵을 살아 있게 하려면, 칸마다 색을 다르게 주되 머티리얼을
+    9개로 늘리지 말고 <strong>MaterialPropertyBlock</strong>으로 <code>_Value</code>만 덮어쓴다 —
+    완성본 <code>HeatmapCell.cs</code>가 그렇게 한다. 드로우콜을 늘리지 않고 칸마다 다른 값을
+    표현하는 표준 수법이다.
+  </p>
+
+  <h3>6단계 — 시스루 / X-ray</h3>
+  <p>
+    가려진 것을 비추는 시스루 룩은 <strong>3단계의 프레넬 + Transparent</strong>가 그대로
+    답이다 — base 알파를 낮게(정면 투명), 프레넬로 가장자리만 남기면 내부가 들여다보이는
+    유리 표면이 된다. 완성본은 <code>FabViz/FresnelRim</code> 하나로 선택 헤일로·존·시스루를
+    함께 덮는다(base 알파와 RimPower만 바꿔 성격을 조절).
+  </p>
+  <div class="callout warn">
+    <span class="label">깊이 기반 X-ray는 완성본 범위 밖</span>
+    <p>
+      "앞에 뭔가 있을 때만 윤곽이 뜨는" 벽 투시(깊이 비교) 방식은 완성본에 별도 셰이더로
+      들어 있지 않다 — 페이지 본문의 서베이 수준으로 두고, 필요하면 Scene Depth 노드로 직접
+      확장한다. 지금 재현 목표는 프레넬 기반 시스루까지다.
+    </p>
+  </div>
+
   <h2>핵심 확인 질문</h2>
   <div class="selfcheck">
     <details>

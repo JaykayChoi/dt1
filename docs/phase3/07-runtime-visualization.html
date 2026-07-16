@@ -323,6 +323,225 @@
     </p>
   </div>
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 절들은 <strong>무엇을 얹는지</strong>의 지도다. 여기서는 <strong>어떻게 얹는지</strong>를
+    컴포넌트·필드·배선 단위로 편다. 먼저 스스로 만들어 보고, 막히거나 결과가 어긋날 때 이
+    절차를 펼쳐 대조하라 — 값은 완성본 <code>FabSim-P3Viz-Complete</code>의
+    <code>Assets/Scenes/DtVizScene.unity</code>에서 그대로 뽑은 <strong>재현값</strong>이라,
+    따라 하면 완성 씬이 다시 만들어진다. 전제는 하나: <strong>1&nbsp;유닛&nbsp;=&nbsp;1&nbsp;m</strong>,
+    좌표는 X=좌우, Y=상하, Z=앞뒤다.
+  </p>
+  <p>
+    완성 씬 <code>DtVizScene</code>은 <strong>06</strong>(상태 발광·히트맵·프레넬 림)과
+    <strong>07</strong>(이 페이지)의 기법을 한 씬에 모은 컴팩트한 데모다. 무대는 바닥 1장,
+    뒤벽 1장, 장비 5대 한 줄이 전부고 — 이 위에 07의 <strong>정보 레이어</strong>를 얹는다:
+    레일 선과 반송차 트레일, 바닥 존 마킹, 장비 라벨과 빌보드, 카메라 구도와 클릭 선택.
+    04 실습의 크고 구운 씬과 달리 여기 무대는 작고, 조명도 <strong>런타임 Directional 1개</strong>로
+    가볍게 간다(라이트맵 없음). 초점이 빛이 아니라 <strong>정보 오버레이</strong>이기 때문이다.
+  </p>
+
+  <h3>0단계 — 무대와 스크립트</h3>
+  <p>
+    새 씬 <code>Assets/Scenes/DtVizScene</code>을 만들고(빈 씬), 아래 무대를 먼저 세운다.
+    바닥·벽·장비 머티리얼은 <strong>04 실습에서 만든 것을 그대로 재사용</strong>한다.
+    회전은 명시한 것 외에는 전부 0이다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>오브젝트</th>
+          <th>프리미티브</th>
+          <th>Position (X, Y, Z)</th>
+          <th>Scale (X, Y, Z)</th>
+          <th>머티리얼</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">Floor</td><td>Plane</td><td>0, 0, 0</td><td>1.4, 1, 1.2</td><td>MAT_Floor_Epoxy</td><td>04 재사용</td></tr>
+        <tr><td class="rowhead">Wall_Back</td><td>Cube</td><td>0, 2.5, 3</td><td>13, 5, 0.15</td><td>MAT_Wall_Paint</td><td>04 재사용</td></tr>
+        <tr><td class="rowhead">Machine_EQP-01…05</td><td>Cube</td><td><em>x</em>, 1.1, 1.5</td><td>1.4, 2.2, 1.6</td><td>MAT_Panel_Painted</td><td>x = −4, −2, 0, 2, 4</td></tr>
+        <tr><td class="rowhead">Directional Light</td><td>Light</td><td>회전 (52, −32, 0)</td><td>—</td><td>—</td><td>Color (1, 0.97, 0.9) · Intensity 1.1</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>장비 5대</strong>는 <code>x = −4 + i × 2</code>로 한 줄(−4, −2, 0, 2, 4)에 세운다. 이름은 <code>Machine_EQP-01</code>…<code>EQP-05</code>. 각 장비의 기본 <strong>Box Collider는 그대로 둔다</strong> — 5단계 클릭 선택의 레이캐스트 표적이다.</li>
+    <li><strong>환경광</strong>: 스카이박스를 비우고 <strong>Environment → Ambient</strong>를 Source=Color, Color <code>(0.17, 0.18, 0.22)</code>(어두운 청회색)로 둔다.</li>
+    <li><strong>스크립트</strong>는 전부 <code>Assets/Scripts</code>에 <code>namespace FabViz</code>로 만든다. 07에서 붙이는 것은 <code>Billboard</code> · <code>CameraRig</code> · <code>CarrierMover</code> · <code>SelectionController</code> · <code>DtVizController</code> 다섯이다. 장비 상태 발광(<code>MachineStatus</code>)·히트맵(<code>HeatmapCell</code>)과 프레넬 림·히트맵 셰이더는 <strong>06에서 만든 자산</strong>이다.</li>
+  </ul>
+  <div class="callout">
+    <span class="label">06을 아직 안 했다면</span>
+    <p>
+      프레넬 림 셰이더(<code>FabViz/FresnelRim</code>)와 히트맵 셰이더(<code>FabViz/Heatmap</code>)는
+      06 산출물이다. 헤일로·존의 은은한 테두리 발광이 이 셰이더에서 나온다. 06을 건너뛰었다면
+      해당 머티리얼을 <strong>URP Unlit</strong>으로 대체해도 07의 레일·트레일·라벨·카메라·선택
+      흐름은 그대로 확인된다 — 테두리 광택만 밋밋해질 뿐이다.
+    </p>
+  </div>
+
+  <h3>1단계 — OHT 레일 선 + 반송차 트레일 (LineRenderer / TrailRenderer)</h3>
+  <ol>
+    <li>Hierarchy → <strong>Create Empty</strong>, 이름 <code>OHT Rail</code>. <strong>Add Component → Line Renderer</strong>.</li>
+    <li>Line Renderer의 <strong>Positions</strong>를 <strong>4개</strong>로 잡고 아래 정답 값을 입력한다. <strong>Loop 체크</strong>(마지막→처음 연결), <strong>Use World Space 체크</strong>, <strong>Width</strong> 0.07, <strong>Corner Vertices</strong> 2, <strong>Cast Shadows Off</strong>.</li>
+    <li>레일 재질 <code>MAT_Viz_RailLine</code>을 만들어(URP Unlit, HDR BaseColor) Line Renderer의 <strong>Materials</strong>에 넣는다. 조명을 받지 않는 관제 선이라 Unlit이고, 색을 1보다 크게 밀어 <strong>블룸이 물게</strong> 한다.</li>
+    <li>반송차: <strong>Cube</strong> 하나를 <code>Carrier</code>로, 레일 첫 점 <code>(−4.6,&nbsp;3.7,&nbsp;0.2)</code>에 두고 Scale <code>(0.5, 0.32, 0.5)</code>, <strong>Box Collider 제거</strong>(선택 대상이 아님), 머티리얼 <code>MAT_FOUP_Poly</code>(04 재사용).</li>
+    <li>Carrier에 <strong>Trail Renderer</strong>를 추가: <strong>Time</strong> 2.2, <strong>Width</strong> 시작 0.28 → 끝 0, <strong>Materials</strong>는 레일과 같은 <code>MAT_Viz_RailLine</code>, <strong>Cast Shadows Off</strong>.</li>
+    <li>Carrier에 <code>CarrierMover</code> 스크립트를 붙이고 <strong>Speed</strong> 3으로 둔다. 이 스크립트는 <strong>플레이 모드에서만</strong> 레일 네 점을 <code>Vector3.MoveTowards</code>로 순환하며 돈다 — 정지 씬에서는 첫 점에 멈춰 있다. 경로 점은 레일과 동일한 4점 배열을 넘긴다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 레일 선·트레일 (레일 높이 Y 3.7, 통로 위 루프)</span>
+    <p>
+      <strong>LineRenderer Positions</strong>(월드, Loop) —
+      <code>(−4.6, 3.7, 0.2)</code> · <code>(4.6, 3.7, 0.2)</code> · <code>(4.6, 3.7, −2.2)</code> · <code>(−4.6, 3.7, −2.2)</code><br>
+      Width 0.07 · Corner Vertices 2 · Use World Space ✓ · Loop ✓ · Cast Shadows Off<br>
+      <strong>MAT_Viz_RailLine</strong> — URP Unlit, HDR BaseColor: 청록 (0.2, 0.8, 1)에 강도 1.6 → <code>(0.32, 1.28, 1.6)</code><br>
+      <strong>Carrier</strong> Scale (0.5, 0.32, 0.5) · 첫 점에 배치 · Collider 제거 · MAT_FOUP_Poly<br>
+      <strong>TrailRenderer</strong> Time 2.2 · Width 0.28→0 · Material = MAT_Viz_RailLine · Shadows Off · <strong>CarrierMover</strong> Speed 3
+    </p>
+  </div>
+
+  <h3>2단계 — 바닥 존 마킹 (바닥에 눕힌 Quad)</h3>
+  <div class="callout warn">
+    <span class="label">완성본은 Decal Projector가 아니라 바닥 Quad다</span>
+    <p>
+      본문은 <strong>데칼</strong>을 바닥 마킹의 정공법으로 설명하지만, 완성본은 URP Decal
+      Projector 대신 <strong>바닥에 수평으로 눕힌 Quad</strong> 위에 프레넬 림 머티리얼을 입혀
+      존 경계를 표시한다 — 셋업이 가볍고 06의 프레넬 셰이더를 그대로 재사용하기 때문이다.
+      진짜 Decal Projector로 가려면 <code>Assets/Settings/FabSimRenderer.asset</code>에
+      <strong>Add Renderer Feature → Decal</strong>을 켜야 한다(03의 SSAO와 같은 구조). 이 실습에서는
+      Quad 방식으로 재현한다.
+    </p>
+  </div>
+  <ol>
+    <li>Hierarchy → <strong>Create → 3D Object → Quad</strong>, 이름 <code>Zone_통제구역</code>.</li>
+    <li>바닥에 눕히려면 <strong>X 회전 90°</strong>. Position <code>(−3,&nbsp;0.04,&nbsp;0.1)</code>(바닥에서 살짝 띄워 Z-파이팅 방지), Scale <code>(3.2, 2.6, 1)</code>. <strong>Mesh Collider 제거</strong>.</li>
+    <li>머티리얼 <code>MAT_Viz_Zone</code>(셰이더 <code>FabViz/FresnelRim</code>, 06)을 입힌다 — 채움은 옅고 테두리가 밝게 도는 주황 존이 된다.</li>
+    <li><strong>혼잡 히트맵</strong>(가운데가 붐비는 9칸 스트립)은 06의 <code>FabViz/Heatmap</code> + <code>HeatmapCell</code>로 만든 별개 레이어다. 존과 나란히 바닥에 깔린다 — 06을 했다면 함께 배치하고, 아니면 건너뛴다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 존 마킹 (프레넬 림, 값은 0–1 / 0–255)</span>
+    <p>
+      <strong>Zone_통제구역</strong> Quad · 회전 (90, 0, 0) · Position (−3, 0.04, 0.1) · Scale (3.2, 2.6, 1) · Collider 제거<br>
+      <strong>MAT_Viz_Zone</strong> — <code>FabViz/FresnelRim</code> · BaseColor 주황 (0.95, 0.6, 0.1, α 0.16)=[242,153,26] · RimColor (1, 0.8, 0.3)=[255,204,77] · RimPower 2.6
+    </p>
+  </div>
+
+  <h3>3단계 — 장비 라벨 + 빌보드 (월드 스페이스 텍스트)</h3>
+  <div class="callout warn">
+    <span class="label">완성본은 TextMeshPro가 아니라 레거시 TextMesh다</span>
+    <p>
+      본문은 <strong>TextMeshPro</strong>를 라벨 표준으로 소개하지만, 완성본은 의존성 없이
+      바로 도는 <strong>레거시 <code>TextMesh</code></strong> 컴포넌트로 라벨을 그린다. 재현은
+      TextMesh로 하되, 실제 관제 화면에서는 선명도를 위해 TextMeshPro로 갈아타는 것이
+      본문이 말한 방향이다.
+    </p>
+  </div>
+  <ol>
+    <li>각 장비(<code>Machine_EQP-01</code>…) 밑에 <strong>Create Empty</strong> 자식 <code>Label</code>을 만든다. Local Position <code>(0,&nbsp;0.78,&nbsp;0)</code>(장비 머리 위), Local Scale <strong>0.13 균일</strong>.</li>
+    <li><code>Label</code>에 <strong>Add Component → Text Mesh</strong>. <strong>Text</strong>는 <code>EQP-01</code> 줄바꿈 뒤 상태 약어(<code>RUN</code>/<code>IDLE</code>/<code>WARN</code>/<code>DOWN</code>). Anchor <strong>Lower Center</strong>, Alignment <strong>Center</strong>, Font Size 64, Character Size 0.1, Color 흰색.</li>
+    <li>글꼴은 내장 <code>LegacyRuntime.ttf</code>(구버전은 <code>Arial.ttf</code>). TextMesh가 만든 렌더러 머티리얼을 그대로 쓴다.</li>
+    <li><code>Label</code>에 <code>Billboard</code> 스크립트를 붙인다. <code>[ExecuteAlways]</code>라 <strong>에디트 모드에서도</strong> 카메라를 향한다. 핵심은 <code>LateUpdate</code> 한 줄 — <code>transform.rotation = Quaternion.LookRotation(transform.position − Camera.main.transform.position)</code>. 스틸 컷에서 바로 읽히도록 초기 회전을 <code>(0, 180, 0)</code>으로 둔다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 라벨·빌보드</span>
+    <p>
+      <strong>Label</strong>(장비 자식) Local Position (0, 0.78, 0) · Local Scale 0.13 균일 · 초기 회전 (0, 180, 0)<br>
+      <strong>TextMesh</strong> Anchor Lower Center · Alignment Center · Font Size 64 · Character Size 0.1 · Color 흰색 · Font LegacyRuntime.ttf<br>
+      <strong>텍스트</strong> = ID + 상태 약어, 상태별 약어 <code>Running→RUN</code> · <code>Idle→IDLE</code> · <code>Warning→WARN</code> · <code>Down→DOWN</code>(06의 StatusPalette와 동일)
+    </p>
+  </div>
+
+  <h3>4단계 — 카메라 구도 + O 키 전환 (CameraRig)</h3>
+  <div class="callout warn">
+    <span class="label">완성본은 카메라 스택이 아니라 단일 카메라 전환이다</span>
+    <p>
+      본문은 Base+Overlay <strong>카메라 스택</strong>으로 레이어를 분리하는 법을 설명하지만,
+      완성본은 <strong>단일 Main Camera</strong>를 <code>CameraRig</code>가 <strong>O 키</strong>로
+      원근 워크스루 ↔ 직교 탑다운으로 전환하는 쪽을 택했다 — 관제의 두 시점을 한 카메라로
+      오가는 최소 구현이다. 스택은 라벨·UI를 별도 카메라로 분리하고 싶을 때의 확장 방향이다.
+    </p>
+  </div>
+  <ol>
+    <li><strong>Main Camera</strong>: Position <code>(0,&nbsp;3.4,&nbsp;−9.8)</code>, 회전 <code>(14,&nbsp;0,&nbsp;0)</code>(살짝 내려다봄), Field of View 60. Background는 Solid Color <code>(0.05, 0.06, 0.08)</code>, <strong>Rendering → Post Processing 체크 켬</strong>.</li>
+    <li><strong>Create → Volume → Global Volume</strong>. Profile를 새로 만들고(<code>FabVizPostProfile</code>) <strong>Add Override</strong>로 쌓는다: Tonemapping(ACES) → Color Adjustments → Bloom → Vignette. 각 항목 왼쪽 체크를 켜야 적용된다.</li>
+    <li>빈 GameObject <code>DT Viz Controller</code>를 만들고 <code>CameraRig</code> 스크립트를 붙인다. Inspector의 <strong>Cam</strong> 필드에 <strong>Main Camera</strong>를 드래그해 연결한다(핵심 배선).</li>
+    <li>플레이에서 <strong>O 키</strong>를 누르면 <code>cam.orthographic</code>이 토글되며 카메라가 탑다운 위치로 점프한다. 직교 뷰의 <strong>Orthographic Size</strong>는 8이다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 카메라·포스트·CameraRig</span>
+    <p>
+      <strong>Main Camera</strong> 원근 Position (0, 3.4, −9.8) · 회전 (14, 0, 0) · FOV 60 · Background Solid (0.05, 0.06, 0.08) · Post Processing ✓<br>
+      <strong>Volume Profile</strong> — Tonemapping ACES · Color Adjustments Post Exposure 0.3, Contrast 10 · Bloom Intensity 0.5, Threshold 1.0 · Vignette Intensity 0.24<br>
+      <strong>CameraRig</strong> 원근 pos (0, 3.4, −9.8)·euler (14, 0, 0) · 탑다운 pos <code>(0, 16, −0.5)</code>·euler <code>(90, 0, 0)</code>·Ortho Size 8 · 토글 키 <strong>O</strong>
+    </p>
+  </div>
+
+  <h3>5단계 — 클릭 선택 훅 (SelectionController + 헤일로)</h3>
+  <p>
+    선택은 두 조각이다 — 장비마다 <strong>꺼져 있는 헤일로</strong>를 미리 달아 두고,
+    컨트롤러가 클릭 레이캐스트로 <strong>맞은 장비의 헤일로만 켠다</strong>. 헤일로 발광은
+    06의 프레넬 림이 맡고, 켜고 끄는 스위칭은 07의 이 스크립트가 맡는다.
+  </p>
+  <ol>
+    <li>각 장비 밑에 <strong>Cube</strong> 자식 <code>SelectionHalo</code>를 만든다. Local Scale <code>(1.08, 1.06, 1.08)</code>(장비를 살짝 감싸는 크기), <strong>Box Collider 제거</strong>(레이캐스트가 장비 본체를 맞도록), 머티리얼 <code>MAT_Viz_Halo</code>(프레넬 림, 06).</li>
+    <li>헤일로는 기본적으로 <strong>비활성</strong>이다. 단, 정지 상태인 <code>EQP-05</code> 하나만 <strong>미리 켜 두어</strong> 선택된 예시로 보여 준다.</li>
+    <li><code>DT Viz Controller</code>에 <code>SelectionController</code>를 붙인다(4단계의 CameraRig와 같은 GameObject). 좌클릭 시 <code>Camera.main</code>에서 <code>Physics.Raycast</code>(거리 100)를 쏘고, 맞은 콜라이더의 <code>GetComponentInParent&lt;MachineStatus&gt;</code>로 장비를 찾아 그 <code>SelectionHalo</code> 자식을 켠다. 이전 선택은 끈다.</li>
+    <li>같은 GameObject에 <code>DtVizController</code>도 붙인다 — 이 스크립트는 <code>Start</code>에서 조작법(클릭=선택, O=시점 전환)을 콘솔에 한 줄 찍는 안내용이다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">레이캐스트가 헛맞으면 콜라이더를 의심하라</span>
+    <p>
+      선택이 안 되면 십중팔구 콜라이더 문제다. <strong>장비 본체 Cube의 Box Collider는 남겨</strong>
+      두어야 표적이 되고, 반대로 <strong>헤일로·상태등·라벨의 콜라이더는 제거</strong>해야 광선이
+      그것들에 먼저 막혀 장비를 못 맞히는 일이 없다. <code>GetComponentInParent</code>를 쓰는 것도,
+      혹 자식 콜라이더가 맞더라도 부모 장비로 거슬러 올라가 선택을 살리기 위함이다.
+    </p>
+  </div>
+  <div class="callout dt">
+    <span class="label">정답 값 — 헤일로·선택</span>
+    <p>
+      <strong>SelectionHalo</strong>(장비 자식) Cube · Local Scale (1.08, 1.06, 1.08) · Collider 제거 · 기본 비활성(EQP-05만 켬)<br>
+      <strong>MAT_Viz_Halo</strong> — <code>FabViz/FresnelRim</code> · BaseColor 청록 (0.1, 0.8, 1, α 0.14)=[26,204,255] · RimColor (0.4, 0.98, 1)=[102,250,255] · RimPower 1.8<br>
+      <strong>SelectionController</strong> — 좌클릭 → Camera.main 레이캐스트(거리 100) → GetComponentInParent&lt;MachineStatus&gt; → 해당 SelectionHalo 토글
+    </p>
+  </div>
+
+  <h3>6단계 — 레이어 배선 확인 + 플레이 점검</h3>
+  <p>
+    마지막은 배선 점검이다. 컨트롤러 하나에 세 스크립트가 모여 있고, 나머지는 장비·레일에
+    분산돼 있다. 아래 표대로 붙었는지 확인한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>스크립트</th>
+          <th>붙는 GameObject</th>
+          <th>핵심 배선 / 필드</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">CameraRig</td><td>DT Viz Controller</td><td>Cam → Main Camera · O 키 시점 전환</td></tr>
+        <tr><td class="rowhead">SelectionController</td><td>DT Viz Controller</td><td>배선 없음 — 런타임에 Camera.main·레이캐스트로 동작</td></tr>
+        <tr><td class="rowhead">DtVizController</td><td>DT Viz Controller</td><td>배선 없음 — Start 콘솔 안내</td></tr>
+        <tr><td class="rowhead">CarrierMover</td><td>Carrier</td><td>경로 = 레일 4점 · Speed 3</td></tr>
+        <tr><td class="rowhead">Billboard</td><td>각 장비의 Label</td><td>배선 없음 — Camera.main을 향함</td></tr>
+        <tr><td class="rowhead">MachineStatus (06)</td><td>각 장비 본체</td><td>State · Indicator(상태등 렌더러)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>씬을 저장하고 <strong>Play</strong>로 들어가 다음을 확인하면 07 층이 완성된 것이다.</p>
+  <ul>
+    <li>반송차가 천장 레일 루프를 <strong>순환하며 트레일 꼬리</strong>를 남긴다.</li>
+    <li>장비를 <strong>클릭</strong>하면 그 장비만 헤일로로 강조되고, 다른 곳을 클릭하면 옮겨 간다.</li>
+    <li><strong>O 키</strong>로 직교 탑다운(지도 뷰) ↔ 원근 워크스루가 전환된다.</li>
+    <li>모든 라벨이 카메라를 <strong>정면으로</strong> 향해 계속 읽힌다(빌보드).</li>
+    <li>(06을 했다면) 경고 장비는 느리게 맥동, 정지 장비는 빠르게 점멸한다.</li>
+  </ul>
+
   <h2>핵심 확인 질문</h2>
   <div class="selfcheck">
     <details>

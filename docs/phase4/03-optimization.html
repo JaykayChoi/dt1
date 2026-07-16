@@ -319,6 +319,166 @@ public void Return(GameObject instance)
     <li><strong>모든 최적화에 병목 근거 보유</strong> — 적용한 기법마다 "어느 측정이 이 처방을 시켰는가"를 기록으로 답할 수 있다.</li>
   </ul>
 
+  <h2>과정 상세 — 클릭 단위로 따라 측정하기</h2>
+  <p>
+    위 <strong>실험 과제</strong>와 <strong>60fps 체크리스트</strong>는 <strong>무엇을 볼지</strong>의
+    지도다. 여기서는 <strong>어떻게 보는지</strong>를 — 창을 열고 값을 읽는 클릭 단위로 편다.
+    먼저 스스로 측정해 보고, 수치가 안 잡히거나 해석이 막힐 때 이 절차를 펼쳐 대조하라.
+    한 가지 전제를 분명히 한다 — <strong>프레임 ms와 Batches의 절대치는 기계마다 다르다.</strong>
+    그래서 아래 정답 값 박스에 담는 것은 어느 PC에서든 같게 나오는 <strong>씬 불변값</strong>
+    (렌더러 수·광원 종류·배칭 설정·GC 할당 0)이고, ms·Batches의 절대치는
+    "완성본에서 직접 측정"이 답이다. 값은 완성본 <code>FabSim-P4-Complete</code>의
+    <code>Assets/Scenes/StressField.unity</code>와 그 스크립트에서 그대로 뽑았다.
+  </p>
+
+  <h3>0단계 — 계기판 세 개를 먼저 띄운다</h3>
+  <p>
+    모든 실험이 같은 세 지표를 읽는다. 조작에 손대기 전에 세 계기판부터 켜 둔다.
+  </p>
+  <ol>
+    <li><strong>프레임 ms · FPS</strong> — 씬을 열고 Play에 들어가면 <strong>Game 뷰 좌상단</strong>에
+      <code>Frame 00.00 ms  (00 FPS)</code>가 이미 떠 있다. 카메라에 붙은 <code>FpsHud</code>가
+      그리며 0.25초에 한 번 갱신한다 — 따로 켤 것이 없다.</li>
+    <li><strong>Batches</strong> — Game 뷰 툴바 오른쪽 <strong>Stats</strong> 버튼을 누른다.
+      오버레이의 <strong>Batches</strong>와 <strong>SetPass calls</strong>가 드로우콜 제출 규모다
+      (Station 02의 그 수치).</li>
+    <li><strong>GC Alloc</strong> — <strong>Window → Analysis → Profiler</strong>를 연다.
+      <strong>CPU Usage</strong> 모듈을 고르고 아래 창 보기를 <strong>Hierarchy</strong>로 바꾸면
+      <strong>GC Alloc</strong> 열이 보인다. Play 중 정상 주행 프레임 하나를 클릭해 그 프레임의
+      할당량을 읽는다.</li>
+  </ol>
+
+  <h3>1단계 — 기준 측정: "전" 열 채우기</h3>
+  <ol>
+    <li>Play에 들어가 비히클 무리가 순환 트랙을 도는 것을 확인한다.</li>
+    <li>세 계기판에서 <strong>프레임 ms</strong>, <strong>Batches</strong>, 그리고 정상 주행 중 한 프레임의
+      <strong>GC Alloc</strong>을 읽어 <strong>실험 기록 템플릿의 "전" 열</strong>에 적는다.</li>
+    <li>이 세 값이 이후 모든 실험의 기준선이다. 기준 없이 조작부터 하면 "좋아졌다/나빠졌다"를
+      수치로 말할 수 없다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 씬 불변값 (기계와 무관)</span>
+    <p>
+      <strong>MeshRenderer 488개</strong> = 바닥 1 + 천장 1 + 장비 192 + 상태등 192 + 레일 6 + 비히클 96.<br>
+      <strong>Realtime 광원 0개</strong> · Baked Point Light <strong>24개</strong> (베이 6 × 4).<br>
+      정상 주행 중 <strong>GC Alloc = 0 B/frame</strong> — <code>VehicleFleet.Update()</code>가
+      루프 안에서 아무것도 할당하지 않는다.<br>
+      프레임 ms·Batches의 절대치는 기계마다 다르므로 <strong>완성본에서 직접 측정</strong>해 기준으로 삼는다.
+    </p>
+  </div>
+
+  <h3>2단계 — 인스턴싱 끄기: 배칭 경로를 갈아 본다</h3>
+  <ol>
+    <li>Play를 멈춘다. <code>Assets/Materials</code>에서 머티리얼 <strong>6종을 전부 선택</strong>한다
+      (<code>MAT_Floor_Epoxy</code> 클릭 → Shift+마지막 항목). 목록은
+      <code>MAT_Floor_Epoxy · MAT_Wall_Paint · MAT_Panel_Painted · MAT_Rail_Alu · MAT_Vehicle · MAT_StatusLight</code>이다.</li>
+    <li>Inspector 맨 아래 <strong>Advanced Options</strong> 폴드아웃을 펼치고
+      <strong>Enable GPU Instancing</strong> 체크를 <strong>끈다</strong>. 여러 개를 함께 선택했으니 한 번에 꺼진다.</li>
+    <li>다시 Play에 들어가 <strong>Batches</strong>와 <strong>프레임 ms</strong>를 "후" 열에 적는다.</li>
+    <li>가설과 달리 <strong>Batches가 거의 그대로</strong>일 수 있다. 이유는 <strong>Frame Debugger</strong>로
+      확인한다 — <strong>Window → Analysis → Frame Debugger → Enable</strong>. 왼쪽 드로우콜 트리에서
+      장비·비히클을 그리는 항목을 고르고, 오른쪽 패널에서 이들이 <strong>SRP Batch</strong>로 묶였는지
+      낱개로 제출됐는지 읽는다.</li>
+    <li>실험이 끝나면 <strong>Enable GPU Instancing을 6종 전부 다시 켠다</strong>.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">인스턴싱을 꺼도 왜 안 느려지나 — SRP Batcher</span>
+    <p>
+      완성본의 파이프라인 에셋 <code>Assets/Settings/FabSimUrp.asset</code>은 <strong>SRP Batcher가 켜져</strong>
+      있다(Dynamic Batching은 꺼져 있다). GPU 인스턴싱을 끄면 인스턴싱 경로는 사라지지만, 같은 셰이더를 쓰는
+      드로우콜들을 SRP Batcher가 이어받아 CPU 제출 비용을 여전히 낮게 유지한다. 그래서 이 실험의 진짜 답은
+      "느려진다/아니다"가 아니라 <strong>Frame Debugger로 어느 배칭 경로가 실제로 일했는지 설명하는 것</strong>이다.
+      끝나고 인스턴싱을 다시 켜지 않으면 이후 실험의 기준선이 오염된다.
+    </p>
+  </div>
+
+  <h3>3단계 — 매니저 통합 확인: Update 호출 수를 센다</h3>
+  <ol>
+    <li>Play 중 <strong>Profiler → CPU Usage → Hierarchy</strong> 보기의 검색란에 <code>VehicleFleet</code>를 친다.</li>
+    <li><code>VehicleFleet.Update()</code> 항목의 <strong>Calls</strong> 열이 <strong>프레임당 1</strong>임을 확인한다 —
+      비히클 96대를 <strong>한 번의 Update</strong>가 배열 순회로 전부 움직인다.</li>
+    <li>대조군을 직접 만들고 싶다면, 같은 트랙 수식을 가진 개별 <code>MonoBehaviour</code>를 비히클마다 붙이고
+      <code>Vehicles (Dynamic)</code>의 <code>VehicleFleet</code>를 비활성화한다. 그러면 그 개별 스크립트의
+      <strong>Calls가 96</strong>으로 뛴다 — 네이티브-매니지드 경계를 넘는 고정 오버헤드를 96번 지불하는 그림이다.</li>
+  </ol>
+
+  <h3>4단계 — 비히클 수 늘리기: 어디가 먼저 무너지나</h3>
+  <ol>
+    <li>Play를 멈춘다. Hierarchy에서 <strong>Vehicles (Dynamic)</strong>를 선택하고 <strong>Ctrl+D</strong>로 복제한다.
+      복제본에는 <code>VehicleFleet</code> 매니저가 함께 복사되므로 복제본의 96대도 스스로 달린다.</li>
+    <li>복제본은 원본과 같은 트랙·같은 위치라 겹쳐 보인다 — 복제본 루트의 <strong>Position Y를 0.5</strong> 올려 층을 나눈다.</li>
+    <li>이렇게 <strong>96 → 192 → 384</strong>로 복제를 반복하며 매번 Play에 들어가 프레임 ms, Batches, GC Alloc을 기록한다.
+      어느 지표가 <strong>가장 먼저</strong> 프레임당 16.6ms 예산을 깨뜨리는지가 이 실험의 답이다.</li>
+    <li>실험이 끝나면 복제본을 지워 씬을 원래 96대로 되돌린다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">상수를 바꾸는 정석과, 손으로 하는 길</span>
+    <p>
+      비히클 수의 근원은 <code>Assets/Editor/StressSceneBuilder.cs</code>의
+      <code>private const int VehicleCount = 96;</code>(24번째 줄)이다. 정석은 이 값을 바꿔 씬을 다시 빌드하는 것이지만,
+      이 빌더는 배치 실행용이라 에디터 메뉴에서 누를 버튼이 없다. 그래서 혼자 실험할 때는 위처럼
+      <strong>Vehicles (Dynamic)를 Ctrl+D로 복제</strong>하는 손의 길이 실용적이다.
+    </p>
+  </div>
+
+  <h3>5단계 — 60fps 체크리스트를 클릭으로 검증한다</h3>
+  <p>
+    위 체크리스트의 각 줄은 "이렇게 눌러 이것이 보이면 통과"로 바꿀 수 있다. 완성본을 열어
+    아래 표대로 한 항목씩 눈으로 확인한다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>체크 항목</th>
+          <th>어디를 눌러 보는가</th>
+          <th>통과 기준 (완성본)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Realtime 광원 0개</td>
+          <td>Hierarchy에서 아무 <code>Light_B*</code>를 선택 → Light 컴포넌트의 <strong>Mode</strong></td>
+          <td>24개 전부 <strong>Baked</strong>. Realtime/Mixed가 하나도 없다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">GC Alloc 0 B/frame</td>
+          <td>Profiler → CPU Usage → Hierarchy → <strong>GC Alloc</strong> 열, 정상 주행 프레임</td>
+          <td><strong>0 B</strong>. 스파이크는 스폰 같은 이벤트 순간에만 — 정상 주행 중엔 없다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">배칭 동작 확인</td>
+          <td>Frame Debugger → Enable → 드로우콜 트리</td>
+          <td>장비·비히클이 <strong>SRP Batch</strong>(또는 인스턴싱)로 묶여 제출된다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Static 지정 완료</td>
+          <td>정적 오브젝트(예: <code>Equip_B0_L0</code>) 선택 → Inspector 우상단 <strong>Static</strong> 체크박스</td>
+          <td>모든 지오메트리가 켜져 있고, <code>Vehicles (Dynamic)</code>만 꺼져 있다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">포스트 비용 인지</td>
+          <td><code>Global Volume</code>을 껐다 켜며 프레임 ms 차이를 읽는다 (Frame Debugger에선 <code>UberPost</code> 패스)</td>
+          <td>오버라이드는 <strong>Tonemapping(ACES) + Bloom</strong> 둘뿐 — 이 둘이 쓰는 ms를 알고 켜 둔다.</td>
+        </tr>
+        <tr>
+          <td class="rowhead">병목 근거 보유</td>
+          <td>실험 기록 템플릿</td>
+          <td>적용·관찰마다 "어느 측정이 이 처방을 시켰는가"가 한 줄씩 적혀 있다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout dt">
+    <span class="label">정답 값 — 포스트 / 카메라</span>
+    <p>
+      <code>Global Volume</code> 프로파일 <code>Assets/Settings/StressPostProfile.asset</code>의 오버라이드는
+      <strong>Tonemapping</strong> Mode ACES · <strong>Bloom</strong> Threshold 1.1, Intensity 0.35 —
+      이 둘뿐이다(SSAO 없음). Main Camera는 <strong>Rendering → Post Processing 체크가 켜져</strong> 있어야
+      볼륨이 화면에 반영된다.
+    </p>
+  </div>
+
   <div class="callout dt">
     <span class="label">DIGITAL TWIN 관점</span>
     <p>

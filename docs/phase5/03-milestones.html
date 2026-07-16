@@ -256,6 +256,287 @@
     </p>
   </div>
 
+  <h2>과정 상세 — 스크립트 단위로 따라 만들기</h2>
+  <p>
+    위 여섯 마일스톤은 <strong>무엇을·왜</strong>의 지도다. 여기서는 <strong>어떻게</strong> —
+    어떤 파일을 어느 폴더에 쓰고, 어떤 컴포넌트를 어떤 오브젝트에 붙이고, Inspector에서 무엇을
+    배선하는지 — 를 편다. 먼저 스스로 만들어 보고, 막히거나 결과가 어긋날 때 이 절차를 펼쳐
+    대조하라 — 값과 좌표는 완성본 <code>FabSim-P5-Complete</code>에서 그대로 뽑은
+    <strong>재현값</strong>이라, 따라 하면 정답 시뮬레이터가 다시 만들어진다. 파일 배치도
+    완성본을 따른다: 순수 로직은 <code>Assets/DesCore</code>·<code>Assets/Scripts/Sim</code>에,
+    씬에 붙는 MonoBehaviour는 <code>Assets/Scripts</code>에 둔다. P5에는 asmdef가 없어 모든
+    스크립트가 한 어셈블리(Assembly-CSharp)에 들어가므로 폴더 간 <code>using</code>이 그대로 통한다.
+  </p>
+
+  <h3>M1 상세 — DesCore 이식</h3>
+  <ol>
+    <li>Project 창에서 <code>Assets</code> 우클릭 → <strong>Create → Folder</strong>, 이름 <code>DesCore</code>.</li>
+    <li>탐색기에서 <code>examples/phase2-descore/DesCore</code>의 <code>.cs</code> 5개를 방금 만든
+      폴더에 <strong>파일로 복사</strong>한다. 에디터로 돌아오면 자동 임포트된다.</li>
+    <li>자동 컴파일을 기다린 뒤 <strong>Console</strong>을 확인한다. 이 파일들은
+      <code>namespace DesCore</code>이고 UnityEngine에 의존하지 않는 순수 C#이라 수정 없이 컴파일된다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — DesCore 파일과 진입 API</span>
+    <p>
+      파일 5개: <code>Simulation.cs</code> · <code>EventQueue.cs</code> · <code>SimEvent.cs</code> ·
+      <code>SimResource.cs</code> · <code>RandomExtensions.cs</code> → <code>Assets/DesCore/</code>.
+      뒤에서 쓰는 API: <code>Simulation.Schedule(delay, action)</code> ·
+      <code>Simulation.Run(until)</code> · <code>Simulation.Now</code> ·
+      <code>Random.NextExponential(mean)</code>(확장 메서드).
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">다섯 개를 다 옮긴다</span>
+    <p>
+      폴더 이름·위치는 자유지만 파일은 다섯 개 전부여야 한다 — <code>Simulation</code>은
+      <code>EventQueue</code>·<code>SimEvent</code>에, 도착·배차는 <code>RandomExtensions</code>에
+      의존한다. 하나라도 빠지면 컴파일 에러로 즉시 드러난다. 그 "에러 0"이 곧 M1의 완료 기준이다.
+    </p>
+  </div>
+
+  <h3>M2 상세 — RailGraph와 FabLayout</h3>
+  <p>
+    두 파일을 <code>Assets/Scripts/Sim</code>에 쓴다. 둘 다 <code>namespace FabSim.Sim</code>,
+    UnityEngine 무의존 순수 C#이다.
+  </p>
+  <p>
+    <strong>① <code>RailGraph.cs</code></strong> — 노드(3D 좌표)와 방향성 엣지를 담고 최단 경로를
+    내주는 그릇. 인터페이스는 다음이 전부다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>멤버</th><th>시그니처</th><th>역할</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">AddNode</td><td>(float x, y, z) → int</td><td>좌표 등록, 노드 id(등록 순번) 반환</td></tr>
+        <tr><td class="rowhead">AddEdge</td><td>(int from, int to)</td><td>from → to 방향성 엣지 (가중치는 좌표에서 계산)</td></tr>
+        <tr><td class="rowhead">GetNode</td><td>(int id) → NodePoint</td><td>노드 좌표</td></tr>
+        <tr><td class="rowhead">GetOutgoing</td><td>(int node) → 노드 목록</td><td>나가는 엣지의 도착 노드들</td></tr>
+        <tr><td class="rowhead">GetDistance</td><td>(int from, int to) → float</td><td>두 노드의 유클리드 거리</td></tr>
+        <tr><td class="rowhead">FindPath</td><td>(int start, int goal) → 노드 시퀀스</td><td>선형 탐색 다익스트라. 불가능하면 <code>null</code></td></tr>
+        <tr><td class="rowhead">GetPathLength</td><td>(경로) → float</td><td>경로 총 길이 (배차의 "거리")</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>② <code>FabLayout.cs</code></strong> — <code>static</code> 클래스.
+    <code>Build(out int[] portNodes)</code> 하나가 노드 12개를 찍고 반시계 방향 일방통행 루프로
+    엮은 뒤, 픽업·드롭이 일어나는 포트 노드 6개를 돌려준다. 노드는 아래 표대로 <code>AddNode</code>한다
+    (Y는 전부 레일 높이 4).
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>노드</th><th>좌표 (X, Y, Z)</th><th>역할</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">n0</td><td>(−6, 4, −16)</td><td>코너</td></tr>
+        <tr><td class="rowhead">n1</td><td>(−6, 4, −8)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n2</td><td>(−6, 4, 0)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n3</td><td>(−6, 4, 8)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n4</td><td>(−6, 4, 16)</td><td>코너</td></tr>
+        <tr><td class="rowhead">n5</td><td>(0, 4, 16)</td><td>짧은 변 중간</td></tr>
+        <tr><td class="rowhead">n6</td><td>(6, 4, 16)</td><td>코너</td></tr>
+        <tr><td class="rowhead">n7</td><td>(6, 4, 8)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n8</td><td>(6, 4, 0)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n9</td><td>(6, 4, −8)</td><td>포트</td></tr>
+        <tr><td class="rowhead">n10</td><td>(6, 4, −16)</td><td>코너</td></tr>
+        <tr><td class="rowhead">n11</td><td>(0, 4, −16)</td><td>짧은 변 중간</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    엣지는 <code>loop[i] → loop[(i+1) % 12]</code>로 12개 — 전부 한 방향이다. 포트 노드는 긴 변(±X)의
+    비코너 노드 <code>{n1, n2, n3, n7, n8, n9}</code>. 검증은 <code>OnDrawGizmos</code>로 노드에 작은
+    구를, 엣지에 선을 그려(또는 임시 구체를 노드 좌표에 생성해) 그래프가 눈에 보이는 레일 위에 정확히
+    앉는지 본 뒤, 아무 두 노드로 <code>FindPath</code>를 불러 <code>Debug.Log</code>로 경로 노드 번호를 찍는다.
+  </p>
+  <div class="callout dt">
+    <span class="label">정답 값 — FabLayout 구조</span>
+    <p>
+      상수 <code>RailHeight 4</code> · <code>HalfWidth 6</code> · <code>HalfLength 16</code> (m).
+      노드 12 · 방향 엣지 12 (<code>(i+1)%12</code>) · 포트 노드 <code>{n1, n2, n3, n7, n8, n9}</code>.
+      <code>FindPath(n2, n8)</code> 같은 호출이 루프를 따라 도는 경로를 되돌려주면 그래프가 산 것이다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">그래프 좌표와 눈에 보이는 레일은 같아야 한다</span>
+    <p>
+      위 좌표는 완성본 씬(직사각 루프) 기준이다. 완성본은 이 <code>Build()</code>의 좌표로 레일 메시까지
+      생성해 둘을 일치시킨다. 자기 씬을 Phase 3의 다른 레일 위에 세웠다면 좌표를 그 레일에 맞춰 바꿔야
+      하고, 그러면 위 숫자와 달라진다 — 중요한 건 숫자가 아니라 <strong>그래프와 시각 레일이 어긋나지
+      않는다</strong>는 것이다. 어긋난 채 넘어가면 M3에서 비히클이 허공을 달린다.
+    </p>
+  </div>
+
+  <h3>M3 상세 — 비히클 이동과 뷰 보간</h3>
+  <p>이동을 만들려면 데이터·모델·러너·뷰 네 조각이 필요하다.</p>
+  <ol>
+    <li><strong><code>VehicleAgent.cs</code></strong> (<code>Assets/Scripts/Sim</code>) — 비히클 한 대의
+      상태 데이터. <code>enum VehiclePhase { Idle, ToPickup, Carrying }</code>와 함께, 위치를 좌표가
+      아니라 <strong>엣지와 시각</strong>으로 담는다: <code>NodeId</code> · <code>IsMoving</code> ·
+      <code>EdgeFromNode</code> · <code>EdgeToNode</code> · <code>EdgeDepartAt</code> ·
+      <code>EdgeArriveAt</code> (그리고 M4·M5용 <code>CurrentJob</code> · <code>BusyStartedAt</code> ·
+      <code>TotalBusyTime</code>).</li>
+    <li><strong><code>FabModel.cs</code></strong> (<code>Assets/Scripts/Sim</code>, 순수 C#) — 그래프와
+      비히클 목록, <code>Simulation</code>을 소유한다. 생성자에서 비히클을 루프 위에 고르게 흩는다:
+      <code>NodeId = i * NodeCount / vehicleCount</code> (4대·12노드면 0·3·6·9). 이동 로직
+      <code>TraversePath(vehicle, path, nextIndex, onArrived)</code>는 엣지 하나의 이동 시간
+      (<code>GetDistance / vehicleSpeed</code>)을 계산해 도착 사건을 <code>Schedule</code>하고, 그 사건이
+      <code>NodeId</code>를 갱신한 뒤 자기 자신을 다음 엣지로 다시 부른다 — 사건이 사건을 낳는다.</li>
+    <li><strong><code>FabSimulation.cs</code></strong> (<code>Assets/Scripts</code>, MonoBehaviour) —
+      <code>Awake</code>에서 <code>FabLayout.Build</code> → <code>new FabModel(...)</code>.
+      <code>Update</code>에서 키 0/1/2/3으로 배속을 <code>0/1/30/120</code>으로 바꾸고,
+      <code>Model.Simulation.Run(Now + Time.deltaTime × timeScale)</code>로 클록을 민다.</li>
+    <li><strong><code>VehicleFleetView.cs</code></strong> (<code>Assets/Scripts</code>, MonoBehaviour) —
+      <code>Start</code>에서 비히클 수만큼 큐브를 <strong>런타임에 생성</strong>하고, <code>LateUpdate</code>에서
+      매 프레임 위치를 보간한다: <code>t = (now − EdgeDepartAt) / (EdgeArriveAt − EdgeDepartAt)</code>를
+      <code>Clamp01</code>해 두 노드 좌표를 <code>Lerp</code>.</li>
+  </ol>
+  <p>
+    <strong>씬 배선</strong> — 빈 GameObject <code>FabSimulation</code> 하나에 세 컴포넌트를 얹는다
+    (<code>StatsHud</code>는 M5에서 추가).
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>오브젝트</th><th>컴포넌트</th><th>Inspector 배선</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">FabSimulation<br>(빈 GameObject)</td><td>FabSimulation</td>
+          <td>vehicleCount 4 · vehicleSpeed 2.5 · jobIntervalMean 25 · timeScale 30 · randomSeed 7</td></tr>
+        <tr><td class="rowhead">↳ 같은 오브젝트</td><td>VehicleFleetView</td>
+          <td>simulation ← 같은 오브젝트의 FabSimulation · vehicleMaterial ← MAT_Vehicle · foupMaterial ← MAT_FOUP_Poly</td></tr>
+        <tr><td class="rowhead">↳ 같은 오브젝트</td><td>StatsHud <em>(M5)</em></td>
+          <td>simulation ← 같은 오브젝트의 FabSimulation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    M3 단독 테스트는 던져 버릴 프로브로 한다 — <code>Awake</code> 끝에서 <code>vehicles[0]</code>를
+    임의 노드로 <code>FindPath</code>해 <code>TraversePath</code>로 한 번 보내 보고, 배속을 0·1·30으로
+    바꿔 가며 움직임이 매끄러운지 본다. M4에서 배차가 이동을 몰기 시작하면 이 프로브는 지운다.
+  </p>
+  <div class="callout dt">
+    <span class="label">정답 값 — 이동·뷰</span>
+    <p>
+      <code>vehicleSpeed 2.5</code> m/s · 배속 키 <code>0→0, 1→1, 2→30, 3→120</code> · 비히클 큐브
+      <code>Scale (0.55, 0.35, 0.95)</code> · <code>MAT_Vehicle</code> 앰버 (0.85, 0.55, 0.15) Metallic 0.2
+      Smoothness 0.5 · 초기 배치 <code>NodeId = i × 12 / 4</code>. 보간은
+      <code>Lerp(from, to, Clamp01((now − departAt) / (arriveAt − departAt)))</code>.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">비히클 큐브를 손으로 놓지 말 것</span>
+    <p>
+      뷰가 <code>Start</code>에서 큐브를 <strong>코드로 생성</strong>하므로, 씬에 비히클을 미리 두면 두 벌이
+      된다. 그리고 <code>FabModel</code>은 MonoBehaviour가 아니다 — 씬에 붙이지 말고
+      <code>FabSimulation.Awake</code>가 <code>new</code>로 만든다. 배속을 바꿔도 궤적이 같고 위치가 튀지
+      않으면(이것이 M3의 완료 기준) 시뮬레이션과 뷰가 제대로 분리된 것이다.
+    </p>
+  </div>
+
+  <h3>M4 상세 — MCS: 명령 생성과 배차</h3>
+  <p><code>FabModel</code>을 확장하고 명령 객체 하나를 추가한다.</p>
+  <ol>
+    <li><strong><code>TransportJob.cs</code></strong> (<code>Assets/Scripts/Sim</code>) — 반송 명령.
+      <code>Id</code> · <code>FromPort</code> · <code>ToPort</code>와 타임스탬프 셋
+      <code>CreatedAt</code> · <code>AssignedAt</code> · <code>CompletedAt</code>.</li>
+    <li><strong>도착</strong> — <code>Start()</code>가 <code>ScheduleNextJobArrival</code>을 부르고, 이
+      메서드는 <code>Schedule(NextExponential(jobIntervalMean), …)</code>로 다음 도착을 예약하며
+      <strong>도착 사건이 다음 도착을 스스로 예약</strong>한다. <code>OnJobArrived</code>는 출발·도착
+      포트를 무작위로(같으면 다시) 뽑아 큐에 넣고 <code>TryDispatch</code>를 부른다.</li>
+    <li><strong>배차</strong> — <code>TryDispatch</code>는 대기 큐의 머리(<code>Peek</code>, 선입선출)를
+      유휴 비히클 중 <strong>픽업까지 그래프 경로가 가장 짧은</strong> 한 대에 준다 (<code>FindPath</code>
+      → <code>GetPathLength</code>). 유휴 비히클이 없으면 통째로 <code>return</code>.</li>
+    <li><strong>수행</strong> — <code>Assign</code>이 <code>Phase = ToPickup</code>으로 바꾸고 픽업 경로를
+      <code>TraversePath</code>. 도착하면 <code>PickupDwell</code> 뒤 <code>Carrying</code>으로, 드롭
+      경로를 <code>TraversePath</code>, 도착하면 <code>DropDwell</code> 뒤 <code>CompleteJob</code>. 완료는
+      통계를 적립하고 <code>Phase = Idle</code>로 되돌린 뒤 <code>TryDispatch</code>를 다시 부른다.</li>
+  </ol>
+  <p>
+    FOUP은 뷰가 처리한다 — <code>VehicleFleetView</code>가 각 비히클의 자식으로 FOUP 큐브를 비활성 상태로
+    만들어 두고, <code>Phase == Carrying</code>일 때만 켠다(상태가 바뀔 때만 <code>SetActive</code>).
+    그래서 M4에서 새로 손댈 씬 배선은 없다 — M3에서 넣은 <code>foupMaterial</code>(MAT_FOUP_Poly)이 그대로 쓰인다.
+  </p>
+  <div class="callout dt">
+    <span class="label">정답 값 — 배차·수행</span>
+    <p>
+      <code>jobIntervalMean 25</code>초(지수분포) · <code>PickupDwell = DropDwell = 4.0</code>초 ·
+      <code>randomSeed 7</code> · 배차 규칙 = 선입선출 × 최근접 유휴(그래프 경로 길이 기준). FOUP 자식 큐브
+      <code>Scale (0.7, 1.1, 0.42)</code> · <code>localPosition (0, −0.75, 0)</code>, 시작은 비활성.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">"최근접"은 직선거리가 아니다</span>
+    <p>
+      거리는 <code>GetPathLength</code>로 잰 <strong>그래프 경로 길이</strong>다. 일방통행 루프에서는 픽업
+      포트 <strong>바로 뒤</strong> 노드의 비히클이 사실 가장 멀다 — 한 바퀴를 돌아야 하니까. 직선거리로
+      쟀다면 최악의 비히클을 뽑는다. 또 <code>TryDispatch</code>는 상태가 바뀌는 두 곳 —
+      <code>OnJobArrived</code> 끝과 <code>CompleteJob</code> 끝 — 에서만 불린다. 그 사이에는 계산하지 않는
+      것이 DES의 문법이다.
+    </p>
+  </div>
+
+  <h3>M5 상세 — 통계 HUD</h3>
+  <ol>
+    <li><strong><code>FabModel</code>에 조회 메서드</strong> — <code>GetThroughputPerHour(now)</code> =
+      완료 수 ÷ (now/3600), <code>GetAverageDeliveryTime()</code> = Σ(완료−생성) ÷ 완료 수,
+      <code>GetFleetUtilization(now)</code> = busy 시간 적분 ÷ (now × 대수), 그리고
+      <code>CompletedJobs</code> · <code>PendingJobCount</code> 프로퍼티.</li>
+    <li><strong><code>StatsHud.cs</code></strong> (<code>Assets/Scripts</code>, MonoBehaviour) —
+      <code>Update</code>에서 <code>unscaledDeltaTime</code>을 누적해 <strong>0.25초마다만</strong>
+      <code>StringBuilder</code>로 문자열을 다시 짓고, <code>OnGUI</code>에서 <code>GUI.Box</code>와
+      <code>GUI.Label</code>로 그린다. 지표 4종 + 시뮬레이션 시각·배속·완료 수를 표시.</li>
+    <li><strong>배선</strong> — <code>FabSimulation</code> 오브젝트에 <code>StatsHud</code>를 추가하고
+      <code>simulation</code> 필드에 같은 오브젝트의 <code>FabSimulation</code>을 끌어 놓는다.</li>
+  </ol>
+  <p>
+    검산 — 리틀의 법칙 <code>L = λW</code>. 시뮬레이션 1시간을 배속으로 돌려 지표가 수렴하면, 처리량(λ)과
+    평균 반송 시간(W)으로 시스템 안 평균 명령 수 L을 계산해 대기+이동 중 명령 수와 맞는지 본다.
+  </p>
+  <div class="callout dt">
+    <span class="label">정답 값 — HUD와 수렴 지표 (seed 7 · 4대 · 25초 · 1시간)</span>
+    <p>
+      HUD 박스 <code>Rect(10, 10, 300, 130)</code> · 라벨 <code>Rect(22, 18, 280, 120)</code> · 갱신 주기
+      <code>0.25</code>초(<code>unscaledDeltaTime</code>). 수렴값 — 완료/처리량 ≈ <strong>160 건/시간</strong>
+      · 평균 반송 시간 ≈ <strong>34.4초</strong> · 함대 가동률 ≈ <strong>38%</strong> · 실행 사건 ≈
+      <strong>1,893</strong>. 리틀 검산: 160/3600 × 34.4 ≈ <strong>1.5건</strong>이 시스템 안 평균 명령 수다.
+    </p>
+  </div>
+  <div class="callout warn">
+    <span class="label">HUD가 GC의 흔한 범인이다</span>
+    <p>
+      매 프레임 새 문자열을 만들면 그 쓰레기가 M6의 GC Alloc으로 잡힌다. <code>unscaledDeltaTime</code>으로
+      묶어 0.25초마다만 갱신하고(배속 0에서도 멈추지 않게 <code>unscaled</code>) <code>StringBuilder</code>를
+      재사용하는 것이 그 대책이다 — 지금 이렇게 지어 두면 M6에서 고칠 게 없다.
+    </p>
+  </div>
+
+  <h3>M6 상세 — 프로파일링 패스</h3>
+  <ol>
+    <li><strong>부하 스텝업</strong> — <code>FabSimulation</code> Inspector에서 <code>vehicleCount</code>를
+      <code>4 → 12</code>(<code>[Range(1,12)]</code> 상한), <code>jobIntervalMean</code>을
+      <code>25 → 12.5</code>(절반)로 바꾼다.</li>
+    <li><strong>Profiler</strong> — <strong>Window → Analysis → Profiler</strong>를 열고 Play. CPU Usage
+      트랙과 GC Alloc 컬럼을 본다.</li>
+    <li><strong>판정</strong> — 정상 운전 중 매 프레임 <strong>GC Alloc이 0</strong>인지, CPU 타임이 프레임
+      예산 안인지 확인한다. 통계 문자열 갱신이 흔한 범인이지만, M5에서 0.25초 묶음 +
+      <code>StringBuilder</code>로 이미 막아 두었다.</li>
+    <li><strong>기록</strong> — Phase 4 Station 03의 실험 기록 템플릿 1장을 채운다: 가설 → 측정 → 변경
+      → 재측정. 기록이 없으면 최적화는 없었던 일이 된다(그것이 M6의 완료 기준).</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 부하·목표</span>
+    <p>
+      부하 스텝업 <code>vehicleCount 12</code>(상한) · <code>jobIntervalMean 12.5</code>초 · 목표
+      <strong>정상 운전 중 GC Alloc 0 / 프레임</strong>. 지표는 M5보다 처리량이 오르고 가동률이 높아지되,
+      대기 큐가 폭주하지 않는 선에서 프레임이 유지되는지가 관건이다.
+    </p>
+  </div>
+
   <h2>확장 과제 — 다음 산들</h2>
   <p>
     M6까지가 기본 완주다. 여기서 멈춰도 되지만, 아래 과제들은 이 시뮬레이터를

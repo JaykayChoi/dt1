@@ -160,6 +160,224 @@ private void Update()
   <!-- TODO(editor-session): FabSim-P9-Complete에서 측정 예시(phase9-04-measure-example.png)를 캡처해 수록.
        스테이션 01의 워커 분산 스크린샷을 재사용해도 된다. -->
 
+  <h2>과정 상세 — 클릭 단위로 따라 만들기</h2>
+  <p>
+    위 마일스톤은 <strong>무엇을 하는지</strong>의 지도다. 여기서는 <strong>어떻게 하는지</strong>를
+    코드·클릭 단위로 편다. 먼저 스스로 스켈레톤의 TODO를 채우고 측정해 본 뒤, 막히거나 수치가
+    어긋날 때 이 절차를 펼쳐 대조하라 — 값과 코드는 완성본
+    <code>FabSim-P9-Complete</code>에서 그대로 뽑은 <strong>재현값</strong>이라, 따라 하면
+    정답 경로와 측정표가 다시 만들어진다. 근거 파일은 넷이다:
+    <code>Assets/Scripts/JobifiedVehicleFleet.cs</code>(잡 경로),
+    <code>Assets/Scripts/TrackMath.cs</code>(순수 수학),
+    <code>Assets/Scripts/VehicleFleet.cs</code>(매니저 루프 원본),
+    <code>Assets/Editor/StressSceneBuilder.cs</code>(씬·대수).
+  </p>
+  <p>
+    설계의 핵심 한 가지를 먼저 잡아 두면 측정이 단순해진다 —
+    <strong>세 방식(매니저/Job/Job+Burst)을 컴포넌트 하나로 잰다.</strong>
+    <code>JobifiedVehicleFleet.Update</code>의 <code>Move</code> 마커는 잡 분기와 매니저 분기를
+    <strong>둘 다 감싸므로</strong>, <code>useJobs</code> 토글 하나로 같은 마커 아래 매니저 루프와
+    잡 경로를 번갈아 읽을 수 있다. <code>useJobs=false</code> 분기는
+    <code>VehicleFleet.Update</code>와 동일한 메인 스레드 for-루프다(수식이 같아 위치도 동일).
+  </p>
+
+  <h3>0단계 — 무대와 컴포넌트 확인</h3>
+  <ol>
+    <li>스트레스 씬(<code>Assets/Scenes/StressField.unity</code>)을 연다. <code>Vehicles (Dynamic)</code>
+      아래에 순환 주행 큐브가 붙어 있고, 이 오브젝트가 이동 컴포넌트를 지닌다.</li>
+    <li>완성본 씬은 기본으로 <code>VehicleFleet</code>(매니저 루프)를 얹는다. 세 방식을 한 마커로
+      재려면 이동 컴포넌트를 <code>JobifiedVehicleFleet</code>로 바꾼다 — 두 컴포넌트의
+      <code>Initialize(Transform[], float, float)</code> 시그니처가 같아, 씬 빌더의
+      <code>CreateVehicles()</code>에서 <code>AddComponent&lt;VehicleFleet&gt;()</code>를
+      <code>AddComponent&lt;JobifiedVehicleFleet&gt;()</code>로 한 줄만 바꾸면 배열·트랙값이 그대로 주입된다.</li>
+    <li>다시 빌드하면(4~6단계 참고) <code>Vehicles (Dynamic)</code>에 채워진
+      <code>JobifiedVehicleFleet</code>가 준비된다. 인스펙터에서 <code>Use Jobs</code> 체크가 보이면 정상이다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 씬 트랙 파라미터 (씬 빌더가 Initialize로 주입)</span>
+    <p>
+      기본 대수 <strong>96</strong> · <code>halfWidth</code> <strong>22.5</strong> ·
+      <code>halfLength</code> <strong>20</strong> · <code>perimeter</code> = 4·(22.5+20) = <strong>170</strong> ·
+      비히클 트랙 높이 y <strong>3.6</strong> · <code>speed</code> <strong>6</strong> m/s.
+      (컴포넌트 필드 기본값 <code>halfWidth 20</code>·<code>halfLength 30</code>은 Initialize가 덮어쓴다 —
+      Initialize 없이 인스펙터로 손수 얹으면 트랙이 어긋난다.)
+    </p>
+  </div>
+
+  <h3>1단계 — MoveJob.Execute: 트랙 수식 채우기</h3>
+  <p>
+    스켈레톤의 <code>Execute</code>는 인덱스 하나의 트랜스폼을 순환 트랙 위 한 점으로 옮긴다.
+    둘레 거리 <code>distance</code>를 <code>Repeat</code>로 접고(0~둘레), <code>EvaluateTrack</code>로
+    <code>(x, y, z)</code>를 얻어 <code>localPosition</code>에 넣는다. 매니저 분기와 <strong>완전히 같은
+    두 호출</strong>이라, 잡이 매니저와 동일한 궤도를 낸다(정확성 회귀 방지).
+  </p>
+  <pre><code>public void Execute(int index, TransformAccess transform)
+{
+    float distance = TrackMath.Repeat(Travel + Offsets[index], Perimeter);
+    TrackMath.EvaluateTrack(
+        distance, transform.localPosition.y, HalfWidth, HalfLength,
+        out float x, out float y, out float z);
+    transform.localPosition = new Vector3(x, y, z);
+}</code></pre>
+
+  <h3>2단계 — TrackMath: Repeat와 EvaluateTrack (순수 수학)</h3>
+  <p>
+    잡 본문이 부르는 두 함수는 <code>UnityEngine</code> 무의존 순수 수학이라 Burst 잡에서도 헤드리스
+    테스트에서도 같은 코드로 돈다. <code>Repeat</code>는 양수 나머지(0 이상 length 미만)를 낸다:
+  </p>
+  <pre><code>public static float Repeat(float value, float length)
+{
+    float wrapped = value - Floor(value / length) * length;
+    return wrapped &lt; 0f ? wrapped + length : wrapped;
+}</code></pre>
+  <p>
+    <code>EvaluateTrack</code>은 직사각 순환 트랙의 둘레 거리를 네 변으로 나눠 좌표를 낸다.
+    변의 길이는 <code>w = halfWidth·2</code>(가로변), <code>l = halfLength·2</code>(세로변)이고,
+    순서는 <strong>왼변 → 위변 → 오른변 → 아래변</strong>이다. y는 입력 <code>height</code> 그대로.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>구간</th>
+          <th>변 (길이)</th>
+          <th>조건 (누적 소거 후 distance)</th>
+          <th>x</th>
+          <th>z</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowhead">1</td><td>왼변 (l)</td><td>distance &lt; l</td><td>−halfWidth</td><td>−halfLength + distance</td></tr>
+        <tr><td class="rowhead">2</td><td>위변 (w)</td><td>distance −= l; distance &lt; w</td><td>−halfWidth + distance</td><td>+halfLength</td></tr>
+        <tr><td class="rowhead">3</td><td>오른변 (l)</td><td>distance −= w; distance &lt; l</td><td>+halfWidth</td><td>halfLength − distance</td></tr>
+        <tr><td class="rowhead">4</td><td>아래변 (w)</td><td>distance −= l; 나머지</td><td>halfWidth − distance</td><td>−halfLength</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3단계 — Update·Start·OnDestroy: 잡 스케줄과 네이티브 배열</h3>
+  <p>
+    <code>Update</code>의 TODO는 <code>MoveJob</code>을 구성해 <code>TransformAccessArray</code>에 대해
+    스케줄하고 완료를 기다린다. <code>Schedule(transformAccess)</code>가 <code>IJobParallelForTransform</code>을
+    트랜스폼 배열에 걸어 워커 스레드로 쪼개고, <code>Complete()</code>로 이 프레임 안에 합류시킨다.
+  </p>
+  <pre><code>var job = new MoveJob
+{
+    Offsets = offsets,
+    Travel = Time.time * speed,
+    Perimeter = perimeter,
+    HalfWidth = halfWidth,
+    HalfLength = halfLength,
+};
+JobHandle handle = job.Schedule(transformAccess);
+handle.Complete();</code></pre>
+  <p>
+    잡이 읽을 배열은 <code>Start</code>에서 <strong>한 번</strong> 할당하고, 컴포넌트가 사라질 때
+    <strong>반드시</strong> 해제한다. <code>offsets</code>는 비히클을 둘레에 고르게 흩는 시작 오프셋이다.
+  </p>
+  <pre><code>// Start()
+perimeter = 4f * (halfWidth + halfLength);
+offsets = new NativeArray&lt;float&gt;(vehicles.Length, Allocator.Persistent);
+for (int i = 0; i &lt; vehicles.Length; i++)
+{
+    offsets[i] = perimeter / vehicles.Length * i;
+}
+transformAccess = new TransformAccessArray(vehicles);
+
+// OnDestroy()
+if (offsets.IsCreated)
+{
+    offsets.Dispose();
+}
+if (transformAccess.isCreated)
+{
+    transformAccess.Dispose();
+}</code></pre>
+  <div class="callout warn">
+    <span class="label">잡 함정 셋</span>
+    <p>
+      <strong>①</strong> <code>Offsets</code>에 <code>[ReadOnly]</code>를 붙여야 여러 워커가 안전하게 공유한다
+      — 빼면 잡이 병렬 스케줄을 거부한다. <strong>②</strong> <code>Allocator.Persistent</code>로
+      할당했으면 <code>OnDestroy</code>에서 <code>Dispose()</code>가 짝을 이뤄야 한다. 안 하면
+      네이티브 메모리가 새고 에디터가 미해제 경고를 띄운다. <strong>③</strong>
+      <code>Complete()</code>를 잊으면 트랜스폼을 아직 잡이 쓰는 중에 메인 스레드가 건드려
+      안전 시스템이 예외를 던진다.
+    </p>
+  </div>
+
+  <h3>4단계 — M1 Baseline 측정 (VSync off · Profiler)</h3>
+  <ol>
+    <li><strong>Edit → Project Settings → Quality</strong>에서 현재 레벨의 <strong>VSync Count</strong>를
+      <code>Don't Sync</code>로 둔다. (안 그러면 프레임이 주사율에 캡되어 CPU 개선이 화면에 안 보인다.)</li>
+    <li><strong>Window → Analysis → Profiler</strong>(Ctrl+7)를 열고 <strong>CPU Usage</strong> 모듈을 켠다.</li>
+    <li>인스펙터에서 <code>JobifiedVehicleFleet</code>의 <strong>Use Jobs 체크를 끈다</strong>(매니저 루프).</li>
+    <li><strong>Play</strong>. Profiler를 잠시 흐르게 두고 <strong>일시정지</strong>한 뒤, CPU 프레임을 하나 선택한다.
+      <strong>Hierarchy</strong> 뷰 검색창에 <code>JobifiedVehicleFleet.Move</code>를 넣어 그 마커의
+      <strong>Time ms</strong>(Self/Total)를 읽는다. FPS가 아니라 <strong>이 마커 ms</strong>가 측정값이다.</li>
+    <li>측정표 <strong>매니저 루프</strong> 열의 현재 대수(기본 96 → 스윕 전이라면 500 행부터는 6단계) 칸에 적는다.
+      <code>GC Alloc</code> 열이 0에 가까운지도 함께 본다 — 이 루프엔 문자열·박싱·새 배열이 없다.</li>
+  </ol>
+
+  <h3>5단계 — M2·M3: Job과 Burst 측정</h3>
+  <ol>
+    <li><strong>Job (Burst off)</strong>: 먼저 <strong>Jobs → Burst → Enable Compilation</strong> 체크를
+      <strong>끈다</strong>. 인스펙터에서 <code>Use Jobs</code>를 <strong>켠다</strong>. Play 후 Profiler
+      <strong>Timeline</strong> 뷰를 보면 <code>Move</code> 구간이 여러 <strong>Worker</strong> 스레드로
+      분산된 게 보인다. 같은 <code>JobifiedVehicleFleet.Move</code> 마커 ms를 <strong>Job</strong> 열에 적는다.</li>
+    <li><strong>Job+Burst</strong>: <strong>Jobs → Burst → Enable Compilation</strong>을 <strong>다시 켠다</strong>.
+      Burst는 <strong>첫 실행에 컴파일 스톨</strong>이 있으니 처음 몇 프레임을 버리고(워밍업) 안정된 뒤 읽는다.
+      같은 마커 ms를 <strong>Job+Burst</strong> 열에 적는다.</li>
+    <li>SIMD를 눈으로 확인하려면 <strong>Jobs → Burst → Open Inspector…</strong>에서 <code>MoveJob</code>을
+      골라 어셈블리에 벡터 명령이 깔린 걸 본다.</li>
+  </ol>
+  <div class="callout dt">
+    <span class="label">정답 값 — 세 경로를 가르는 스위치</span>
+    <p>
+      매니저 루프 = <code>Use Jobs</code> 끔 · Job = <code>Use Jobs</code> 켬 + Burst
+      <em>Enable Compilation</em> 끔 · Job+Burst = <code>Use Jobs</code> 켬 + Burst
+      <em>Enable Compilation</em> 켬. 세 값 모두 <strong>같은 <code>JobifiedVehicleFleet.Move</code>
+      마커</strong>에서 읽는다. 대수가 커질수록 Job&lt;매니저, Job+Burst&lt;Job으로 ms가 급감한다 —
+      절대값보다 <strong>방식 간 상대 비율</strong>로 결론낸다.
+    </p>
+  </div>
+
+  <h3>6단계 — M4: 대수 스윕으로 측정표 채우기</h3>
+  <p>
+    완성본은 대수를 <code>StressSceneBuilder</code>의 상수 <code>private const int VehicleCount = 96;</code>로
+    정한다(환경변수로 받지 않는다). 측정표의 각 행은 이 값을 <strong>500 · 2,000 · 5,000 · 10,000</strong>으로
+    바꿔 씬을 다시 빌드해 얻는다.
+  </p>
+  <ol>
+    <li><code>StressSceneBuilder.cs</code>의 <code>VehicleCount</code>를 목표 대수로 바꾼다.</li>
+    <li>빌더를 다시 실행한다. 완성본에는 메뉴 항목이 없으니, <code>SetupAndBuild</code> 위에
+      <code>[MenuItem("FabSim/Rebuild Stress Scene")]</code> 한 줄을 붙여 에디터 메뉴에서 클릭하거나,
+      배치 모드
+      <code>Unity -batchmode -quit -projectPath &lt;프로젝트&gt; -executeMethod FabSim.EditorTools.StressSceneBuilder.SetupAndBuild</code>로
+      재생성한다. (빌더가 라이트맵을 해상도 8로 다시 굽지만 금방 끝난다.)</li>
+    <li>0단계의 컴포넌트 스왑(<code>JobifiedVehicleFleet</code>)을 <code>CreateVehicles()</code>에 넣어 뒀다면
+      재빌드 때마다 유지된다. 새 씬에서 4·5단계를 반복해 한 행(매니저/Job/Job+Burst 3칸)을 채운다.</li>
+    <li>네 대수 × 세 방식 = <strong>12칸</strong>을 채우고, <strong>어느 대수에서 매니저 루프가 프레임 예산을
+      넘는지</strong>를 한 줄로 적는다. 500대에서는 Job이 매니저보다 <strong>느릴 수</strong> 있다 —
+      일이 적으면 스케줄·동기화 오버헤드가 계산 절감을 웃돌아 역전된다(핵심 확인 질문 참고).</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">측정 신뢰도</span>
+    <p>
+      에디터에서 잰 값이면 표에 <strong>"에디터"</strong>라고 명시한다 — 에디터는 Deep Profile·도메인
+      오버헤드가 껴 실측보다 무겁다. 가능하면 <strong>Development Build</strong>로 재서 방식 간
+      상대 비율을 확정한다. 대수를 바꿔도 카메라 구도·베이크 조건은 그대로 둬야 방식만의 차이가 남는다.
+    </p>
+  </div>
+
+  <h3>7단계 — (선택) M5 스트리밍</h3>
+  <p>
+    완성본에는 구역 스트리밍 참조 구현(<code>ZoneStreamer</code> 등)이 <strong>없다</strong> — 이 마일스톤은
+    정답지 없이 직접 설계하는 확장 과제다. 골자는 <code>SceneManager.LoadSceneAsync(..., LoadSceneMode.Additive)</code>와
+    <code>UnloadSceneAsync</code>로 구역을 얹고 내리고, <strong>Window → Analysis → Memory Profiler</strong>로
+    언로드 전·후 스냅샷을 <strong>diff</strong>해 메모리 회수를 확인하는 것이다. 값은 스스로 잰 것을 기록하고,
+    비교 대상이 없으므로 "완성본에서 확인"이 아니라 <strong>자기 측정</strong>으로 남긴다.
+  </p>
+
   <h2>핵심 확인 질문</h2>
   <div class="selfcheck">
     <details>

@@ -147,12 +147,282 @@
     <figcaption>
       실습이 도달할 목표 — 정답지 <code>FabSim-P7-Complete</code>의 MiniFab이다. 이 완성본은
       <code>SegmentController</code>가 <code>FabModel</code>에 이식돼 구간 점유로 돌고, 점유·대기·
-      데드락 탐지 로직이 EditMode 9개 테스트로 검증돼 있다(<code>unity-cli test</code> 통과).
+      데드락 탐지 로직이 EditMode 9개 테스트로 검증돼 있다(Test Runner에서 통과).
       완성본의 <code>VehicleFleetView</code>는 대기 차량을 호박색, 데드락 차량을 적색으로 물들인다
       (위 게임 뷰의 호박색 차량이 그것). 위 버튼으로 열어 자기 <code>FabSim</code> 결과와 대조한다 —
       엣지 점유 히트맵은 이 위에 얹는 마무리 뷰로, 실습 3단계에서 직접 배선한다.
     </figcaption>
   </figure>
+
+  <h2>과정 상세 — 클릭·코드 단위로 따라 만들기</h2>
+  <p>
+    위 4단계는 <strong>무엇을</strong> 하는지의 지도다. 여기서는 그중 <strong>Unity 축(3단계 —
+    FabSim 이식)</strong>만 코드·클릭 단위로 편다. 콘솔 1·2·4단계는 위 체크리스트대로
+    <code>examples/fleet-traffic-practice</code>·<code>fleet-routing-practice</code>·<code>fleet-dispatch</code>에서
+    <code>dotnet run</code>으로 진행한다 — 그 절차는 각 랩의 실행 출력이 안내한다. 먼저 스스로
+    이식해 보고, 막히거나 거동이 어긋날 때 이 절차를 펼쳐 대조하라 — 값은 완성본
+    <code>FabSim-P7-Complete</code>에서 그대로 뽑은 <strong>재현값</strong>이라, 따라 하면 정답 거동이
+    다시 만들어진다.
+  </p>
+  <p>
+    전제는 하나: <code>FabSim</code>이 <strong>Phase 5 상태</strong> — 레일 루프 위를 OHT 4대가 돌고
+    <code>FabModel</code>·<code>VehicleAgent</code>·<code>VehicleFleetView</code>가 올라간 씬 — 여야 한다.
+    아니면 <code>FabSim-P5-Complete</code>를 시작점으로 삼는다. 이식은 <strong>스크립트 4개를 손대는
+    코드 작업</strong>이고, <strong>새 씬 오브젝트는 없다</strong> — 대기색·데드락색은 Phase 5의
+    <code>VehicleFleetView</code>가 이미 씬에 배선돼 있어 코드만 채우면 켜진다.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>파일</th>
+          <th>무엇을 더하나</th>
+          <th>근거</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Sim/SegmentController.cs <em>(신규)</em></td>
+          <td>콘솔 1단계에서 채운 컨트롤러를 <strong>네임스페이스만 바꿔</strong> 이식</td>
+          <td>완성본 동일 파일 (UnityEngine 무의존)</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/VehicleAgent.cs</td>
+          <td>필드 2개 — <code>HeldEdge</code>, <code>IsWaiting</code></td>
+          <td>완성본</td>
+        </tr>
+        <tr>
+          <td class="rowhead">Sim/FabModel.cs</td>
+          <td><code>segments</code> 필드·<code>Segments</code> 프로퍼티·<code>EdgeId</code> 헬퍼·생성자 시딩·<code>TraversePath</code> Acquire/Release</td>
+          <td>완성본</td>
+        </tr>
+        <tr>
+          <td class="rowhead">VehicleFleetView.cs</td>
+          <td>대기 <strong>호박색</strong>·데드락 <strong>적색</strong> 배선 (MaterialPropertyBlock)</td>
+          <td>완성본</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>A단계 — 콘솔에서 채운 SegmentController를 FabSim으로 옮기기</h3>
+  <ol>
+    <li>Project 창에서 <code>Assets/Scripts/Sim</code> 우클릭 → <strong>Create → C# Script</strong>,
+      이름 <code>SegmentController</code>.</li>
+    <li>1단계(콘솔)에서 채운 <code>examples/fleet-traffic-practice/SegmentController.cs</code>의
+      <strong>클래스 전체</strong>를 붙여넣고, <strong>네임스페이스 한 줄만</strong>
+      <code>FleetTraffic</code> → <code>FabSim.Sim</code>으로 바꾼다. 공개 API는 그대로다 —
+      이 파일은 UnityEngine을 쓰지 않으므로 콘솔에서 검증한 로직이 손대지 않고 컴파일된다.</li>
+  </ol>
+  <pre><code>namespace FabSim.Sim   // 콘솔의 FleetTraffic 을 이 한 줄만 바꾼다
+{
+    public sealed class SegmentController
+    {
+        // 1단계에서 채운 Acquire / Release / HolderOf /
+        // WaitingEdgeOf / DetectDeadlockCycle 를 그대로 둔다.
+    }
+}</code></pre>
+  <div class="callout dt">
+    <span class="label">정답 값 — 이식하는 SegmentController의 공개 API</span>
+    <p>
+      <code>void Acquire(int edgeId, int vehicleId, Action onGranted)</code> ·
+      <code>void Release(int edgeId, int vehicleId)</code> ·
+      <code>int HolderOf(int edgeId)</code> ·
+      <code>int WaitingEdgeOf(int vehicleId)</code> ·
+      <code>IReadOnlyList&lt;int&gt; DetectDeadlockCycle()</code>.
+      점유는 <code>holder</code>(엣지→차량), 대기는 <code>waiters</code>(엣지→대기 큐)·
+      <code>waitingEdge</code>(차량→기다리는 엣지) 세 딕셔너리로 관리한다.
+    </p>
+  </div>
+
+  <h3>B단계 — VehicleAgent에 점유·대기 필드 2개</h3>
+  <p>
+    <code>Sim/VehicleAgent.cs</code>를 열고, 엣지 필드들 아래에 두 줄을 더한다. 하나는
+    "지금 어느 구간을 쥐고 있는가", 다른 하나는 "다음 구간이 막혀 서 있는가"다.
+  </p>
+  <pre><code>/// &lt;summary&gt;현재 점유 중인 엣지(구간) id. 없으면 -1.&lt;/summary&gt;
+public int HeldEdge = -1;
+
+/// &lt;summary&gt;다음 구간이 막혀 대기 중이면 true (교통 제어).&lt;/summary&gt;
+public bool IsWaiting;</code></pre>
+
+  <h3>C단계 — FabModel에 교통 제어 배선 (네 곳)</h3>
+  <p>
+    <code>Sim/FabModel.cs</code>의 손볼 곳은 네 군데다. <strong>(1) 컨트롤러 필드와 프로퍼티</strong>를
+    두고, <strong>(2) 엣지 id 헬퍼</strong>를 더하고, <strong>(3) 생성자</strong>에서 차량을 놓을 때
+    도착 구간을 점유시키고, <strong>(4) <code>TraversePath</code></strong>의 엣지 이동을
+    "다음 구간 Acquire → 획득 시 이동 → 도착 시 직전 구간 Release"로 바꾼다.
+  </p>
+  <p>(1) 다른 필드 곁에 컨트롤러를, 프로퍼티 곁에 <code>Segments</code>를 — 뷰가 데드락 탐지를 읽는 통로다.</p>
+  <pre><code>private readonly SegmentController segments = new SegmentController();
+
+/// &lt;summary&gt;교통 제어기 — 뷰가 히트맵·하이라이트에 읽는다.&lt;/summary&gt;
+public SegmentController Segments =&gt; segments;</code></pre>
+  <p>(2) 방향성 엣지의 고유 id. 노드 수가 작아 <code>from</code>·<code>to</code>를 자리수로 합쳐도 충돌이 없다.</p>
+  <pre><code>private static int EdgeId(int from, int to)
+{
+    return from * 1000 + to;
+}</code></pre>
+  <p>
+    (3) 생성자의 배치 루프를 바꾼다. Phase 5는 차량을 루프에 흩기만 했지만, 이제는 각 차량이
+    <strong>도착 엣지를 처음부터 점유</strong>해야 뒤차가 그 뒤에 줄을 선다.
+  </p>
+  <pre><code>int nodeCount = graph.NodeCount;
+for (int i = 0; i &lt; vehicleCount; i++)
+{
+    int node = i * nodeCount / vehicleCount;
+    int inEdge = EdgeId((node - 1 + nodeCount) % nodeCount, node);
+    var vehicle = new VehicleAgent
+    {
+        Id = i,
+        Phase = VehiclePhase.Idle,
+        NodeId = node,
+        HeldEdge = inEdge,
+    };
+    vehicles.Add(vehicle);
+    segments.Acquire(inEdge, i, () =&gt; { });
+}</code></pre>
+  <p>
+    (4) <code>TraversePath</code>에서 엣지 하나를 건너는 부분을 <strong>Acquire로 감싼다</strong>.
+    구간이 막혀 있으면 <code>IsWaiting</code>을 세우고(뷰가 색으로 옮긴다), 획득되면 이동을 예약하며,
+    도착 노드에서 <strong>직전 구간을 Release</strong>한다(hold-and-wait).
+  </p>
+  <pre><code>int from = path[nextIndex - 1];
+int to = path[nextIndex];
+int edgeId = EdgeId(from, to);
+
+// 다음 구간이 막혀 있으면 대기 상태로 표시(폐색) — 뷰가 색으로 옮긴다.
+vehicle.IsWaiting = segments.HolderOf(edgeId) != -1 &amp;&amp; segments.HolderOf(edgeId) != vehicle.Id;
+segments.Acquire(edgeId, vehicle.Id, () =&gt;
+{
+    vehicle.IsWaiting = false;
+    double travel = graph.GetDistance(from, to) / vehicleSpeed;
+    vehicle.IsMoving = true;
+    vehicle.EdgeFromNode = from;
+    vehicle.EdgeToNode = to;
+    vehicle.EdgeDepartAt = Simulation.Now;
+    vehicle.EdgeArriveAt = Simulation.Now + travel;
+
+    Simulation.Schedule(travel, () =&gt;
+    {
+        int previous = vehicle.HeldEdge;
+        vehicle.NodeId = to;
+        vehicle.HeldEdge = edgeId;
+        if (previous != -1 &amp;&amp; previous != edgeId)
+        {
+            segments.Release(previous, vehicle.Id);
+        }
+
+        TraversePath(vehicle, path, nextIndex + 1, onArrived);
+    });
+});</code></pre>
+
+  <h3>D단계 — VehicleFleetView에 대기·데드락 색 배선</h3>
+  <p>
+    <code>VehicleFleetView.cs</code>에 색 상태를 얹는다. 색은 <strong>상태가 바뀔 때만</strong>
+    <code>MaterialPropertyBlock</code>으로 밀어 GC와 SRP 배칭 붕괴를 피한다(Phase 4의 교훈).
+    먼저 상수·필드를 더한다.
+  </p>
+  <pre><code>private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+private static readonly Color WaitingColor = new Color(1f, 0.72f, 0.15f);
+private static readonly Color DeadlockColor = new Color(0.92f, 0.16f, 0.16f);
+private const double DeadlockCheckInterval = 0.4;
+
+private readonly List&lt;MeshRenderer&gt; renderers = new List&lt;MeshRenderer&gt;();
+private readonly List&lt;int&gt; colorState = new List&lt;int&gt;();
+private readonly HashSet&lt;int&gt; deadlockVehicles = new HashSet&lt;int&gt;();
+private MaterialPropertyBlock propertyBlock;
+private Color baseColor = Color.white;
+private double nextDeadlockCheck;</code></pre>
+  <p>
+    <code>Start()</code>에서 <code>propertyBlock</code>을 만들고 재질의 기본색을 잡은 뒤, 차량을 만드는
+    <code>foreach</code> 안에서 각 <code>MeshRenderer</code>를 <code>renderers</code>에 담고
+    <code>colorState.Add(-1)</code>(아직 미적용)을 함께 넣는다.
+  </p>
+  <pre><code>propertyBlock = new MaterialPropertyBlock();
+if (vehicleMaterial != null &amp;&amp; vehicleMaterial.HasProperty(BaseColorId))
+{
+    baseColor = vehicleMaterial.GetColor(BaseColorId);
+}
+// foreach 안: body 만든 뒤
+MeshRenderer bodyRenderer = body.GetComponent&lt;MeshRenderer&gt;();
+bodyRenderer.sharedMaterial = vehicleMaterial;
+renderers.Add(bodyRenderer);
+colorState.Add(-1);</code></pre>
+  <p>
+    <code>LateUpdate()</code>의 루프 앞에서 데드락 집합을 주기적으로 새로 뽑고, 루프 안에서 차량마다
+    상태(데드락 2 · 대기 1 · 평상 0)를 정해 <strong>변했을 때만</strong> 색을 적용한다.
+  </p>
+  <pre><code>RefreshDeadlockSet(now);
+// 루프 안, 위치 갱신 뒤:
+int state = deadlockVehicles.Contains(agent.Id) ? 2 : agent.IsWaiting ? 1 : 0;
+if (state != colorState[i])
+{
+    ApplyColor(i, state);
+    colorState[i] = state;
+}</code></pre>
+  <p>끝으로 두 헬퍼를 더한다. 데드락 탐지는 매 프레임 대신 <code>0.4s</code>마다 훑어 비용을 줄인다.</p>
+  <pre><code>private void RefreshDeadlockSet(double now)
+{
+    if (now &lt; nextDeadlockCheck)
+    {
+        return;
+    }
+
+    nextDeadlockCheck = now + DeadlockCheckInterval;
+    deadlockVehicles.Clear();
+    IReadOnlyList&lt;int&gt; cycle = simulation.Model.Segments.DetectDeadlockCycle();
+    for (int i = 0; i &lt; cycle.Count; i++)
+    {
+        deadlockVehicles.Add(cycle[i]);
+    }
+}
+
+private void ApplyColor(int index, int state)
+{
+    Color color = state == 2 ? DeadlockColor : state == 1 ? WaitingColor : baseColor;
+    propertyBlock.SetColor(BaseColorId, color);
+    renderers[index].SetPropertyBlock(propertyBlock);
+}</code></pre>
+  <div class="callout dt">
+    <span class="label">정답 값 — 색과 상수 (VehicleFleetView)</span>
+    <p>
+      대기(호박) <code>Color(1, 0.72, 0.15)</code> · 데드락(적) <code>Color(0.92, 0.16, 0.16)</code> ·
+      대상 셰이더 속성 <code>_BaseColor</code> · 데드락 탐지 주기 <code>0.4s</code> ·
+      상태 코드 <strong>2=데드락 · 1=대기 · 0=평상</strong>. 색은 <code>colorState</code>가 달라질 때만
+      <code>SetPropertyBlock</code>으로 적용한다.
+    </p>
+  </div>
+
+  <h3>E단계 — 컴파일 확인하고 씬에서 돌려 보기</h3>
+  <ol>
+    <li>Unity Editor로 돌아와 컴파일이 끝나기를 기다린 뒤 <strong>Console에 에러가 0</strong>인지 확인한다.
+      (네임스페이스를 안 바꿨으면 여기서 "형식 또는 네임스페이스 이름 SegmentController를 찾을 수 없음"이 뜬다.)</li>
+    <li>Hierarchy에서 <strong>Simulation</strong> 오브젝트(<code>FabSimulation</code> 컴포넌트)를 선택한다.
+      완성본 기본은 <strong>Vehicle Count 4</strong>라 정지가 가끔만 보인다 — Inspector의
+      <strong>Vehicle Count를 10~12</strong>로 올려 상시 정체를 유발한다.</li>
+    <li><strong>Play</strong>를 누른다. 배속이 느리면 <code>2</code>(×30)·<code>3</code>(×120) 키로 올린다
+      (<code>0</code> 정지, <code>1</code> 실시간).</li>
+    <li>레일 위에서 뒤차가 앞차를 따라잡으면 <strong>앞차 뒤에 멈춰 서며 호박색</strong>으로 물든다 —
+      구간 점유가 시각으로 드러나는 순간이다. 앞차가 다음 구간으로 떠나 Release되면 대기 차량이
+      승계받아 다시 흰색으로 출발한다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">따라 하다 걸리는 함정</span>
+    <p>
+      <strong>네임스페이스</strong> — 콘솔 파일을 그대로 붙이면 <code>FleetTraffic</code>이라
+      <code>FabModel</code>이 <code>SegmentController</code>를 못 찾는다. <code>FabSim.Sim</code>으로 바꿀 것.<br>
+      <strong>데드락 적색은 FabSim에선 안 뜬다 — 정상이다.</strong> 단방향 루프는 항상 빈 구간이 있어
+      순환 대기가 생기지 않아 <code>DetectDeadlockCycle()</code>이 늘 빈 목록을 준다. 적색 배선은 해 두되,
+      실제 적색은 콘솔 2단계의 <strong>양방향 corridor</strong>에서만 켜진다.<br>
+      <strong>히트맵은 완성본에 없다.</strong> 완성본 <code>VehicleFleetView</code>의 배선은 대기 호박색·
+      데드락 적색까지다. 엣지 점유 히트맵은 그 위에 얹는 <strong>마무리 뷰</strong>로(핵심 확인 질문 4가
+      접근을 안내한다), 정답 셰이더·<code>HeatmapCell</code>이 완성본에 없으므로 재현값을 제시하지 않는다 —
+      스스로 설계해 얹는다.<br>
+      <strong>색 갱신</strong> — 매 프레임 <code>SetPropertyBlock</code>을 부르지 말 것.
+      <code>colorState</code>로 이전 상태를 기억해 달라질 때만 적용해야 GC·배칭이 살아 있다.
+    </p>
+  </div>
 
   <h2>완료 기준 (Definition of Done)</h2>
   <ul>
