@@ -190,6 +190,7 @@ Phase 11~12(플랫폼선)도 구현 완료됐다 — 교재는 `docs/phase11~12/
 - **No history**: do not write dates, strikethroughs, "changed from X to Y", "previously", "now uses", commit hashes, or status tables tracking when something was done. If content is now stale, **delete it entirely and write only the current state**. The doc must read as a fresh snapshot of how the system *is*, not a log of how it got there.
 - When spawning a subagent for a specific domain, embed relevant rules in the prompt — agents don't auto-load rule files
 - Do not create separate `feedback`-type memory files. Record feedback/rules directly in this file
+- **실습(practice) 문서는 학습자가 Claude/unity-cli 없이 혼자 수행한다는 가정**으로 쓴다. 실습 절차·과정 설명에 "Claude에게 시켜라", "unity-cli로 자동화/배치" 같은 위임·자동화 언급을 넣지 않는다 — 반복 작업도 수동 절차(다중 선택, `Ctrl+D` 복제 등)로 안내한다. (완성본을 만들 때 Claude가 unity-cli를 쓰는 것과는 별개다.)
 
 ### MD vs Code-Comment Split (read BEFORE writing or updating any MD)
 Before adding content to any `.md`, decide **where it belongs** based on how each surface is loaded into context. Putting content in the wrong place silently breaks enforcement — a rule moved into a code comment is invisible to an agent that never opens that file.
